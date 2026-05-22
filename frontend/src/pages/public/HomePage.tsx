@@ -1,29 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import smartInventoryImg from '../../assets/images/smart_inventory.png'
-import smartBillingImg from '../../assets/images/smart_billing.png'
-import billingSystemImg from '../../assets/images/billing_system.png'
+import homeBgImg from '../../assets/images/homebg.png'
+import smartInventoryImg from '../../assets/images/pic1.png'
+import fastBillingImg from '../../assets/images/pic2.png'
+import businessInsightsImg from '../../assets/images/pic3.png'
+import customerVisibilityImg from '../../assets/images/pic4.png'
 
 export default function HomePage() {
   const navigate = useNavigate()
   const [currentTab, setCurrentTab] = useState(0)
   const [progress, setProgress] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
-  const [scrolled, setScrolled] = useState(false)
-
-  // Header Scroll Effect
-  useEffect(() => {
-    const handleScroll = () => {
-      if (window.scrollY > 20) {
-        setScrolled(true)
-      } else {
-        setScrolled(false)
-      }
-    }
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
 
   // Tab System Auto Switch Logic with Segmented Control progress bar
   useEffect(() => {
@@ -52,82 +40,29 @@ export default function HomePage() {
 
   return (
     <div className="bg-background text-on-background font-sans min-h-screen">
-      {/* TopNavBar */}
-      <header
-        className={`bg-surface/80 backdrop-blur-md fixed full-width top-0 left-0 right-0 z-50 border-b border-outline-variant shadow-sm transition-all duration-300 ${scrolled ? 'py-2 shadow-md' : 'py-4'
-          }`}
-      >
-        <nav className="flex justify-between items-center px-6 md:px-12 max-w-7xl mx-auto">
-          <div className="text-2xl font-bold text-primary">StockSense</div>
-          <div className="hidden md:flex gap-8 items-center">
-            <a
-              className="text-primary font-bold border-b-2 border-primary text-sm transition-transform duration-150 active:scale-95"
-              href="#"
-            >
-              Home
-            </a>
-            <a
-              className="text-on-surface-variant hover:text-primary text-sm transition-colors duration-200"
-              href="#"
-            >
-              Products
-            </a>
-            <a
-              className="text-on-surface-variant hover:text-primary text-sm transition-colors duration-200"
-              href="#"
-            >
-              Discount
-            </a>
-            <a
-              className="text-on-surface-variant hover:text-primary text-sm transition-colors duration-200"
-              href="#"
-            >
-              About Us
-            </a>
-          </div>
-          <button
-            onClick={() => navigate('/login')}
-            className="bg-primary text-on-primary px-6 py-2 rounded-full text-sm font-medium hover:opacity-90 transition-all active:scale-95 shadow-sm"
-          >
-            Get Started
-          </button>
-        </nav>
-      </header>
-
-      <main className="pt-[72px]">
+      <main>
         {/* Hero Section */}
         <section
-          className="hero-gradient relative overflow-hidden min-h-[85vh] flex items-center"
+          className="hero-gradient relative overflow-hidden min-h-[85vh] flex items-start pt-28"
           style={{
-            backgroundImage: `linear-gradient(to right, #f8f9ff 20%, rgba(248, 249, 255, 0.4) 50%, transparent 100%), url('https://lh3.googleusercontent.com/aida-public/AB6AXuCXm1pVj0ejbx4rcvLprqJ3NCnhhWyCkAwRYR9q6SIoBP4NUf1pBL65dhocZgx5o3ZwB0MGg7FDmE6aM8FeACcyEs8BwSV1AvPTu_CNGAq7i-tIPQifonEKNNBPzvawbUN4P2463X2JGPze7JbhEyvSSulM2RU28cH7H4oFhEyzM---31b0gSV_YYGhbT0cuVToo9P4kwBYHjfJOHXoDHvNHWbDSNOeiSEQ6iSbg5emaC4nfZeN29ZEWNK2Bc9tX_qhIAj_v0hPQ8Z1')`,
+            backgroundImage: `linear-gradient(to bottom, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 15%), radial-gradient(ellipse 55% 65% at 20% 45%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.85) 45%, rgba(255, 255, 255, 0) 75%), url(${homeBgImg})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
           }}
         >
           <div className="max-w-7xl mx-auto px-6 md:px-12 w-full grid grid-cols-1 gap-8 items-center relative z-10">
-            <div className="space-y-6 max-w-2xl py-12">
+            <div className="space-y-6 max-w-none pt-4 pb-12">
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-secondary-container text-on-secondary-container rounded-full text-xs font-semibold">
                 <span className="material-symbols-outlined text-[14px]">bolt</span>
                 Next-Gen Retail Intelligence
               </div>
               <h1 className="text-4xl md:text-5xl font-extrabold text-on-background leading-tight">
-                Smart Inventory &amp; Sales Intelligence for Modern Retail
+                Smart Inventory &amp; Sales Intelligence<br />for Modern Retail
               </h1>
-              <p className="text-lg md:text-xl text-on-surface-variant max-w-lg leading-relaxed">
+              <p className="text-lg md:text-xl text-on-surface-variant max-w-3xl leading-relaxed font-medium">
                 Optimize your stock levels, predict demand patterns, and unlock actionable sales insights with StockSense's AI-driven platform.
               </p>
-              <div className="flex flex-wrap gap-4 pt-4">
-                <button
-                  onClick={() => navigate('/login')}
-                  className="bg-primary text-on-primary px-8 py-4 rounded-xl text-sm font-semibold hover:shadow-lg transition-all active:scale-95"
-                >
-                  Get Started for Free
-                </button>
-                <button className="bg-surface-container-lowest border border-outline-variant px-8 py-4 rounded-xl text-sm font-semibold hover:bg-surface-container transition-all active:scale-95">
-                  Watch Demo
-                </button>
-              </div>
             </div>
           </div>
           {/* Atmospheric Blurs */}
@@ -135,20 +70,21 @@ export default function HomePage() {
         </section>
 
         {/* Interactive Tabs Section */}
-        <section
-          className="py-16 max-w-7xl mx-auto px-6 md:px-12"
-          id="interactive-features"
-          onMouseEnter={() => setIsPaused(true)}
-          onMouseLeave={() => setIsPaused(false)}
-        >
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-on-background">
-              Intelligence that moves with your business
-            </h2>
-            <p className="text-base text-on-surface-variant mt-2">
-              Built for high-velocity retailers who need precision.
-            </p>
-          </div>
+        <div className="w-full bg-white">
+          <section
+            className="py-16 max-w-7xl mx-auto px-6 md:px-12"
+            id="interactive-features"
+            onMouseEnter={() => setIsPaused(true)}
+            onMouseLeave={() => setIsPaused(false)}
+          >
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold text-on-background">
+                Intelligence that moves with your business
+              </h2>
+              <p className="text-base text-on-surface-variant mt-2">
+                Built for high-velocity retailers who need precision.
+              </p>
+            </div>
 
           {/* Segmented Control Header */}
           <div className="flex justify-center mb-8">
@@ -215,7 +151,7 @@ export default function HomePage() {
                     <img
                       alt="Automate Operations Dashboard"
                       className="w-full max-w-[500px] h-auto rounded-xl shadow-2xl transition-transform duration-700 hover:scale-105"
-                      src={billingSystemImg}
+                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2MzIjXlA8P95m1h_MX0whvxl3sa9Fpb2qd2hp359W4iVLyweGR5R5hIS6l6WPw-JG3z2y4l2paQfCK4XSSG14OdAbsn_gyPdPZY_KbqsUwY2lxuD5ohXe7143anhSmpSJ3zouNLnm2yxbLEQ3h7aJiVvxSVuiOMElPT8YQEmf7WksYGyTUHj2gDmSsQtydKuGV7_gntU-3l2JFcDp8SrPkJFm0OVIuZ8gerhfC3Nm1xKgalrxcrd3PU5u0HZ6SlNvnmXDqrc9NyL5"
                     />
                   </div>
                 </div>
@@ -298,8 +234,6 @@ export default function HomePage() {
             {/* Left Side: Mockup Image */}
             <div className="relative flex justify-center items-center py-6">
               <div className="relative w-full flex items-center justify-center max-w-[500px]">
-                {/* Decorative Blur */}
-                <div className="absolute inset-0 bg-primary/5 rounded-full blur-3xl -z-10"></div>
                 <img
                   alt="Inventory Management Analytics"
                   className="w-full max-w-[500px] h-auto object-contain transition-transform duration-700 hover:scale-105"
@@ -330,20 +264,13 @@ export default function HomePage() {
                   </li>
                 ))}
               </ul>
-              <div className="pt-4">
-                <button
-                  onClick={() => navigate('/login')}
-                  className="bg-primary text-on-primary px-8 py-3 rounded-full font-semibold hover:shadow-lg transition-all active:scale-95"
-                >
-                  Learn More
-                </button>
-              </div>
             </div>
           </div>
         </section>
+        </div>
 
         {/* Dashboard Preview Section 2: Billing System */}
-        <section className="py-16" style={{ backgroundColor: '#DDE9E1' }}>
+        <section className="py-16" style={{ backgroundColor: '#DCE7E0' }}>
           <div className="max-w-7xl mx-auto px-6 md:px-12 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
               <h2 className="text-3xl font-bold text-on-background">Fast and Efficient Billing System</h2>
@@ -364,31 +291,25 @@ export default function HomePage() {
                   </li>
                 ))}
               </ul>
-              <button
-                onClick={() => navigate('/login')}
-                className="bg-primary text-on-primary px-6 py-3 rounded-full text-sm font-semibold hover:opacity-90 transition-opacity active:scale-95"
-              >
-                Explore POS
-              </button>
             </div>
             <div className="relative flex justify-center">
               <img
                 alt="Modern POS Billing Interface"
                 className="w-full max-w-[500px] h-auto object-contain transition-transform duration-700 hover:scale-105"
-                src={smartBillingImg}
+                src={fastBillingImg}
               />
             </div>
           </div>
         </section>
 
         {/* Dashboard Preview Section 3: Understand Your Business */}
-        <section className="bg-white py-16">
+        <section className="py-16" style={{ backgroundColor: '#DCE7E0' }}>
           <div className="max-w-7xl mx-auto px-6 md:px-12 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="order-2 lg:order-1 relative group flex justify-center">
               <img
                 alt="Business Performance Analytics Dashboard"
-                className="w-full max-w-[500px] rounded-2xl shadow-lg group-hover:shadow-xl transition-shadow duration-300"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAdpo8f9Jm5gCSydp8VLxFodgM3y5CB5AlkWzTjPOzQHWkND67Slhr3aDuIU3HNwIHgEKdpbU2YNfbCimMBFArQazGkdontTXQUN0O2GAqShG8BQaQlAyJF-tS7n2Qsjlkpp6SXAmmXDy3bpEfqDxcq4Nba8fx5MP-AH-8FbEcjca7lgF890DxP1Ct0fuNeTdPG9wJC42DEDJfoVgULOeCij73aO5gUpLWDtDmPpWonrGycDgpucIJy6h571rbYqXwIaC2FsGqaylVBX0Q"
+                className="w-full max-w-[500px] h-auto object-contain transition-transform duration-700 hover:scale-105"
+                src={businessInsightsImg}
               />
             </div>
             <div className="order-1 lg:order-2 space-y-6">
@@ -410,18 +331,12 @@ export default function HomePage() {
                   </li>
                 ))}
               </ul>
-              <button
-                onClick={() => navigate('/login')}
-                className="bg-secondary-container text-on-secondary-container px-6 py-3 rounded-full text-sm font-semibold hover:opacity-90 transition-opacity active:scale-95"
-              >
-                View Insights
-              </button>
             </div>
           </div>
         </section>
 
         {/* Dashboard Preview Section 4: Customer Visibility */}
-        <section className="bg-surface-container-low py-16">
+        <section className="bg-white py-16">
           <div className="max-w-7xl mx-auto px-6 md:px-12 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
               <h2 className="text-3xl font-bold text-on-background">Enhancing Customer Visibility</h2>
@@ -442,18 +357,12 @@ export default function HomePage() {
                   </li>
                 ))}
               </ul>
-              <button
-                onClick={() => navigate('/offers')}
-                className="bg-primary text-on-primary px-6 py-3 rounded-full text-sm font-semibold hover:opacity-90 transition-opacity active:scale-95"
-              >
-                View Interface
-              </button>
             </div>
             <div className="relative group flex justify-center">
               <img
                 alt="Customer Facing Interface"
-                className="w-full max-w-[500px] rounded-2xl shadow-lg group-hover:shadow-xl transition-shadow duration-300"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZbkk8Wrt-0RSz8SEAshI8AMCSkG88u_VQ6dCYFJo3YzX0iVcx0O_UY9Ntidh0WI_tjdmxkTtSoTmpK6GHYeCSciyJVgvQQIJJLpEF2Mf7fzqfPpqC8qdc4Fmq2RZ4AOMS33JyQ4jz1hlyt3A2Fv_4YgbPYjKyc4lAW_k7crwQ28m2d3mW3LY4Yji0gEV8J23Fde7Kc8g7txtFKfJVMTDqlHXwSLZuJPZmHZjEJrpQZK2uNk49gwq0Zq0kf3U7nPk645gzmt8KvpW1QdI"
+                className="w-full max-w-[500px] h-auto object-contain transition-transform duration-700 hover:scale-105"
+                src={customerVisibilityImg}
               />
             </div>
           </div>
@@ -477,8 +386,8 @@ export default function HomePage() {
         </section>
 
         {/* Final CTA */}
-        <section className="max-w-7xl mx-auto px-6 md:px-12 pb-20">
-          <div className="bg-primary p-12 md:p-20 rounded-2xl relative overflow-hidden flex flex-col items-center text-center">
+        <section className="w-full">
+          <div className="bg-primary p-12 md:p-20 relative overflow-hidden flex flex-col items-center text-center">
             <div className="relative z-10 space-y-6 max-w-2xl">
               <h2 className="text-3xl md:text-4xl font-bold text-on-primary">
                 Start managing your retail smarter with StockSense
@@ -493,48 +402,9 @@ export default function HomePage() {
                 Get Started Now
               </button>
             </div>
-            {/* Abstract Design Elements */}
-            <div className="absolute top-0 left-0 w-full h-full opacity-10">
-              <div className="absolute top-1/2 left-1/4 w-96 h-96 border border-on-primary rounded-full -translate-y-1/2"></div>
-              <div className="absolute top-1/2 right-1/4 w-64 h-64 border border-on-primary rounded-full -translate-y-1/2"></div>
-            </div>
           </div>
         </section>
       </main>
-
-      {/* Footer */}
-      <footer className="bg-tertiary text-tertiary-fixed full-width border-t border-outline-variant/30">
-        <div className="flex flex-col md:flex-row justify-between items-center px-6 md:px-12 py-12 max-w-7xl mx-auto gap-8">
-          <div className="text-center md:text-left space-y-2">
-            <div className="text-2xl font-bold text-surface-container-lowest">StockSense</div>
-            <p className="text-sm text-tertiary-fixed-dim/70 max-w-xs leading-relaxed">
-              © 2026 StockSense. All rights reserved. Retail Intelligence for the modern era.
-            </p>
-          </div>
-          <div className="flex flex-wrap justify-center gap-6">
-            <a className="text-tertiary-fixed-dim/70 text-xs hover:underline decoration-secondary-fixed transition-all" href="#">
-              Privacy Policy
-            </a>
-            <a className="text-tertiary-fixed-dim/70 text-xs hover:underline decoration-secondary-fixed transition-all" href="#">
-              Terms of Service
-            </a>
-            <a className="text-tertiary-fixed-dim/70 text-xs hover:underline decoration-secondary-fixed transition-all" href="#">
-              Cookie Policy
-            </a>
-            <a className="text-tertiary-fixed-dim/70 text-xs hover:underline decoration-secondary-fixed transition-all" href="#">
-              Contact Support
-            </a>
-          </div>
-          <div className="flex gap-4">
-            <div className="w-10 h-10 rounded-full bg-tertiary-container flex items-center justify-center hover:bg-secondary transition-colors cursor-pointer text-surface-container-lowest">
-              <span className="material-symbols-outlined text-[20px]">public</span>
-            </div>
-            <div className="w-10 h-10 rounded-full bg-tertiary-container flex items-center justify-center hover:bg-secondary transition-colors cursor-pointer text-surface-container-lowest">
-              <span className="material-symbols-outlined text-[20px]">share</span>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }
