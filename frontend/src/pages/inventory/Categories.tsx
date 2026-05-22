@@ -1,4 +1,4 @@
-import Sidebar from '../../components/layout/Sidebar';
+import Sidebar from './Sidebar';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 

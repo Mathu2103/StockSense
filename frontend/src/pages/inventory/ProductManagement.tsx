@@ -1,4 +1,4 @@
-import Sidebar from '../../components/layout/Sidebar';
+import Sidebar from './Sidebar';
 import { Link } from 'react-router-dom';
 
 export default function ProductManagement() {
@@ -54,7 +54,7 @@ export default function ProductManagement() {
                 <p className="text-outline text-sm mt-1">Real-time management of stock levels and expiration dates.</p>
               </div>
               <div>
-                <Link to="/products/new" className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary transition-colors shadow-sm">
+                <Link to="/manage-products/new" className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary transition-colors shadow-sm">
                   <span className="material-symbols-outlined text-sm">add</span>
                   Add New Product
                 </Link>

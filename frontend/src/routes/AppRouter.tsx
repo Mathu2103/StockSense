@@ -50,8 +50,8 @@ export default function AppRouter() {
         <Route path="/login"        element={<LoginPage />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
         <Route path="/inventory"    element={<InventoryPage />} />
-        <Route path="/products"     element={<ProductManagement />} />
-        <Route path="/products/new" element={<AddNewProduct />} />
+        <Route path="/manage-products"     element={<ProductManagement />} />
+        <Route path="/manage-products/new" element={<AddNewProduct />} />
         <Route path="/categories"   element={<Category />} />
         <Route path="/inventory-adjustments" element={<InventoryAdjustments />} />
         <Route path="/suppliers"            element={<Suppliers />} />

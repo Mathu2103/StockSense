@@ -1,4 +1,4 @@
-import Sidebar from '../../components/layout/Sidebar';
+import Sidebar from './Sidebar';
 import { Link } from 'react-router-dom';
 
 export default function InventoryPage() {

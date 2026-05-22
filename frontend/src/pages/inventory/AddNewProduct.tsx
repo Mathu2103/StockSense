@@ -1,4 +1,4 @@
-import Sidebar from '../../components/layout/Sidebar';
+import Sidebar from './Sidebar';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -18,7 +18,7 @@ export default function AddNewProduct() {
           
           {/* Breadcrumbs */}
           <div className="flex items-center gap-3 text-sm">
-            <Link to="/products" className="text-outline hover:text-on-surface font-medium">Products</Link>
+            <Link to="/manage-products" className="text-outline hover:text-on-surface font-medium">Products</Link>
             <span className="material-symbols-outlined text-outline-variant text-sm">chevron_right</span>
             <span className="text-primary font-bold">Add New Item</span>
           </div>
@@ -47,9 +47,9 @@ export default function AddNewProduct() {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto px-8 py-6 bg-surface-container-lowest flex flex-col relative">
+        <main className="flex-1 overflow-y-auto px-8 py-6 bg-surface-container-lowest flex flex-col">
           
-          <div className="max-w-[1100px] w-full mx-auto pb-24">
+          <div className="max-w-[1100px] w-full mx-auto pb-12">
             
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-on-surface mb-2 tracking-tight">Create New Inventory Item</h1>
@@ -251,24 +251,25 @@ export default function AddNewProduct() {
 
           </div>
 
-          {/* Bottom Sticky Bar */}
-          <div className="absolute bottom-0 left-0 right-0 bg-background border-t border-outline-variant px-8 py-4 flex items-center justify-between z-10">
-            <span className="text-sm font-medium text-outline">Unsaved changes detected</span>
-            <div className="flex gap-4">
-              <button 
-                onClick={() => navigate('/products')}
-                className="px-6 py-2.5 text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors"
-              >
-                Cancel
-              </button>
-              <button className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:opacity-90 transition-colors shadow-sm">
-                <span className="material-symbols-outlined text-sm">save</span>
-                Save Product
-              </button>
-            </div>
-          </div>
-
         </main>
+
+        {/* Bottom Sticky Bar */}
+        <div className="bg-background border-t border-outline-variant px-8 py-4 flex items-center justify-between z-10 shrink-0">
+          <span className="text-sm font-medium text-outline">Unsaved changes detected</span>
+          <div className="flex gap-4">
+            <button 
+              onClick={() => navigate('/manage-products')}
+              className="px-6 py-2.5 text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors"
+            >
+              Cancel
+            </button>
+            <button className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:opacity-90 transition-colors shadow-sm">
+              <span className="material-symbols-outlined text-sm">save</span>
+              Save Product
+            </button>
+          </div>
+        </div>
+
       </div>
 
       {/* Modals */}

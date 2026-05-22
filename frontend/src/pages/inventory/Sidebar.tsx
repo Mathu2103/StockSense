@@ -5,7 +5,7 @@ export default function Sidebar() {
 
   const navLinks = [
     { name: 'Dashboard', path: '/inventory', icon: 'grid_view' },
-    { name: 'Products', path: '/products', icon: 'inventory_2' },
+    { name: 'Products', path: '/manage-products', icon: 'inventory_2' },
     { name: 'Categories', path: '/categories', icon: 'category' },
     { name: 'Inventory Adjustments', path: '/inventory-adjustments', icon: 'sync_alt' },
     { name: 'Suppliers', path: '/suppliers', icon: 'local_shipping' },

@@ -19,7 +19,7 @@ files.forEach(f => {
     // Add import statement at the top
     if (!content.includes('import Sidebar')) {
       const importRegex = new RegExp('^import', 'm');
-      content = content.replace(importRegex, "import Sidebar from '../../components/layout/Sidebar';\nimport");
+      content = content.replace(importRegex, "import Sidebar from './Sidebar';\nimport");
     }
     
     fs.writeFileSync(f, content, 'utf8');

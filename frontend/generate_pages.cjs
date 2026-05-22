@@ -12,7 +12,7 @@ const pages = [
   { name: 'Settings', title: 'Settings' }
 ];
 
-const template = (name, title) => `import Sidebar from '../../components/layout/Sidebar';
+const template = (name, title) => `import Sidebar from './Sidebar';
 
 export default function ${name}() {
   return (

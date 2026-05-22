@@ -1,4 +1,4 @@
-import Sidebar from '../../components/layout/Sidebar';
+import Sidebar from './Sidebar';
 
 export default function Alerts() {
   return (

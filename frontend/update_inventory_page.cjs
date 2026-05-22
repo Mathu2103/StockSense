@@ -10,7 +10,7 @@ content = content.replace(asideRegex, '<Sidebar />');
 // Add import if missing
 if (!content.includes('import Sidebar')) {
   const importRegex = new RegExp('^import', 'm');
-  content = content.replace(importRegex, "import Sidebar from '../../components/layout/Sidebar';\nimport");
+  content = content.replace(importRegex, "import Sidebar from './Sidebar';\nimport");
 }
 
 // 2. Color replacements
