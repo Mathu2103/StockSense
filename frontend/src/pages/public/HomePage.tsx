@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import smartInventoryImg from '../../assets/images/smart_inventory.png'
+import smartBillingImg from '../../assets/images/smart_billing.png'
+import billingSystemImg from '../../assets/images/billing_system.png'
+
 export default function HomePage() {
   const navigate = useNavigate()
   const [currentTab, setCurrentTab] = useState(0)
@@ -211,7 +215,7 @@ export default function HomePage() {
                     <img
                       alt="Automate Operations Dashboard"
                       className="w-full max-w-[500px] h-auto rounded-xl shadow-2xl transition-transform duration-700 hover:scale-105"
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2MzIjXlA8P95m1h_MX0whvxl3sa9Fpb2qd2hp359W4iVLyweGR5R5hIS6l6WPw-JG3z2y4l2paQfCK4XSSG14OdAbsn_gyPdPZY_KbqsUwY2lxuD5ohXe7143anhSmpSJ3zouNLnm2yxbLEQ3h7aJiVvxSVuiOMElPT8YQEmf7WksYGyTUHj2gDmSsQtydKuGV7_gntU-3l2JFcDp8SrPkJFm0OVIuZ8gerhfC3Nm1xKgalrxcrd3PU5u0HZ6SlNvnmXDqrc9NyL5"
+                      src={billingSystemImg}
                     />
                   </div>
                 </div>
@@ -297,9 +301,9 @@ export default function HomePage() {
                 {/* Decorative Blur */}
                 <div className="absolute inset-0 bg-primary/5 rounded-full blur-3xl -z-10"></div>
                 <img
-                  alt="Smart Inventory &amp; Sales Intelligence"
-                  className="w-full h-auto object-contain transition-transform duration-700 hover:scale-105"
-                  src="/smart_inventory.png"
+                  alt="Inventory Management Analytics"
+                  className="w-full max-w-[500px] h-auto object-contain transition-transform duration-700 hover:scale-105"
+                  src={smartInventoryImg}
                 />
               </div>
             </div>
@@ -371,7 +375,7 @@ export default function HomePage() {
               <img
                 alt="Modern POS Billing Interface"
                 className="w-full max-w-[500px] h-auto object-contain transition-transform duration-700 hover:scale-105"
-                src="/smart_billing.png"
+                src={smartBillingImg}
               />
             </div>
           </div>
