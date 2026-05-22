@@ -7,6 +7,7 @@ import ProtectedRoute from '../components/shared/ProtectedRoute/ProtectedRoute'
 // Public Pages
 import HomePage from '../pages/public/HomePage'
 import OffersPage from '../pages/public/OffersPage'
+import ProductsPage from '../pages/public/ProductsPage'
 
 // Auth Pages
 import LoginPage from '../pages/auth/LoginPage'
@@ -28,6 +29,7 @@ export default function AppRouter() {
         <Route element={<PublicLayout />}>
           <Route path="/"       element={<HomePage />} />
           <Route path="/offers" element={<OffersPage />} />
+          <Route path="/products" element={<ProductsPage />} />
         </Route>
 
         {/* ══════════════════════════════════════════════
