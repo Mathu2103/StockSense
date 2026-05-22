@@ -1,7 +1,13 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../../../hooks/useAuth'
+import { ReactNode } from 'react'
 
-export default function ProtectedRoute({ children, allowedRoles }) {
+interface ProtectedRouteProps {
+  children: ReactNode;
+  allowedRoles?: string[];
+}
+
+export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { user } = useAuth()
 
   if (!user) return <Navigate to="/login" replace />
