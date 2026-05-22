@@ -124,3 +124,102 @@
     @apply ml-[var(--sidebar-width)] pt-[var(--navbar-height)] min-h-screen p-6;
   }
 }
+
+/* ══════════════════════════════════════════════
+   StockSense Landing Page Styles
+══════════════════════════════════════════════ */
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.bento-item {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.bento-item:hover {
+  transform: translateY(-4px);
+}
+
+.hero-gradient {
+  background: radial-gradient(circle at 50% 0%, #f0fdf4 0%, #f8f9ff 100%);
+}
+
+/* Tab Transition Styles */
+.tab-content-active {
+  animation: tabFadeUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes tabFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tab-btn {
+  z-index: 10;
+  position: relative;
+}
+
+.segmented-control {
+  position: relative;
+  background: #f1f5f9; /* Soft light gray - slate-100 */
+}
+
+.active-pill {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  height: calc(100% - 8px);
+  background: #ffffff;
+  border-radius: 9999px;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 5;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: #caead6; /* secondary-container/brand-colored */
+  width: 0%;
+  transition: width 0.05s linear;
+}
+
+/* Decorative curves for image container */
+.decoration-curve {
+  position: absolute;
+  border: 2px solid;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.curve-1 {
+  width: 110%;
+  height: 110%;
+  border-color: rgba(139, 215, 155, 0.3);
+  top: -5%;
+  left: -5%;
+  border-bottom-color: transparent;
+  border-right-color: transparent;
+  transform: rotate(-15deg);
+}
+.curve-2 {
+  width: 115%;
+  height: 115%;
+  border-color: #AFCEBA;
+  top: -7.5%;
+  left: -7.5%;
+  border-top-color: transparent;
+  border-left-color: transparent;
+  transform: rotate(10deg);
+}
