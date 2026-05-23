@@ -223,3 +223,66 @@
   border-left-color: transparent;
   transform: rotate(10deg);
 }
+
+/* ══════════════════════════════════════════════
+   Chrome Autofill Fix for Dark Theme Inputs
+══════════════════════════════════════════════ */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px #295c4d inset !important;
+    -webkit-text-fill-color: white !important;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
+/* ══════════════════════════════════════════════
+   Floating Bubble Animations (LoginPage Blobs)
+   ══════════════════════════════════════════════ */
+@keyframes float1 {
+  0%, 100% {
+    transform: translateY(0) translateX(0) scale(1);
+  }
+  33% {
+    transform: translateY(-12px) translateX(8px) scale(1.03);
+  }
+  66% {
+    transform: translateY(8px) translateX(-10px) scale(0.97);
+  }
+}
+
+@keyframes float2 {
+  0%, 100% {
+    transform: translateY(0) translateX(0) scale(1);
+  }
+  40% {
+    transform: translateY(10px) translateX(-8px) scale(0.96);
+  }
+  70% {
+    transform: translateY(-10px) translateX(10px) scale(1.04);
+  }
+}
+
+@keyframes float3 {
+  0%, 100% {
+    transform: translateY(0) translateX(0) scale(1);
+  }
+  30% {
+    transform: translateY(-8px) translateX(-12px) scale(1.02);
+  }
+  60% {
+    transform: translateY(12px) translateX(6px) scale(0.98);
+  }
+}
+
+.animate-float-1 {
+  animation: float1 14s ease-in-out infinite;
+}
+
+.animate-float-2 {
+  animation: float2 18s ease-in-out infinite;
+}
+
+.animate-float-3 {
+  animation: float3 22s ease-in-out infinite;
+}

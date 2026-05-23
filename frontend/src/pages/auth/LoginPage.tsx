@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import loginBg from '@/assets/images/login-bg.png'
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
+import { ArrowLeft, User, Lock } from 'lucide-react'
+import manImg from '@/assets/images/man.png'
+import groceryImg from '@/assets/images/grocery.png'
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -16,117 +17,141 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#e8efe9] flex items-center justify-center p-4 sm:p-8 font-sans">
+    <div className="h-screen w-full flex bg-white overflow-hidden font-sans">
       
-      {/* ── Main Container ── */}
-      <div className="w-full max-w-[1000px] h-[600px] bg-white rounded-[2rem] shadow-2xl flex overflow-hidden relative">
+      {/* ── LEFT PANEL (White with Blobs) ── */}
+      <div className="relative w-full lg:w-[55%] h-full flex items-center justify-center bg-white z-0 hidden lg:flex">
         
-        {/* ── Left Form Area (White) ── */}
-        <div className="w-full lg:w-[48%] h-full flex flex-col justify-center px-8 sm:px-12 z-10 bg-white">
+        {/* Scattered light green circles / Bubbles */}
+        <div className="absolute top-[20%] left-[10%] w-16 h-16 rounded-full bg-[#d3e3dc] opacity-60 animate-float-1"></div>
+        <div className="absolute top-[10%] left-[40%] w-12 h-12 rounded-full bg-[#d3e3dc] opacity-60 animate-float-2"></div>
+        <div className="absolute bottom-[20%] left-[15%] w-24 h-24 rounded-full bg-[#d3e3dc] opacity-60 animate-float-3"></div>
+        <div className="absolute bottom-[10%] left-[45%] w-14 h-14 rounded-full bg-[#d3e3dc] opacity-60 animate-float-1"></div>
+        <div className="absolute top-[30%] right-[15%] w-20 h-20 rounded-full bg-[#d3e3dc] opacity-60 animate-float-2"></div>
+        <div className="absolute bottom-[25%] right-[10%] w-16 h-16 rounded-full bg-[#d3e3dc] opacity-60 animate-float-3"></div>
+        
+        {/* Additional Bubbles for attractiveness */}
+        <div className="absolute top-[5%] left-[20%] w-8 h-8 rounded-full bg-[#d3e3dc] opacity-50 animate-float-1"></div>
+        <div className="absolute top-[15%] left-[60%] w-24 h-24 rounded-full bg-[#d3e3dc] opacity-40 animate-float-2"></div>
+        <div className="absolute bottom-[35%] left-[5%] w-10 h-10 rounded-full bg-[#d3e3dc] opacity-70 animate-float-3"></div>
+        <div className="absolute bottom-[5%] left-[30%] w-20 h-20 rounded-full bg-[#d3e3dc] opacity-50 animate-float-1"></div>
+        <div className="absolute top-[45%] right-[5%] w-12 h-12 rounded-full bg-[#d3e3dc] opacity-60 animate-float-2"></div>
+        <div className="absolute bottom-[40%] right-[20%] w-8 h-8 rounded-full bg-[#d3e3dc] opacity-80 animate-float-3"></div>
+        <div className="absolute top-[50%] left-[25%] w-14 h-14 rounded-full bg-[#d3e3dc] opacity-40 animate-float-1"></div>
+        <div className="absolute bottom-[15%] right-[25%] w-28 h-28 rounded-full bg-[#d3e3dc] opacity-30 animate-float-2"></div>
+
+        {/* Organic Blobs Container */}
+        <div className="relative w-[500px] h-[500px] flex items-center justify-center mt-12">
+          {/* Outer Darker Blob */}
+          <div 
+            className="absolute inset-0 bg-[#679b8a]" 
+            style={{ borderRadius: '40% 60% 70% 30% / 40% 50% 60% 50%' }}
+          ></div>
           
-          <div className="max-w-sm w-full">
-            <span className="text-xs font-bold text-surface-400 tracking-widest uppercase mb-3 block">
-              Staff Portal
-            </span>
-            
-            <h1 className="text-5xl leading-tight font-bold text-surface-900 mb-8 tracking-tight">
-              Sign In<span className="text-primary-500">.</span>
-            </h1>
-            
-            <form onSubmit={handleSignIn} className="flex flex-col gap-5">
-              
-              {/* Email Input */}
-              <div className="bg-[#f8f9fa] border border-transparent rounded-2xl px-5 py-3 flex flex-col focus-within:border-primary-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-primary-50 transition-all group">
-                <span className="text-[11px] font-semibold text-surface-400 uppercase tracking-wider mb-1">Email</span>
-                <div className="flex items-center">
-                  <input 
-                    type="email" 
-                    placeholder="name@stocksense.com" 
-                    className="w-full bg-transparent border-none outline-none text-surface-900 font-medium placeholder:text-surface-300 placeholder:font-normal" 
-                    required 
-                  />
-                  <Mail size={18} className="text-surface-400 group-focus-within:text-primary-500 transition-colors" />
-                </div>
-              </div>
+          {/* Inner Lighter Blob */}
+          <div 
+            className="absolute w-[350px] h-[350px] bg-[#8db6a5]" 
+            style={{ borderRadius: '50% 50% 40% 60% / 60% 40% 50% 50%' }}
+          ></div>
 
-              {/* Password Input */}
-              <div className="bg-[#f8f9fa] border border-transparent rounded-2xl px-5 py-3 flex flex-col focus-within:border-primary-500 focus-within:bg-white focus-within:ring-4 focus-within:ring-primary-50 transition-all group">
-                <span className="text-[11px] font-semibold text-surface-400 uppercase tracking-wider mb-1">Password</span>
-                <div className="flex items-center">
-                  <input 
-                    type={showPassword ? 'text' : 'password'} 
-                    placeholder="••••••••••••" 
-                    className="w-full bg-transparent border-none outline-none text-surface-900 font-medium tracking-widest placeholder:tracking-normal placeholder:text-surface-300 placeholder:font-normal" 
-                    required 
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="text-surface-400 hover:text-primary-600 focus:outline-none transition-colors"
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center px-1 mt-2 mb-6">
-                <a href="#" className="text-sm font-medium text-surface-500 hover:text-primary-600 transition-colors">Forgot Password?</a>
-              </div>
-              
-              {/* Submit Buttons */}
-              <div className="flex items-center gap-4">
-                <button 
-                  type="submit" 
-                  className="w-full bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-full py-3.5 shadow-[0_8px_20px_rgba(0,76,34,0.25)] transition-all hover:shadow-[0_8px_25px_rgba(0,76,34,0.35)] hover:-translate-y-0.5 text-sm"
-                >
-                  Sign In
-                </button>
-              </div>
-
-            </form>
+          {/* Large Grocery Bag with Shadow */}
+          <div className="relative z-10 flex flex-col items-center mb-4">
+            <div className="absolute bottom-[10px] w-[260px] h-[22px] bg-[#588574] rounded-[50%] blur-[5px] z-0"></div>
+            <img
+              src={groceryImg}
+              alt="Groceries"
+              className="relative z-10 w-[340px] object-contain"
+            />
           </div>
         </div>
 
-        {/* ── Right Image Area (Organic Wave Split) ── */}
-        <div className="hidden lg:block absolute top-0 right-0 w-[58%] h-full z-0 overflow-hidden bg-surface-100">
-          
-          {/* Background Image */}
-          <img 
-            src={loginBg} 
-            alt="StockSense Team" 
-            className="absolute inset-0 w-full h-full object-cover"
+        {/* Man pushing cart with Shadow */}
+        <div className="absolute bottom-6 left-8 lg:left-16 xl:left-20 z-20 flex flex-col items-center">
+          <div className="absolute bottom-[-2px] left-8 w-[320px] h-[16px] bg-[#d8e5df] rounded-[50%] blur-[4px] z-0 mix-blend-multiply"></div>
+          <img
+            src={manImg}
+            alt="Man pushing cart"
+            className="relative z-10 w-[380px] object-contain"
           />
+        </div>
+      </div>
 
-          {/* Organic White Wave overlaying the image to create the split effect */}
-          <svg 
-            className="absolute left-0 top-0 h-full w-[250px] text-white fill-current z-10" 
-            viewBox="0 0 200 1000" 
-            preserveAspectRatio="none"
-          >
-            <path d="M0,0 L200,0 C100,150 180,300 80,450 C-20,600 150,800 100,1000 L0,1000 Z" />
-          </svg>
+      {/* ── RIGHT PANEL (Dark Green Form) ── */}
+      <div className="relative w-full lg:w-[45%] h-full bg-[#12362a] flex flex-col items-center justify-center z-10">
+        
+        {/* Back to Home Button (Top Left - Arrow Only) */}
+        <button 
+          onClick={() => navigate('/')} 
+          className="absolute top-8 left-8 flex items-center justify-center w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 text-white transition-all shadow-sm hover:shadow-md z-30 group"
+          aria-label="Back to Home"
+        >
+          <ArrowLeft size={20} className="group-hover:-translate-x-0.5 transition-transform" />
+        </button>
 
-          {/* Decorative Dashed Line following the wave */}
-          <svg 
-            className="absolute left-[15px] top-0 h-full w-[250px] z-20 pointer-events-none" 
-            viewBox="0 0 200 1000" 
-            preserveAspectRatio="none"
-          >
-            <path 
-              d="M0,0 L200,0 C100,150 180,300 80,450 C-20,600 150,800 100,1000 L0,1000 Z" 
-              fill="none" 
-              stroke="rgba(0,76,34,0.15)" 
-              strokeWidth="2" 
-              strokeDasharray="8 8" 
-            />
-          </svg>
+        {/* SVG Wave Divider on the left edge */}
+        <svg 
+          className="absolute left-[-149px] top-0 w-[150px] h-full text-[#12362a] fill-current hidden lg:block" 
+          viewBox="0 0 150 1000" 
+          preserveAspectRatio="none"
+        >
+          <path d="M150,0 L150,1000 L80,1000 C150,750 -20,600 50,300 C80,150 20,50 100,0 Z" />
+        </svg>
+
+        {/* Form Container */}
+        <div className="relative z-20 w-full max-w-[400px] px-8 flex flex-col items-center">
           
-          {/* Subtle overlay to enhance image contrast */}
-          <div className="absolute inset-0 bg-black/5 z-0"></div>
-          
+          <h1 className="text-[2.5rem] font-bold text-white tracking-wider mb-12">
+            LOGIN
+          </h1>
+
+          <form onSubmit={handleSignIn} className="w-full flex flex-col gap-6">
+            
+            {/* Username */}
+            <div className="flex flex-col gap-1.5 w-full">
+              <label className="text-white/90 text-[15px] pl-1">Username</label>
+              <div className="flex items-center bg-[#295c4d] rounded-full px-4 py-2.5 w-full">
+                <div className="w-6 h-6 rounded-full border border-white/60 flex items-center justify-center mr-3 flex-shrink-0">
+                  <User size={14} className="text-white/80" />
+                </div>
+                <input 
+                  type="text" 
+                  className="bg-transparent border-none outline-none text-white w-full text-[15px]"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Password */}
+            <div className="flex flex-col gap-1.5 w-full">
+              <label className="text-white/90 text-[15px] pl-1">Password</label>
+              <div className="flex items-center bg-[#295c4d] rounded-full px-4 py-2.5 w-full">
+                <div className="w-6 h-6 rounded-full border border-white/60 flex items-center justify-center mr-3 flex-shrink-0">
+                  <Lock size={14} className="text-white/80" />
+                </div>
+                <input 
+                  type="password" 
+                  className="bg-transparent border-none outline-none text-white w-full text-[15px] tracking-widest"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Login Button */}
+            <div className="flex justify-center mt-4">
+              <button 
+                type="submit" 
+                className="bg-[#488775] hover:bg-[#539684] text-white font-bold tracking-wider rounded-md px-14 py-2.5 transition-colors text-[15px]"
+              >
+                LOGIN
+              </button>
+            </div>
+
+          </form>
+
         </div>
 
       </div>
+      
     </div>
   )
 }
