@@ -14,6 +14,18 @@ import CategoryPage from '../pages/public/CategoryPage'
 import LoginPage from '../pages/auth/LoginPage'
 import UnauthorizedPage from '../pages/auth/UnauthorizedPage'
 
+import InventoryPage from '../pages/inventory/InventoryPage'
+import ProductManagement from '../pages/inventory/ProductManagement'
+import AddNewProduct from '../pages/inventory/AddNewProduct'
+import Category from '../pages/inventory/Categories'
+import InventoryAdjustments from '../pages/inventory/InventoryAdjustments'
+import Suppliers from '../pages/inventory/Suppliers'
+import PurchaseOrders from '../pages/inventory/PurchaseOrders'
+import PurchaseReceives from '../pages/inventory/PurchaseReceives'
+import StockMovements from '../pages/inventory/StockMovements'
+import Alerts from '../pages/inventory/Alerts'
+import Reports from '../pages/inventory/Reports'
+import Settings from '../pages/inventory/Settings'
 // Protected Route Groups
 import AdminRoutes from './AdminRoutes'
 import CashierRoutes from './CashierRoutes'
@@ -39,7 +51,18 @@ export default function AppRouter() {
         ══════════════════════════════════════════════ */}
         <Route path="/login"        element={<LoginPage />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
-
+        <Route path="/inventory"    element={<InventoryPage />} />
+        <Route path="/manage-products"     element={<ProductManagement />} />
+        <Route path="/manage-products/new" element={<AddNewProduct />} />
+        <Route path="/categories"   element={<Category />} />
+        <Route path="/inventory-adjustments" element={<InventoryAdjustments />} />
+        <Route path="/suppliers"            element={<Suppliers />} />
+        <Route path="/purchase-orders"      element={<PurchaseOrders />} />
+        <Route path="/purchase-receives"    element={<PurchaseReceives />} />
+        <Route path="/stock-movements"      element={<StockMovements />} />
+        <Route path="/alerts"               element={<Alerts />} />
+        <Route path="/reports"              element={<Reports />} />
+        <Route path="/settings"             element={<Settings />} />
         {/* ══════════════════════════════════════════════
             ADMIN (Protected: ADMIN role only)
         ══════════════════════════════════════════════ */}
