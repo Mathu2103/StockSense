@@ -1,4 +1,5 @@
 import Sidebar from './Sidebar';
+import InventoryHeader from './InventoryHeader';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -14,8 +15,7 @@ export default function AddNewProduct() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden bg-surface-container-lowest">
         {/* Header */}
-        <header className="h-16 bg-surface-container-lowest border-b border-outline-variant flex items-center justify-between px-8 shrink-0">
-          
+        <InventoryHeader>
           {/* Breadcrumbs */}
           <div className="flex items-center gap-3 text-sm">
             <Link to="/manage-products" className="text-outline hover:text-on-surface font-medium">Products</Link>
@@ -23,28 +23,16 @@ export default function AddNewProduct() {
             <span className="text-primary font-bold">Add New Item</span>
           </div>
 
-          <div className="flex items-center gap-6">
-            {/* Search */}
-            <div className="relative w-64">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant text-sm">search</span>
-              <input 
-                type="text" 
-                placeholder="Search resources..." 
-                className="w-full pl-9 pr-4 py-1.5 bg-background border border-outline-variant rounded-full focus:ring-2 focus:ring-primary outline-none text-sm text-on-surface-variant"
-              />
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-4">
-              <button className="text-on-surface-variant hover:text-on-surface transition-colors">
-                <span className="material-symbols-outlined text-xl">notifications</span>
-              </button>
-              <button className="text-on-surface-variant hover:text-on-surface transition-colors">
-                <span className="material-symbols-outlined text-xl">account_circle</span>
-              </button>
-            </div>
+          {/* Search */}
+          <div className="relative w-64 ml-8">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant text-sm">search</span>
+            <input 
+              type="text" 
+              placeholder="Search resources..." 
+              className="w-full pl-9 pr-4 py-1.5 bg-background border border-outline-variant rounded-full focus:ring-2 focus:ring-primary outline-none text-sm text-on-surface-variant"
+            />
           </div>
-        </header>
+        </InventoryHeader>
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto px-8 py-6 bg-surface-container-lowest flex flex-col">

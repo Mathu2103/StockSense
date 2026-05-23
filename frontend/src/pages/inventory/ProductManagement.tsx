@@ -1,4 +1,5 @@
 import Sidebar from './Sidebar';
+import InventoryHeader from './InventoryHeader';
 import { Link } from 'react-router-dom';
 
 export default function ProductManagement() {
@@ -10,7 +11,7 @@ export default function ProductManagement() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="h-16 bg-surface-container-lowest border-b border-outline-variant flex items-center justify-between px-6 shrink-0">
+        <InventoryHeader>
           <div className="relative w-96">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant">search</span>
             <input 
@@ -19,29 +20,7 @@ export default function ProductManagement() {
               className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-lg focus:ring-2 focus:ring-primary outline-none text-sm"
             />
           </div>
-
-          <div className="flex items-center gap-4">
-            <button className="relative text-outline hover:text-on-surface-variant transition-colors">
-              <span className="material-symbols-outlined">notifications</span>
-            </button>
-            <button className="text-outline hover:text-on-surface-variant transition-colors">
-              <span className="material-symbols-outlined">schedule</span>
-            </button>
-            <button className="text-outline hover:text-on-surface-variant transition-colors">
-              <span className="material-symbols-outlined">storefront</span>
-            </button>
-            
-            <div className="h-8 w-px bg-slate-200 mx-2"></div>
-            
-            <div className="flex items-center gap-3 cursor-pointer">
-              <div className="text-right hidden md:block">
-                <p className="text-sm font-semibold leading-tight">Alex Johnson</p>
-                <p className="text-xs text-outline-variant">Floor Manager</p>
-              </div>
-              <img src="https://ui-avatars.com/api/?name=Alex+Johnson&background=0D8ABC&color=fff" alt="User" className="w-9 h-9 rounded-full border border-outline-variant" />
-            </div>
-          </div>
-        </header>
+        </InventoryHeader>
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto p-6 bg-background">
