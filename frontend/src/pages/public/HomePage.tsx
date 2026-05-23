@@ -86,193 +86,193 @@ export default function HomePage() {
               </p>
             </div>
 
-          {/* Segmented Control Header */}
-          <div className="flex justify-center mb-8">
-            <div className="segmented-control p-1 rounded-full flex items-center relative min-w-[320px] md:min-w-[700px] select-none">
-              <div
-                className="active-pill"
-                style={{
-                  width: 'calc((100% - 8px) / 3)',
-                  transform: `translateX(${currentTab * 100}%)`,
-                }}
-              >
-                <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
-              </div>
-              <button
-                onClick={() => handleTabClick(0)}
-                className={`tab-btn flex-1 px-4 md:px-8 py-4 rounded-full text-xs md:text-sm transition-all duration-300 ${currentTab === 0 ? 'text-on-background font-bold' : 'text-on-surface-variant/50 hover:text-on-background'
-                  }`}
-              >
-                Automate Operations
-              </button>
-              <button
-                onClick={() => handleTabClick(1)}
-                className={`tab-btn flex-1 px-4 md:px-8 py-4 rounded-full text-xs md:text-sm transition-all duration-300 ${currentTab === 1 ? 'text-on-background font-bold' : 'text-on-surface-variant/50 hover:text-on-background'
-                  }`}
-              >
-                Predict Inventory
-              </button>
-              <button
-                onClick={() => handleTabClick(2)}
-                className={`tab-btn flex-1 px-4 md:px-8 py-4 rounded-full text-xs md:text-sm transition-all duration-300 ${currentTab === 2 ? 'text-on-background font-bold' : 'text-on-surface-variant/50 hover:text-on-background'
-                  }`}
-              >
-                Business Insights
-              </button>
-            </div>
-          </div>
-
-          {/* Card Container */}
-          <div className="bg-surface-container-lowest rounded-2xl shadow-lg border border-outline-variant/30 overflow-hidden min-h-[480px] transition-all duration-500 ease-in-out">
-            {/* Tab Content 1: Automate Operations */}
-            {currentTab === 0 && (
-              <div className="tab-content h-full block tab-content-active">
-                <div className="grid grid-cols-1 lg:grid-cols-2 h-full items-center">
-                  <div className="p-8 lg:p-16 space-y-6">
-                    <div className="flex flex-wrap gap-2">
-                      <span className="px-3 py-1 bg-surface-container-low text-primary rounded-full text-xs font-semibold">
-                        POS Billing
-                      </span>
-                      <span className="px-3 py-1 bg-surface-container-low text-primary rounded-full text-xs font-semibold">
-                        Inventory Sync
-                      </span>
-                      <span className="px-3 py-1 bg-surface-container-low text-primary rounded-full text-xs font-semibold">
-                        Real-time Updates
-                      </span>
-                    </div>
-                    <h3 className="text-2xl lg:text-3xl font-bold text-on-background">
-                      Automate and simplify daily retail operations
-                    </h3>
-                    <p className="text-base md:text-lg text-on-surface-variant leading-relaxed">
-                      Reduce manual work by integrating billing, inventory, and stock monitoring into one seamless system. Improve speed, accuracy, and efficiency during daily shop activities.
-                    </p>
-                  </div>
-                  <div className="bg-surface-container-low/30 p-8 h-full flex items-center justify-center overflow-hidden">
-                    <img
-                      alt="Automate Operations Dashboard"
-                      className="w-full max-w-[500px] h-auto rounded-xl shadow-2xl transition-transform duration-700 hover:scale-105"
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2MzIjXlA8P95m1h_MX0whvxl3sa9Fpb2qd2hp359W4iVLyweGR5R5hIS6l6WPw-JG3z2y4l2paQfCK4XSSG14OdAbsn_gyPdPZY_KbqsUwY2lxuD5ohXe7143anhSmpSJ3zouNLnm2yxbLEQ3h7aJiVvxSVuiOMElPT8YQEmf7WksYGyTUHj2gDmSsQtydKuGV7_gntU-3l2JFcDp8SrPkJFm0OVIuZ8gerhfC3Nm1xKgalrxcrd3PU5u0HZ6SlNvnmXDqrc9NyL5"
-                    />
-                  </div>
+            {/* Segmented Control Header */}
+            <div className="flex justify-center mb-8">
+              <div className="segmented-control p-1 rounded-full flex items-center relative min-w-[320px] md:min-w-[700px] select-none">
+                <div
+                  className="active-pill"
+                  style={{
+                    width: 'calc((100% - 8px) / 3)',
+                    transform: `translateX(${currentTab * 100}%)`,
+                  }}
+                >
+                  <div className="progress-bar-fill" style={{ width: `${progress}%` }}></div>
                 </div>
-              </div>
-            )}
-
-            {/* Tab Content 2: Predict Inventory */}
-            {currentTab === 1 && (
-              <div className="tab-content h-full block tab-content-active">
-                <div className="grid grid-cols-1 lg:grid-cols-2 h-full items-center">
-                  <div className="p-8 lg:p-16 space-y-6">
-                    <div className="flex flex-wrap gap-2">
-                      <span className="px-3 py-1 bg-surface-container-low text-primary rounded-full text-xs font-semibold">
-                        Demand Forecasting
-                      </span>
-                      <span className="px-3 py-1 bg-surface-container-low text-primary rounded-full text-xs font-semibold">
-                        Stock Alerts
-                      </span>
-                      <span className="px-3 py-1 bg-surface-container-low text-primary rounded-full text-xs font-semibold">
-                        Smart Classification
-                      </span>
-                    </div>
-                    <h3 className="text-2xl lg:text-3xl font-bold text-on-background">
-                      Make smarter inventory decisions with predictive analytics
-                    </h3>
-                    <p className="text-base md:text-lg text-on-surface-variant leading-relaxed">
-                      Use historical sales data to forecast demand, detect slow-moving products, and receive proactive restock alerts to maintain optimal stock levels.
-                    </p>
-                  </div>
-                  <div className="bg-surface-container-low/30 p-8 h-full flex items-center justify-center overflow-hidden">
-                    <img
-                      alt="Predict Inventory Dashboard"
-                      className="w-full max-w-[500px] h-auto rounded-xl shadow-2xl transition-transform duration-700 hover:scale-105"
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuARd4n3QJfFyGGyqEqdQ9T3ScI930PeLeHMx1VOLz8k3CYHLZdrBkKC8Js4-g3hZXC86eZD97GVJck1eR9gCyPebyrcTVg0gxZsebZ8Wh8uQ6k40BhAD4nJaOHnM1rdjtth0DUbLxHP1x0o9NnMcasyK-Bk-NwDAllrxmpBI4cf4nJtnIFTa4i2Npxghda6VdUX9b8f2PPj1Lhoi-NhzXvjlByKycRqz6uiSliO6wmrweK_oOZYmuYEQTBkiR4dTrw0f6S_QdF1exhj"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Tab Content 3: Business Insights */}
-            {currentTab === 2 && (
-              <div className="tab-content h-full block tab-content-active">
-                <div className="grid grid-cols-1 lg:grid-cols-2 h-full items-center">
-                  <div className="p-8 lg:p-16 space-y-6">
-                    <div className="flex flex-wrap gap-2">
-                      <span className="px-3 py-1 bg-surface-container-low text-primary rounded-full text-xs font-semibold">
-                        Sales Analytics
-                      </span>
-                      <span className="px-3 py-1 bg-surface-container-low text-primary rounded-full text-xs font-semibold">
-                        Combo Suggestions
-                      </span>
-                      <span className="px-3 py-1 bg-surface-container-low text-primary rounded-full text-xs font-semibold">
-                        Profit Insights
-                      </span>
-                    </div>
-                    <h3 className="text-2xl lg:text-3xl font-bold text-on-background">
-                      Drive better decisions with intelligent insights
-                    </h3>
-                    <p className="text-base md:text-lg text-on-surface-variant leading-relaxed">
-                      Analyze sales trends, customer purchase patterns, and product performance to generate profitable combos and improve overall business performance.
-                    </p>
-                  </div>
-                  <div className="bg-surface-container-low/30 p-8 h-full flex items-center justify-center overflow-hidden">
-                    <img
-                      alt="Business Insights Dashboard"
-                      className="w-full max-w-[500px] h-auto rounded-xl shadow-2xl transition-transform duration-700 hover:scale-105"
-                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuA1HD1h-3Gwyck2YVCpd89KTiyCDoH7TfHPIo--jkaQoS6gqvSmsh731prh86jChy7iaPnx7c47L-txGeUZMckVEHRkd4FtmM6fuJEmgPQerreS8VQsC4qtm2yQ9eakwySinplSott3teAOz1UChO6TGwt7_S1-xmxqv6EtpiHchigdeqIPJxp76cdIrPJssSBmwreTLwxwQIrD9W7vjfSJppnbTXfxTjjiAUvw5xOfwoLbAT-ab64IYeiPrEDk8iZSfZ-FAA_bEjp5"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Dashboard Preview Section 1: Smart Inventory */}
-        <section className="bg-white py-16 overflow-hidden">
-          <div className="max-w-7xl mx-auto px-6 md:px-12 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            {/* Left Side: Mockup Image */}
-            <div className="relative flex justify-center items-center py-6">
-              <div className="relative w-full flex items-center justify-center max-w-[500px]">
-                <img
-                  alt="Inventory Management Analytics"
-                  className="w-full max-w-[500px] h-auto object-contain transition-transform duration-700 hover:scale-105"
-                  src={smartInventoryImg}
-                />
+                <button
+                  onClick={() => handleTabClick(0)}
+                  className={`tab-btn flex-1 px-4 md:px-8 py-4 rounded-full text-xs md:text-sm transition-all duration-300 ${currentTab === 0 ? 'text-on-background font-bold' : 'text-on-surface-variant/50 hover:text-on-background'
+                    }`}
+                >
+                  Automate Operations
+                </button>
+                <button
+                  onClick={() => handleTabClick(1)}
+                  className={`tab-btn flex-1 px-4 md:px-8 py-4 rounded-full text-xs md:text-sm transition-all duration-300 ${currentTab === 1 ? 'text-on-background font-bold' : 'text-on-surface-variant/50 hover:text-on-background'
+                    }`}
+                >
+                  Predict Inventory
+                </button>
+                <button
+                  onClick={() => handleTabClick(2)}
+                  className={`tab-btn flex-1 px-4 md:px-8 py-4 rounded-full text-xs md:text-sm transition-all duration-300 ${currentTab === 2 ? 'text-on-background font-bold' : 'text-on-surface-variant/50 hover:text-on-background'
+                    }`}
+                >
+                  Business Insights
+                </button>
               </div>
             </div>
 
-            {/* Right Side: Content */}
-            <div className="space-y-6">
-              <h2 className="text-3xl font-bold text-on-surface">Smart Inventory &amp; Sales Intelligence</h2>
-              <p className="text-base text-on-surface-variant leading-relaxed">
-                Manage your inventory with intelligent insights and real-time data. StockSense helps you monitor stock levels, predict demand, and make better decisions to improve efficiency and reduce losses.
-              </p>
-              <ul className="space-y-4">
-                {[
-                  'Real-time inventory tracking and updates',
-                  'AI-based demand prediction and stock planning',
-                  'Automatic low stock and expiry alerts',
-                  'Identification of slow-moving and dead stock',
-                  'Smart discount suggestions for stock clearance',
-                ].map((item, idx) => (
-                  <li key={idx} className="flex items-start gap-4">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center">
-                      <span className="material-symbols-outlined text-primary text-[18px]">check</span>
+            {/* Card Container */}
+            <div className="bg-surface-container-lowest rounded-2xl shadow-lg border border-outline-variant/30 overflow-hidden min-h-[480px] transition-all duration-500 ease-in-out">
+              {/* Tab Content 1: Automate Operations */}
+              {currentTab === 0 && (
+                <div className="tab-content h-full block tab-content-active">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 h-full items-center">
+                    <div className="p-8 lg:p-16 space-y-6">
+                      <div className="flex flex-wrap gap-2">
+                        <span className="px-3 py-1 bg-surface-container-low text-primary rounded-full text-xs font-semibold">
+                          POS Billing
+                        </span>
+                        <span className="px-3 py-1 bg-surface-container-low text-primary rounded-full text-xs font-semibold">
+                          Inventory Sync
+                        </span>
+                        <span className="px-3 py-1 bg-surface-container-low text-primary rounded-full text-xs font-semibold">
+                          Real-time Updates
+                        </span>
+                      </div>
+                      <h3 className="text-2xl lg:text-3xl font-bold text-on-background">
+                        Automate and simplify daily retail operations
+                      </h3>
+                      <p className="text-base md:text-lg text-on-surface-variant leading-relaxed">
+                        Reduce manual work by integrating billing, inventory, and stock monitoring into one seamless system. Improve speed, accuracy, and efficiency during daily shop activities.
+                      </p>
                     </div>
-                    <span className="text-base text-on-surface-variant font-medium">{item}</span>
-                  </li>
-                ))}
-              </ul>
+                    <div className="bg-surface-container-low/30 p-8 h-full flex items-center justify-center overflow-hidden">
+                      <img
+                        alt="Automate Operations Dashboard"
+                        className="w-full max-w-[500px] h-auto rounded-xl shadow-2xl transition-transform duration-700 hover:scale-105"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2MzIjXlA8P95m1h_MX0whvxl3sa9Fpb2qd2hp359W4iVLyweGR5R5hIS6l6WPw-JG3z2y4l2paQfCK4XSSG14OdAbsn_gyPdPZY_KbqsUwY2lxuD5ohXe7143anhSmpSJ3zouNLnm2yxbLEQ3h7aJiVvxSVuiOMElPT8YQEmf7WksYGyTUHj2gDmSsQtydKuGV7_gntU-3l2JFcDp8SrPkJFm0OVIuZ8gerhfC3Nm1xKgalrxcrd3PU5u0HZ6SlNvnmXDqrc9NyL5"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab Content 2: Predict Inventory */}
+              {currentTab === 1 && (
+                <div className="tab-content h-full block tab-content-active">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 h-full items-center">
+                    <div className="p-8 lg:p-16 space-y-6">
+                      <div className="flex flex-wrap gap-2">
+                        <span className="px-3 py-1 bg-surface-container-low text-primary rounded-full text-xs font-semibold">
+                          Demand Forecasting
+                        </span>
+                        <span className="px-3 py-1 bg-surface-container-low text-primary rounded-full text-xs font-semibold">
+                          Stock Alerts
+                        </span>
+                        <span className="px-3 py-1 bg-surface-container-low text-primary rounded-full text-xs font-semibold">
+                          Smart Classification
+                        </span>
+                      </div>
+                      <h3 className="text-2xl lg:text-3xl font-bold text-on-background">
+                        Make smarter inventory decisions with predictive analytics
+                      </h3>
+                      <p className="text-base md:text-lg text-on-surface-variant leading-relaxed">
+                        Use historical sales data to forecast demand, detect slow-moving products, and receive proactive restock alerts to maintain optimal stock levels.
+                      </p>
+                    </div>
+                    <div className="bg-surface-container-low/30 p-8 h-full flex items-center justify-center overflow-hidden">
+                      <img
+                        alt="Predict Inventory Dashboard"
+                        className="w-full max-w-[500px] h-auto rounded-xl shadow-2xl transition-transform duration-700 hover:scale-105"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuARd4n3QJfFyGGyqEqdQ9T3ScI930PeLeHMx1VOLz8k3CYHLZdrBkKC8Js4-g3hZXC86eZD97GVJck1eR9gCyPebyrcTVg0gxZsebZ8Wh8uQ6k40BhAD4nJaOHnM1rdjtth0DUbLxHP1x0o9NnMcasyK-Bk-NwDAllrxmpBI4cf4nJtnIFTa4i2Npxghda6VdUX9b8f2PPj1Lhoi-NhzXvjlByKycRqz6uiSliO6wmrweK_oOZYmuYEQTBkiR4dTrw0f6S_QdF1exhj"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab Content 3: Business Insights */}
+              {currentTab === 2 && (
+                <div className="tab-content h-full block tab-content-active">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 h-full items-center">
+                    <div className="p-8 lg:p-16 space-y-6">
+                      <div className="flex flex-wrap gap-2">
+                        <span className="px-3 py-1 bg-surface-container-low text-primary rounded-full text-xs font-semibold">
+                          Sales Analytics
+                        </span>
+                        <span className="px-3 py-1 bg-surface-container-low text-primary rounded-full text-xs font-semibold">
+                          Combo Suggestions
+                        </span>
+                        <span className="px-3 py-1 bg-surface-container-low text-primary rounded-full text-xs font-semibold">
+                          Profit Insights
+                        </span>
+                      </div>
+                      <h3 className="text-2xl lg:text-3xl font-bold text-on-background">
+                        Drive better decisions with intelligent insights
+                      </h3>
+                      <p className="text-base md:text-lg text-on-surface-variant leading-relaxed">
+                        Analyze sales trends, customer purchase patterns, and product performance to generate profitable combos and improve overall business performance.
+                      </p>
+                    </div>
+                    <div className="bg-surface-container-low/30 p-8 h-full flex items-center justify-center overflow-hidden">
+                      <img
+                        alt="Business Insights Dashboard"
+                        className="w-full max-w-[500px] h-auto rounded-xl shadow-2xl transition-transform duration-700 hover:scale-105"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuA1HD1h-3Gwyck2YVCpd89KTiyCDoH7TfHPIo--jkaQoS6gqvSmsh731prh86jChy7iaPnx7c47L-txGeUZMckVEHRkd4FtmM6fuJEmgPQerreS8VQsC4qtm2yQ9eakwySinplSott3teAOz1UChO6TGwt7_S1-xmxqv6EtpiHchigdeqIPJxp76cdIrPJssSBmwreTLwxwQIrD9W7vjfSJppnbTXfxTjjiAUvw5xOfwoLbAT-ab64IYeiPrEDk8iZSfZ-FAA_bEjp5"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        </section>
+          </section>
+
+          {/* Dashboard Preview Section 1: Smart Inventory */}
+          <section className="bg-white py-4 overflow-hidden">
+            <div className="w-full px-4 md:px-8 lg:px-12 grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-32 items-center">
+              {/* Left Side: Mockup Image */}
+              <div className="relative flex justify-center items-center">
+                <div className="relative w-full flex items-center justify-center">
+                  <img
+                    alt="Inventory Management Analytics"
+                    className="w-full max-w-[300px] lg:max-w-[330px] h-auto object-contain scale-[2.0] transition-all duration-500 hover:-translate-y-4 hover:scale-[1.55] hover:drop-shadow-2xl"
+                    src={smartInventoryImg}
+                  />
+                </div>
+              </div>
+
+              {/* Right Side: Content */}
+              <div className="space-y-4">
+                <h2 className="text-3xl font-bold text-on-surface">Smart Inventory &amp; Sales Intelligence</h2>
+                <p className="text-base text-on-surface-variant leading-relaxed">
+                  Manage your inventory with intelligent insights and real-time data. StockSense helps you monitor stock levels, predict demand, and make better decisions to improve efficiency and reduce losses.
+                </p>
+                <ul className="space-y-3">
+                  {[
+                    'Real-time inventory tracking and updates',
+                    'AI-based demand prediction and stock planning',
+                    'Automatic low stock and expiry alerts',
+                    'Identification of slow-moving and dead stock',
+                    'Smart discount suggestions for stock clearance',
+                  ].map((item, idx) => (
+                    <li key={idx} className="flex items-start gap-4">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center">
+                        <span className="material-symbols-outlined text-primary text-[18px]">check</span>
+                      </div>
+                      <span className="text-base text-on-surface-variant font-medium">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
         </div>
 
         {/* Dashboard Preview Section 2: Billing System */}
-        <section className="py-16" style={{ backgroundColor: '#DCE7E0' }}>
-          <div className="max-w-7xl mx-auto px-6 md:px-12 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6">
+        <section className="py-4" style={{ backgroundColor: '#DCE7E0' }}>
+          <div className="w-full px-4 md:px-8 lg:px-12 grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-32 items-center">
+            <div className="space-y-4">
               <h2 className="text-3xl font-bold text-on-background">Fast and Efficient Billing System</h2>
               <p className="text-base lg:text-lg text-on-surface-variant leading-relaxed">
                 Simplify checkout with a smooth POS interface that enables quick billing, accurate transactions, and real-time inventory updates.
@@ -295,7 +295,7 @@ export default function HomePage() {
             <div className="relative flex justify-center">
               <img
                 alt="Modern POS Billing Interface"
-                className="w-full max-w-[500px] h-auto object-contain transition-transform duration-700 hover:scale-105"
+                className="w-full max-w-[300px] lg:max-w-[330px] h-auto object-contain scale-[2.0] transition-all duration-500 hover:-translate-y-4 hover:scale-[1.55] hover:drop-shadow-2xl"
                 src={fastBillingImg}
               />
             </div>
@@ -303,16 +303,16 @@ export default function HomePage() {
         </section>
 
         {/* Dashboard Preview Section 3: Understand Your Business */}
-        <section className="py-16" style={{ backgroundColor: '#DCE7E0' }}>
-          <div className="max-w-7xl mx-auto px-6 md:px-12 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <section className="bg-white py-4">
+          <div className="w-full px-4 md:px-8 lg:px-12 grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-32 items-center">
             <div className="order-2 lg:order-1 relative group flex justify-center">
               <img
                 alt="Business Performance Analytics Dashboard"
-                className="w-full max-w-[500px] h-auto object-contain transition-transform duration-700 hover:scale-105"
+                className="w-full max-w-[300px] lg:max-w-[330px] h-auto object-contain scale-[2.0] transition-all duration-500 hover:-translate-y-4 hover:scale-[1.55] hover:drop-shadow-2xl"
                 src={businessInsightsImg}
               />
             </div>
-            <div className="order-1 lg:order-2 space-y-6">
+            <div className="order-1 lg:order-2 space-y-4">
               <h2 className="text-3xl font-bold text-on-background">Understand Your Business Better</h2>
               <p className="text-base lg:text-lg text-on-surface-variant leading-relaxed">
                 Gain valuable insights into sales and product performance to support better decision making and business growth.
@@ -336,9 +336,9 @@ export default function HomePage() {
         </section>
 
         {/* Dashboard Preview Section 4: Customer Visibility */}
-        <section className="bg-white py-16">
-          <div className="max-w-7xl mx-auto px-6 md:px-12 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6">
+        <section className="py-4" style={{ backgroundColor: '#DCE7E0' }}>
+          <div className="w-full px-4 md:px-8 lg:px-12 grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-32 items-center">
+            <div className="space-y-4">
               <h2 className="text-3xl font-bold text-on-background">Enhancing Customer Visibility</h2>
               <p className="text-base lg:text-lg text-on-surface-variant leading-relaxed">
                 Provide customers with easy access to product information, pricing, and promotions through a simple and user-friendly interface.
@@ -361,7 +361,7 @@ export default function HomePage() {
             <div className="relative group flex justify-center">
               <img
                 alt="Customer Facing Interface"
-                className="w-full max-w-[500px] h-auto object-contain transition-transform duration-700 hover:scale-105"
+                className="w-full max-w-[300px] lg:max-w-[330px] h-auto object-contain scale-[2.0] transition-all duration-500 hover:-translate-y-4 hover:scale-[1.55] hover:drop-shadow-2xl"
                 src={customerVisibilityImg}
               />
             </div>
