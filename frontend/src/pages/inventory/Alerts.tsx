@@ -1,4 +1,5 @@
-import Sidebar from '../../components/layout/Sidebar';
+import Sidebar from './Sidebar';
+import InventoryHeader from './InventoryHeader';
 
 export default function Alerts() {
   return (
@@ -6,17 +7,9 @@ export default function Alerts() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden bg-background relative">
         {/* Header */}
-        <header className="h-16 bg-surface-container-lowest border-b border-outline-variant flex items-center justify-between px-8 shrink-0">
+        <InventoryHeader>
           <h2 className="text-xl font-bold text-on-surface">Alerts</h2>
-          
-          <div className="flex items-center gap-5">
-            <button className="text-outline hover:text-on-surface transition-colors">
-              <span className="material-symbols-outlined text-xl">notifications</span>
-            </button>
-            <div className="h-6 w-px bg-slate-200 mx-1"></div>
-            <img src="https://ui-avatars.com/api/?name=Admin+User&background=0D8ABC&color=fff" alt="User" className="w-8 h-8 rounded-full border border-outline-variant cursor-pointer" />
-          </div>
-        </header>
+        </InventoryHeader>
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto px-8 py-6 flex flex-col relative items-center justify-center">

@@ -1,5 +1,8 @@
-import Sidebar from '../../components/layout/Sidebar';
+
+import Sidebar from "./Sidebar";
+import InventoryHeader from './InventoryHeader';
 import { Link, useNavigate } from 'react-router-dom';
+
 
 export default function Suppliers() {
   const navigate = useNavigate();
@@ -9,21 +12,13 @@ export default function Suppliers() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden bg-surface-container-lowest relative">
         {/* Header */}
-        <header className="h-16 bg-surface-container-lowest border-b border-outline-variant flex items-center justify-between px-8 shrink-0">
+        <InventoryHeader>
           <div className="flex items-center gap-3 text-sm">
             <Link to="/inventory" className="text-outline hover:text-on-surface font-medium">Suppliers</Link>
             <span className="material-symbols-outlined text-outline-variant text-sm">chevron_right</span>
             <span className="text-primary font-bold">New Supplier</span>
           </div>
-          
-          <div className="flex items-center gap-5">
-            <button className="text-outline hover:text-on-surface transition-colors">
-              <span className="material-symbols-outlined text-xl">notifications</span>
-            </button>
-            <div className="h-6 w-px bg-outline-variant/50 mx-1"></div>
-            <img src="https://ui-avatars.com/api/?name=Admin+User&background=0D8ABC&color=fff" alt="User" className="w-8 h-8 rounded-full border border-outline-variant cursor-pointer" />
-          </div>
-        </header>
+        </InventoryHeader>
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto px-8 py-6 flex flex-col relative pb-28">

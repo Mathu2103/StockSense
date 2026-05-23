@@ -1,4 +1,5 @@
-import Sidebar from '../../components/layout/Sidebar';
+import Sidebar from './Sidebar';
+import InventoryHeader from './InventoryHeader';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -14,33 +15,9 @@ export default function Category() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden bg-background relative">
         {/* Header */}
-        <header className="h-16 bg-surface-container-lowest border-b border-outline-variant flex items-center justify-between px-8 shrink-0">
+        <InventoryHeader>
           
-          {/* Search */}
-          <div className="relative w-96">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant text-sm">search</span>
-            <input 
-              type="text" 
-              placeholder="Search categories..." 
-              className="w-full pl-9 pr-4 py-2 bg-background border border-outline-variant rounded-full focus:ring-2 focus:ring-primary outline-none text-sm text-on-surface-variant"
-            />
-          </div>
-
-          {/* Actions */}
-          <div className="flex items-center gap-5">
-            <button className="text-outline hover:text-on-surface transition-colors">
-              <span className="material-symbols-outlined text-xl">notifications</span>
-            </button>
-            <button className="text-outline hover:text-on-surface transition-colors">
-              <span className="material-symbols-outlined text-xl">schedule</span>
-            </button>
-            <button className="text-outline hover:text-on-surface transition-colors">
-              <span className="material-symbols-outlined text-xl">storefront</span>
-            </button>
-            <div className="h-6 w-px bg-slate-200 mx-1"></div>
-            <img src="https://ui-avatars.com/api/?name=Admin+User&background=0D8ABC&color=fff" alt="User" className="w-8 h-8 rounded-full border border-outline-variant cursor-pointer" />
-          </div>
-        </header>
+        </InventoryHeader>
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto px-8 py-6 flex flex-col relative">

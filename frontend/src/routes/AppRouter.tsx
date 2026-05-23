@@ -14,13 +14,13 @@ import LoginPage from '../pages/auth/LoginPage'
 import UnauthorizedPage from '../pages/auth/UnauthorizedPage'
 
 import InventoryPage from '../pages/inventory/InventoryPage'
+import InventoryAnalytics from '../pages/inventory/InventoryAnalytics'
 import ProductManagement from '../pages/inventory/ProductManagement'
 import AddNewProduct from '../pages/inventory/AddNewProduct'
 import Category from '../pages/inventory/Categories'
 import InventoryAdjustments from '../pages/inventory/InventoryAdjustments'
 import Suppliers from '../pages/inventory/Suppliers'
-import PurchaseOrders from '../pages/inventory/PurchaseOrders'
-import PurchaseReceives from '../pages/inventory/PurchaseReceives'
+import PurchaseRecords from '../pages/inventory/PurchaseRecords'
 import StockMovements from '../pages/inventory/StockMovements'
 import Alerts from '../pages/inventory/Alerts'
 import Reports from '../pages/inventory/Reports'
@@ -50,13 +50,13 @@ export default function AppRouter() {
         <Route path="/login"        element={<LoginPage />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
         <Route path="/inventory"    element={<InventoryPage />} />
-        <Route path="/products"     element={<ProductManagement />} />
-        <Route path="/products/new" element={<AddNewProduct />} />
+        <Route path="/inventory-analytics" element={<InventoryAnalytics />} />
+        <Route path="/manage-products"     element={<ProductManagement />} />
+        <Route path="/manage-products/new" element={<AddNewProduct />} />
         <Route path="/categories"   element={<Category />} />
         <Route path="/inventory-adjustments" element={<InventoryAdjustments />} />
         <Route path="/suppliers"            element={<Suppliers />} />
-        <Route path="/purchase-orders"      element={<PurchaseOrders />} />
-        <Route path="/purchase-receives"    element={<PurchaseReceives />} />
+        <Route path="/purchase-records"     element={<PurchaseRecords />} />
         <Route path="/stock-movements"      element={<StockMovements />} />
         <Route path="/alerts"               element={<Alerts />} />
         <Route path="/reports"              element={<Reports />} />

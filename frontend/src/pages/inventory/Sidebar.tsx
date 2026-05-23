@@ -5,12 +5,12 @@ export default function Sidebar() {
 
   const navLinks = [
     { name: 'Dashboard', path: '/inventory', icon: 'grid_view' },
-    { name: 'Products', path: '/products', icon: 'inventory_2' },
+    { name: 'Inventory Analytics', path: '/inventory-analytics', icon: 'insights' },
+    { name: 'Products', path: '/manage-products', icon: 'inventory_2' },
     { name: 'Categories', path: '/categories', icon: 'category' },
     { name: 'Inventory Adjustments', path: '/inventory-adjustments', icon: 'sync_alt' },
     { name: 'Suppliers', path: '/suppliers', icon: 'local_shipping' },
-    { name: 'Purchase Orders', path: '/purchase-orders', icon: 'receipt_long' },
-    { name: 'Purchase Receives', path: '/purchase-receives', icon: 'inventory' },
+    { name: 'Purchase Records', path: '/purchase-records', icon: 'receipt_long' },
     { name: 'Stock Movements', path: '/stock-movements', icon: 'monitoring' },
     { name: 'Alerts', path: '/alerts', icon: 'notifications' },
     { name: 'Reports', path: '/reports', icon: 'bar_chart' },
