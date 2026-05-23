@@ -7,6 +7,11 @@ import fastBillingImg from '../../assets/images/pic2.png'
 import businessInsightsImg from '../../assets/images/pic3.png'
 import customerVisibilityImg from '../../assets/images/pic4.png'
 
+import vegeImg from '../../assets/images/vege.png'
+import flourImg from '../../assets/images/floor.png'
+import biscuitsImg from '../../assets/images/biscuits.png'
+import beveragesImg from '../../assets/images/beverages.png'
+
 export default function HomePage() {
   const navigate = useNavigate()
   const [currentTab, setCurrentTab] = useState(0)
@@ -368,20 +373,144 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* About Section */}
+        {/* Featured Categories Section */}
         <section className="py-20 bg-white">
-          <div className="max-w-7xl mx-auto px-6 md:px-12 text-center">
-            <div className="max-w-3xl mx-auto space-y-6">
-              <span className="text-primary text-xs font-bold uppercase tracking-widest block">
-                Our Mission
+          <div className="max-w-7xl mx-auto px-6 md:px-12">
+
+            {/* Header */}
+            <div className="text-center mb-12">
+              <span className="text-on-surface-variant text-xs font-semibold uppercase tracking-widest block mb-2">
+                SHOP @ Chamson Multi Shop
               </span>
-              <h2 className="text-3xl md:text-4xl font-extrabold text-on-background">
-                Bridge the gap between physical retail and digital intelligence.
+              <h2 className="text-2xl md:text-3xl font-extrabold text-on-background uppercase tracking-wide">
+                FEATURED CATEGORIES
               </h2>
-              <p className="text-base md:text-lg text-on-surface-variant leading-relaxed">
-                StockSense was founded on the belief that every retailer, regardless of size, deserves access to the same high-level intelligence tools used by global giants. We've distilled complex data science into a beautiful, breathable interface that empowers you to make smarter decisions daily.
+              <p className="text-sm md:text-base text-on-surface-variant mt-2">
+                Only high quality products available
               </p>
+              <div className="w-16 h-1 bg-primary mx-auto mt-4 rounded-full"></div>
             </div>
+
+            {/* Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[
+                { title: 'BEVERAGES', img: beveragesImg },
+                { title: 'FLOURS, DALS & RICE', img: flourImg },
+                { title: 'SNACKS & BISCUITS', img: biscuitsImg },
+                { title: 'VEGETABLES & FRUITS', img: vegeImg, imgClass: 'brightness-[1.05] contrast-[1.15]' },
+              ].map((category, idx) => (
+                <div
+                  key={idx}
+                  className="group relative block overflow-hidden bg-white border border-gray-200 rounded-xl aspect-[4/5] cursor-pointer transition-shadow hover:shadow-lg"
+                  onClick={() => navigate('/products')}
+                >
+                  {/* Product Image */}
+                  <div className="absolute inset-0 p-6 flex items-center justify-center">
+                    <img
+                      src={category.img}
+                      alt={category.title}
+                      className={`w-full h-full object-contain mix-blend-multiply transition-transform duration-300 group-hover:scale-110 ${category.imgClass || ''}`}
+                    />
+                  </div>
+
+                  {/* Dark Overlay (hidden by default, shows on hover) */}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors duration-300 z-10" />
+
+                  {/* Content Overlay */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
+                    <h3 className="text-white font-bold text-lg md:text-xl uppercase tracking-wider text-center px-4 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                      {category.title}
+                    </h3>
+
+                    {/* Hover Content */}
+                    <div className="opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-4 group-hover:translate-y-0 mt-2 flex flex-col items-center">
+                      <span className="text-white font-semibold text-sm border-b border-white pb-0.5 hover:text-primary hover:border-primary transition-colors">
+                        View More
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+          </div>
+        </section>
+        {/* Discount Details Section */}
+        <section className="py-20 bg-slate-50">
+          <div className="max-w-7xl mx-auto px-6 md:px-12">
+            
+            {/* Header */}
+            <div className="text-center mb-12">
+              <span className="text-on-surface-variant text-xs font-semibold uppercase tracking-widest block mb-2">
+                SPECIAL OFFERS
+              </span>
+              <h2 className="text-2xl md:text-3xl font-extrabold text-on-background uppercase tracking-wide">
+                DISCOUNT DETAILS
+              </h2>
+              <p className="text-sm md:text-base text-on-surface-variant mt-2">
+                Grab these amazing deals before they run out
+              </p>
+              <div className="w-16 h-1 bg-primary mx-auto mt-4 rounded-full"></div>
+            </div>
+
+            {/* Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[
+                { 
+                  discount: 'Save up to 49%', 
+                  title: 'WEEKEND LOYALTY OFFERS', 
+                  desc: '23 products • Ends today', 
+                  img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=800&h=600' // Groceries flatlay
+                },
+                { 
+                  discount: 'Flat 20% Off', 
+                  title: 'FRESH PRODUCE COMBO', 
+                  desc: '15 products • Ends tomorrow', 
+                  img: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&q=80&w=800&h=600' // Veggies/Fruits
+                },
+                { 
+                  discount: 'Buy 1 Get 1 Free', 
+                  title: 'PANTRY ESSENTIALS', 
+                  desc: '42 products • Limited time', 
+                  img: 'https://images.unsplash.com/photo-1506617420156-8e4536971650?auto=format&fit=crop&q=80&w=800&h=600' // Pantry/Grains
+                },
+              ].map((offer, idx) => (
+                <div 
+                  key={idx} 
+                  className="group relative block overflow-hidden rounded-2xl aspect-[16/9] lg:aspect-[4/3] cursor-pointer shadow-md transition-shadow hover:shadow-xl"
+                  onClick={() => navigate('/offers')}
+                >
+                  {/* Background Image */}
+                  <img 
+                    src={offer.img} 
+                    alt={offer.title} 
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                  
+                  {/* Dark Gradient Overlay for better contrast */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                  {/* Top Left Info Box */}
+                  <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-sm rounded-xl p-3 shadow-sm max-w-[75%] transition-transform duration-300 group-hover:-translate-y-1">
+                    <span className="text-[#00B488] font-bold text-sm block mb-1">
+                      {offer.discount}
+                    </span>
+                    <h3 className="text-gray-800 font-bold text-[11px] sm:text-xs uppercase tracking-wide leading-tight mb-1">
+                      {offer.title}
+                    </h3>
+                    <p className="text-gray-500 text-[10px] sm:text-[11px]">
+                      {offer.desc}
+                    </p>
+                  </div>
+                  
+                  {/* Bottom Right CTA Button */}
+                  <div className="absolute bottom-4 right-4 bg-[#00B488] text-white px-5 py-2 rounded-full text-sm font-bold shadow-md transition-transform duration-300 group-hover:scale-105 group-hover:-translate-y-1">
+                    View Offer
+                  </div>
+                </div>
+              ))}
+            </div>
+
           </div>
         </section>
 
