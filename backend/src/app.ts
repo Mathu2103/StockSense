@@ -8,8 +8,14 @@ import authRoutes from './routes/authRoutes.js'
 
 const app = express()
 
+// ── CORS ─────────────────────────────────────────────
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true, // IMPORTANT: Required for cookies
+}))
+
 // ── Security Middlewares ─────────────────────────────
-app.use(helmet()) // Set security HTTP headers
+app.use(helmet({ crossOriginResourcePolicy: false })) // Set security HTTP headers
 app.use(cookieParser()) // Parse HttpOnly cookies
 
 // ── Body Parser ───────────────────────────────────────
@@ -26,12 +32,6 @@ const authLimiter = rateLimit({
   max: process.env.NODE_ENV === 'production' ? 100 : 1000,
   message: { success: false, message: 'Too many requests from this IP, please try again later.' }
 })
-
-// ── CORS ─────────────────────────────────────────────
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true, // IMPORTANT: Required for cookies
-}))
 
 // ── Health Check ──────────────────────────────────────
 app.get('/', (_req: Request, res: Response) => {

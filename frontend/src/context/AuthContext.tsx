@@ -37,7 +37,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Proactively refresh the token first to get it into memory.
         // This avoids the initial 401 error on /me that scares developers in the console.
         const refreshRes = await axios.post(
-          `${import.meta.env.VITE_NODE_API_URL || 'http://localhost:5000/api'}/auth/refresh`,
+          `${import.meta.env.VITE_NODE_API_URL || 'http://localhost:5001/api'}/auth/refresh`,
           {},
           { withCredentials: true }
         )
