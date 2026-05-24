@@ -1,0 +1,225 @@
+import 'dotenv/config'
+import { Request, Response } from 'express'
+import bcrypt from 'bcryptjs'
+import { PrismaClient } from '@prisma/client'
+import { PrismaNeon } from '@prisma/adapter-neon'
+import { z } from 'zod'
+import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt.js'
+import { AuthRequest } from '../middlewares/authMiddleware.js'
+
+const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL! })
+const prisma = new PrismaClient({ adapter })
+
+// ─── Zod Schemas ────────────────────────────────────────────────────
+const loginSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters')
+})
+
+const REFRESH_TOKEN_COOKIE = 'stocksense_refresh'
+
+// ─── POST /api/auth/login ───────────────────────────────────────────
+export async function login(req: Request, res: Response): Promise<void> {
+  try {
+    const parsed = loginSchema.safeParse(req.body)
+    if (!parsed.success) {
+      res.status(401).json({ success: false, message: 'Invalid email or password.' })
+      return
+    }
+
+    const { email, password } = parsed.data
+
+    const user = await prisma.user.findUnique({ where: { email } })
+
+    if (!user || !user.isActive) {
+      res.status(401).json({ success: false, message: 'Invalid email or password.' })
+      return
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password)
+    if (!isMatch) {
+      res.status(401).json({ success: false, message: 'Invalid email or password.' })
+      return
+    }
+
+    const payload = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    }
+
+    // Sign both tokens
+    const accessToken = signAccessToken(payload)
+    const refreshToken = signRefreshToken(payload)
+
+    // Set Refresh Token in HttpOnly cookie
+    // Secure flag should be true in production (HTTPS)
+    res.cookie(REFRESH_TOKEN_COOKIE, refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    })
+
+    res.status(200).json({
+      success: true,
+      message: 'Login successful.',
+      data: {
+        token: accessToken, // Only send short-lived access token
+        user: payload,
+      },
+    })
+  } catch (err) {
+    console.error('[login error]', err)
+    res.status(500).json({ success: false, message: 'Internal server error.' })
+  }
+}
+
+// ─── POST /api/auth/refresh ─────────────────────────────────────────
+export async function refreshToken(req: Request, res: Response): Promise<void> {
+  try {
+    const token = req.cookies[REFRESH_TOKEN_COOKIE]
+
+    if (!token) {
+      res.status(401).json({ success: false, message: 'No refresh token provided.' })
+      return
+    }
+
+    const decoded = verifyRefreshToken(token)
+    
+    // Verify user still exists and is active
+    const user = await prisma.user.findUnique({ where: { id: decoded.id } })
+    if (!user || !user.isActive) {
+      res.status(401).json({ success: false, message: 'User deactivated or deleted.' })
+      return
+    }
+
+    const payload = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    }
+
+    const newAccessToken = signAccessToken(payload)
+
+    res.status(200).json({
+      success: true,
+      data: { token: newAccessToken, user: payload }
+    })
+  } catch (err) {
+    res.status(401).json({ success: false, message: 'Invalid or expired refresh token.' })
+  }
+}
+
+// ─── POST /api/auth/logout ──────────────────────────────────────────
+export async function logout(req: Request, res: Response): Promise<void> {
+  res.clearCookie(REFRESH_TOKEN_COOKIE, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+  })
+  res.status(200).json({ success: true, message: 'Logged out successfully.' })
+}
+
+// ─── GET /api/auth/me ───────────────────────────────────────────────
+export async function me(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+    })
+
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found.' })
+      return
+    }
+
+    res.status(200).json({ success: true, data: user })
+  } catch (err) {
+    console.error('[me error]', err)
+    res.status(500).json({ success: false, message: 'Internal server error.' })
+  }
+}
+
+// ─── POST /api/auth/users (Admin only — create cashier/manager) ──────
+export async function createUser(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const { name, email, password, role } = req.body
+
+    if (!name || !email || !password || !role) {
+      res.status(400).json({ success: false, message: 'name, email, password, and role are required.' })
+      return
+    }
+
+    if (!['CASHIER', 'INVENTORY_MANAGER'].includes(role)) {
+      res.status(400).json({ success: false, message: 'Role must be CASHIER or INVENTORY_MANAGER.' })
+      return
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email } })
+    if (existing) {
+      res.status(409).json({ success: false, message: 'Email already in use.' })
+      return
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12)
+
+    const newUser = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        role,
+        createdById: req.user!.id,
+      },
+      select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+    })
+
+    res.status(201).json({ success: true, message: 'User created successfully.', data: newUser })
+  } catch (err) {
+    console.error('[createUser error]', err)
+    res.status(500).json({ success: false, message: 'Internal server error.' })
+  }
+}
+
+// ─── GET /api/auth/users (Admin only — list all staff) ──────────────
+export async function listUsers(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const users = await prisma.user.findMany({
+      where: { role: { in: ['CASHIER', 'INVENTORY_MANAGER'] } },
+      select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    res.status(200).json({ success: true, data: users })
+  } catch (err) {
+    console.error('[listUsers error]', err)
+    res.status(500).json({ success: false, message: 'Internal server error.' })
+  }
+}
+
+// ─── PATCH /api/auth/users/:id/toggle (Admin only — activate/deactivate) ──
+export async function toggleUserStatus(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const id = req.params.id as string
+
+    const user = await prisma.user.findUnique({ where: { id } })
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found.' })
+      return
+    }
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { isActive: !user.isActive },
+      select: { id: true, name: true, email: true, role: true, isActive: true },
+    })
+
+    res.status(200).json({ success: true, data: updated })
+  } catch (err) {
+    console.error('[toggleUserStatus error]', err)
+    res.status(500).json({ success: false, message: 'Internal server error.' })
+  }
+}

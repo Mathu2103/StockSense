@@ -1,7 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function Sidebar() {
   const location = useLocation();
+  const { logout } = useAuth();
 
   const navLinks = [
     { name: 'Dashboard', path: '/inventory', icon: 'grid_view' },
@@ -49,7 +51,10 @@ export default function Sidebar() {
       </div>
 
       <div className="p-4 border-t border-outline-variant">
-        <button className="w-full flex items-center gap-3 px-3 py-2 text-on-surface-variant font-medium hover:bg-surface-container rounded-lg transition-colors">
+        <button 
+          onClick={logout}
+          className="w-full flex items-center gap-3 px-3 py-2 text-on-surface-variant font-medium hover:bg-surface-container rounded-lg transition-colors"
+        >
           <span className="material-symbols-outlined text-outline-variant">logout</span>
           Logout
         </button>

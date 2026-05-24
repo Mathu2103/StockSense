@@ -1,26 +1,65 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { ArrowLeft, User, Lock, Eye, EyeOff } from 'lucide-react'
+import { authService } from '@/services/authService'
+import { ArrowLeft, Mail, Lock, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react'
 import manImg from '@/assets/images/man.png'
 import groceryImg from '@/assets/images/grocery.png'
 
 export default function LoginPage() {
+  const [email,        setEmail]        = useState('')
+  const [password,     setPassword]     = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const { login } = useAuth()
-  const navigate = useNavigate()
+  const [loading,      setLoading]      = useState(false)
+  const [error,        setError]        = useState<string | null>(null)
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const { login, user, isAuthenticated, isLoading } = useAuth()
+  const navigate  = useNavigate()
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated && user && !isLoading) {
+      if (user.role === 'ADMIN') navigate('/admin')
+      else if (user.role === 'CASHIER') navigate('/cashier/pos')
+      else navigate('/inventory')
+    }
+  }, [isAuthenticated, user, isLoading, navigate])
+
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
-    login('mock-token')
-    navigate('/admin')
+    setError(null)
+
+    // Frontend Validation
+    if (!email.includes('@') || !email.includes('.') || password.length < 6) {
+      setError('Invalid email or password.')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await authService.login({ email, password })
+      login(res.data.token, res.data.user)
+      // Role-based redirect
+      if (res.data.user.role === 'ADMIN') {
+        navigate('/admin')
+      } else if (res.data.user.role === 'CASHIER') {
+        navigate('/cashier/pos')
+      } else {
+        navigate('/inventory')
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Login failed. Please try again.'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div className="h-screen w-full flex bg-white overflow-hidden font-sans">
+    <div className="min-h-screen lg:h-screen w-full flex flex-col lg:flex-row bg-[#12362a] lg:bg-white overflow-y-auto lg:overflow-hidden font-sans">
       
       {/* ── LEFT PANEL (White with Blobs) ── */}
-      <div className="relative w-full lg:w-[55%] h-full items-center justify-center bg-white z-0 hidden lg:flex">
+      <div className="relative w-full lg:w-[55%] h-full hidden lg:flex items-center justify-center bg-white z-0">
         
         {/* Scattered light green circles / Bubbles */}
         <div className="absolute top-[20%] left-[10%] w-16 h-16 rounded-full bg-[#d3e3dc] opacity-60 animate-float-1"></div>
@@ -77,12 +116,12 @@ export default function LoginPage() {
       </div>
 
       {/* ── RIGHT PANEL (Dark Green Form) ── */}
-      <div className="relative w-full lg:w-[45%] h-full bg-[#12362a] flex flex-col items-center justify-center z-10">
+      <div className="relative w-full lg:w-[45%] min-h-screen lg:h-full bg-[#12362a] flex flex-col items-center justify-center py-16 lg:py-0 z-10">
         
         {/* Back to Home Button (Top Left - Arrow Only) */}
         <button 
           onClick={() => navigate('/')} 
-          className="absolute top-8 left-8 flex items-center justify-center w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 text-white transition-all shadow-sm hover:shadow-md z-30 group"
+          className="absolute top-4 left-4 sm:top-8 sm:left-8 flex items-center justify-center w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 text-white transition-all shadow-sm hover:shadow-md z-30 group"
           aria-label="Back to Home"
         >
           <ArrowLeft size={20} className="group-hover:-translate-x-0.5 transition-transform" />
@@ -100,22 +139,25 @@ export default function LoginPage() {
         {/* Form Container */}
         <div className="relative z-20 w-full max-w-[400px] px-8 flex flex-col items-center">
           
-          <h1 className="text-[2.5rem] font-bold text-white tracking-wider mb-12">
+          <h1 className="text-3xl sm:text-4xl lg:text-[2.5rem] font-bold text-white tracking-wider mb-8 lg:mb-12">
             LOGIN
           </h1>
 
           <form onSubmit={handleSignIn} className="w-full flex flex-col gap-6">
             
-            {/* Username */}
+            {/* Email */}
             <div className="flex flex-col gap-1.5 w-full">
-              <label className="text-white/90 text-[15px] pl-1">Username</label>
+              <label className="text-white/90 text-[15px] pl-1">Email</label>
               <div className="flex items-center bg-[#295c4d] rounded-full px-4 py-2.5 w-full">
                 <div className="w-6 h-6 rounded-full border border-white/60 flex items-center justify-center mr-3 flex-shrink-0">
-                  <User size={14} className="text-white/80" />
+                  <Mail size={14} className="text-white/80" />
                 </div>
-                <input 
-                  type="text" 
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="bg-transparent border-none outline-none text-white w-full text-[15px]"
+                  placeholder="admin@stocksense.com"
                   required
                 />
               </div>
@@ -129,7 +171,9 @@ export default function LoginPage() {
                   <Lock size={14} className="text-white/80" />
                 </div>
                 <input 
-                  type={showPassword ? "text" : "password"} 
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className={`bg-transparent border-none outline-none text-white w-full text-[15px] ${!showPassword ? 'tracking-widest' : ''}`}
                   required
                 />
@@ -144,13 +188,23 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {/* Error Message */}
+            {error && (
+              <div className="flex items-center gap-2 bg-red-500/20 border border-red-400/30 rounded-xl px-4 py-2.5 text-red-300 text-[14px]">
+                <AlertCircle size={16} className="flex-shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
             {/* Login Button */}
-            <div className="flex justify-center mt-4">
-              <button 
-                type="submit" 
-                className="bg-[#488775] hover:bg-[#539684] text-white font-bold tracking-wider rounded-md px-14 py-2.5 transition-colors text-[15px]"
+            <div className="flex justify-center mt-2">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-[#488775] hover:bg-[#539684] disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold tracking-wider rounded-md px-14 py-2.5 transition-colors text-[15px] flex items-center gap-2"
               >
-                LOGIN
+                {loading && <Loader2 size={18} className="animate-spin" />}
+                {loading ? 'Signing in...' : 'LOGIN'}
               </button>
             </div>
 
