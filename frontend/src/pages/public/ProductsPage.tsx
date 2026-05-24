@@ -1,10 +1,5 @@
-import { useState } from 'react';
 import CategoryMarquee from '../../components/shared/CategoryMarquee/CategoryMarquee';
-import { useNavigate } from 'react-router-dom';
-
 export default function ProductsPage() {
-  const [activeTab, setActiveTab] = useState('All Items');
-  const navigate = useNavigate();
 
   const products = [
     {
