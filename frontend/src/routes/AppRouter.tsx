@@ -93,7 +93,7 @@ export default function AppRouter() {
           <ProtectedRoute allowedRoles={INVENTORY_ROLES}><Reports /></ProtectedRoute>
         } />
         <Route path="/settings" element={
-          <ProtectedRoute allowedRoles={['ADMIN']}><Settings /></ProtectedRoute>
+          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><Settings /></ProtectedRoute>
         } />
 
         {/* ══════════════════════════════════════════════
