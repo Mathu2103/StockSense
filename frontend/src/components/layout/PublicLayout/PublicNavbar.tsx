@@ -45,12 +45,12 @@ export default function PublicNavbar() {
             >
               Discount
             </Link>
-            <a
+            <Link
               className="text-on-surface-variant hover:text-primary text-sm transition-colors duration-200"
-              href="#"
+              to="/about"
             >
               About Us
-            </a>
+            </Link>
           </div>
           <button
             onClick={() => navigate('/login')}
