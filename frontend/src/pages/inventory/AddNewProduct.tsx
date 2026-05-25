@@ -1,59 +1,243 @@
 import Sidebar from './Components/Sidebar';
 import InventoryHeader from './Components/InventoryHeader';
-import { useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+
+type ModalType = 'category' | 'brand' | 'manufacturer' | 'supplier' | null;
+
+type SelectOption = {
+  id: number;
+  name: string;
+  parent?: string;
+};
+
+type FormState = {
+  name: string;
+  itemType: string;
+  categoryId: string;
+  brandId: string;
+  manufacturerId: string;
+  sku: string;
+  description: string;
+  supplierId: string;
+  supplierProductCode: string;
+};
+
+const initialCategories: SelectOption[] = [
+  { id: 1, name: 'Dairy & Eggs' },
+  { id: 2, name: 'Bakery' },
+  { id: 3, name: 'Pantry' },
+];
+
+const initialBrands: SelectOption[] = [
+  { id: 1, name: 'Fresh Farm' },
+  { id: 2, name: 'Golden Crust' },
+  { id: 3, name: 'Ocean Harvest' },
+];
+
+const initialManufacturers: SelectOption[] = [
+  { id: 1, name: 'General Mills' },
+  { id: 2, name: 'Nestle' },
+  { id: 3, name: 'Olive & Co' },
+];
+
+const initialSuppliers: SelectOption[] = [
+  { id: 1, name: 'FreshFarm Supplies' },
+  { id: 2, name: 'Golden Crust Bakery' },
+  { id: 3, name: 'Ocean Harvest' },
+];
 
 export default function AddNewProduct() {
   const navigate = useNavigate();
-  const [activeModal, setActiveModal] = useState<'category' | 'brand' | 'manufacturer' | 'supplier' | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const [activeModal, setActiveModal] = useState<ModalType>(null);
+  const [modalValue, setModalValue] = useState('');
+  const [modalParent, setModalParent] = useState('None (Root Category)');
+
+  const [categories, setCategories] = useState<SelectOption[]>(initialCategories);
+  const [brands, setBrands] = useState<SelectOption[]>(initialBrands);
+  const [manufacturers, setManufacturers] = useState<SelectOption[]>(initialManufacturers);
+  const [suppliers, setSuppliers] = useState<SelectOption[]>(initialSuppliers);
+
+  const [form, setForm] = useState<FormState>({
+    name: 'Organic Whole Milk',
+    itemType: 'Goods',
+    categoryId: '1',
+    brandId: '1',
+    manufacturerId: '1',
+    sku: 'MILK-ORG-1L',
+    description: 'Pasteurized whole milk for daily retail sale.',
+    supplierId: '1',
+    supplierProductCode: 'SUP-12345',
+  });
+
+  const [mainImage, setMainImage] = useState<string | null>(null);
+  const [galleryImages, setGalleryImages] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const selectedCategory = useMemo(
+    () => categories.find((category) => String(category.id) === form.categoryId),
+    [categories, form.categoryId],
+  );
+  const selectedBrand = useMemo(
+    () => brands.find((brand) => String(brand.id) === form.brandId),
+    [brands, form.brandId],
+  );
+  const selectedManufacturer = useMemo(
+    () => manufacturers.find((manufacturer) => String(manufacturer.id) === form.manufacturerId),
+    [manufacturers, form.manufacturerId],
+  );
+  const selectedSupplier = useMemo(
+    () => suppliers.find((supplier) => String(supplier.id) === form.supplierId),
+    [suppliers, form.supplierId],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (mainImage) URL.revokeObjectURL(mainImage);
+      galleryImages.forEach((image) => URL.revokeObjectURL(image));
+    };
+  }, [mainImage, galleryImages]);
+
+  const handleFieldChange = (field: keyof FormState) => (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    setForm((current) => ({ ...current, [field]: event.target.value }));
+  };
+
+  const handleImagePick = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const preview = URL.createObjectURL(file);
+    setMainImage((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return preview;
+    });
+  };
+
+  const handleGalleryPick = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) return;
+
+    setGalleryImages((current) => [...current, ...files.map((file) => URL.createObjectURL(file))].slice(0, 6));
+  };
+
+  const openFilePicker = () => fileInputRef.current?.click();
+
+  const addModalEntry = () => {
+    const value = modalValue.trim();
+    if (!value) return;
+
+    if (activeModal === 'category') {
+      const nextId = categories.length ? Math.max(...categories.map((category) => category.id)) + 1 : 1;
+      setCategories((current) => [...current, { id: nextId, name: value, parent: modalParent }]);
+      setForm((current) => ({ ...current, categoryId: String(nextId) }));
+    }
+
+    if (activeModal === 'brand') {
+      const nextId = brands.length ? Math.max(...brands.map((brand) => brand.id)) + 1 : 1;
+      setBrands((current) => [...current, { id: nextId, name: value }]);
+      setForm((current) => ({ ...current, brandId: String(nextId) }));
+    }
+
+    if (activeModal === 'manufacturer') {
+      const nextId = manufacturers.length ? Math.max(...manufacturers.map((manufacturer) => manufacturer.id)) + 1 : 1;
+      setManufacturers((current) => [...current, { id: nextId, name: value }]);
+      setForm((current) => ({ ...current, manufacturerId: String(nextId) }));
+    }
+
+    if (activeModal === 'supplier') {
+      const nextId = suppliers.length ? Math.max(...suppliers.map((supplier) => supplier.id)) + 1 : 1;
+      setSuppliers((current) => [...current, { id: nextId, name: value }]);
+      setForm((current) => ({ ...current, supplierId: String(nextId) }));
+    }
+
+    setModalValue('');
+    setModalParent('None (Root Category)');
+    setActiveModal(null);
+  };
+
+  const deleteModalEntry = (id: number) => {
+    if (activeModal === 'category') {
+      setCategories((current) => current.filter((item) => item.id !== id));
+    }
+
+    if (activeModal === 'brand') {
+      setBrands((current) => current.filter((item) => item.id !== id));
+    }
+
+    if (activeModal === 'manufacturer') {
+      setManufacturers((current) => current.filter((item) => item.id !== id));
+    }
+
+    if (activeModal === 'supplier') {
+      setSuppliers((current) => current.filter((item) => item.id !== id));
+    }
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSaving(true);
+
+    window.setTimeout(() => {
+      setSaving(false);
+      window.alert(`Saved draft product: ${form.name}`);
+      navigate('/manage-products');
+    }, 350);
+  };
+
+  const gallerySlots = 6;
 
   return (
-    <div className="flex h-screen bg-surface-container-lowest text-on-surface font-sans overflow-hidden">
+    <div className="flex min-h-screen overflow-x-hidden bg-surface-container-lowest font-sans text-on-surface">
       {/* Sidebar */}
       <Sidebar />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-surface-container-lowest">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-surface-container-lowest">
         {/* Header */}
         <InventoryHeader>
-          {/* Breadcrumbs */}
-          <div className="flex items-center gap-3 text-sm">
-            <Link to="/manage-products" className="text-outline hover:text-on-surface font-medium">Products</Link>
-            <span className="material-symbols-outlined text-outline-variant text-sm">chevron_right</span>
-            <span className="text-primary font-bold">Add New Item</span>
-          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            {/* Breadcrumbs */}
+            <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
+              <Link to="/manage-products" className="font-medium text-outline hover:text-on-surface">
+                Products
+              </Link>
+              <span className="material-symbols-outlined text-sm text-outline-variant">chevron_right</span>
+              <span className="truncate font-bold text-primary">Add New Item</span>
+            </div>
 
-          {/* Search */}
-          <div className="relative w-64 ml-8">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant text-sm">search</span>
-            <input
-              type="text"
-              placeholder="Search resources..."
-              className="w-full pl-9 pr-4 py-1.5 bg-background border border-outline-variant rounded-full focus:ring-2 focus:ring-primary outline-none text-sm text-on-surface-variant"
-            />
+            {/* Search */}
+            <div className="relative w-full sm:w-72 lg:w-80">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-sm text-outline-variant">search</span>
+              <input
+                type="text"
+                placeholder="Search resources..."
+                className="w-full rounded-full border border-outline-variant bg-background py-2 pl-9 pr-4 text-sm text-on-surface-variant outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
           </div>
         </InventoryHeader>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto px-8 py-6 bg-surface-container-lowest flex flex-col">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-surface-container-lowest px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+          <form className="mx-auto w-full max-w-[1100px] pb-10 sm:pb-12" onSubmit={handleSubmit}>
 
-          <div className="max-w-[1100px] w-full mx-auto pb-12">
-
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-on-surface mb-2 tracking-tight">Create New Inventory Item</h1>
+            <div className="mb-6 sm:mb-8">
+              <h1 className="mb-2 text-2xl font-bold tracking-tight text-on-surface sm:text-3xl">Create New Inventory Item</h1>
               <p className="text-on-surface-variant text-sm">Fill in the primary details to list a new product in the central warehouse.</p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
 
               {/* Left Column - Form */}
-              <div className="lg:col-span-2 space-y-6">
+              <div className="space-y-6 lg:col-span-2">
 
                 {/* Basic Details Panel */}
-                <div className="border border-outline-variant rounded-xl p-6 bg-surface-container-lowest shadow-sm">
-                  <div className="flex items-center gap-2 mb-6">
+                <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm sm:p-6">
+                  <div className="mb-5 flex items-center gap-2 sm:mb-6">
                     <span className="material-symbols-outlined text-primary text-xl">info</span>
-                    <h2 className="text-xl font-bold text-on-surface">Basic Details</h2>
+                    <h2 className="text-lg font-bold text-on-surface sm:text-xl">Basic Details</h2>
                   </div>
 
                   <div className="space-y-5">
@@ -62,18 +246,25 @@ export default function AddNewProduct() {
                       <label className="block text-sm font-medium text-on-surface-variant mb-1.5">Product Name *</label>
                       <input
                         type="text"
-                        defaultValue="e.g. Organic Whole Milk"
-                        className="w-full px-4 py-2 bg-background border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none text-sm text-on-surface-variant"
+                        value={form.name}
+                        onChange={handleFieldChange('name')}
+                        className="w-full rounded-lg border border-outline-variant bg-background px-4 py-2.5 text-sm text-on-surface-variant outline-none focus:ring-2 focus:ring-primary"
                       />
                     </div>
 
                     {/* Item Type & Category */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
                         <label className="block text-sm font-medium text-on-surface-variant mb-1.5">Item Type</label>
                         <div className="relative">
-                          <select className="w-full px-4 py-2 bg-background border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none text-sm text-on-surface-variant appearance-none">
+                          <select
+                            value={form.itemType}
+                            onChange={handleFieldChange('itemType')}
+                            className="w-full appearance-none rounded-lg border border-outline-variant bg-background px-4 py-2.5 text-sm text-on-surface-variant outline-none focus:ring-2 focus:ring-primary"
+                          >
                             <option>Goods</option>
+                            <option>Raw Material</option>
+                            <option>Finished Item</option>
                           </select>
                           <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant text-sm pointer-events-none">expand_more</span>
                         </div>
@@ -86,8 +277,16 @@ export default function AddNewProduct() {
                           </button>
                         </div>
                         <div className="relative">
-                          <select className="w-full px-4 py-2 bg-background border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none text-sm text-on-surface-variant appearance-none">
-                            <option>Dairy & Eggs</option>
+                          <select
+                            value={form.categoryId}
+                            onChange={handleFieldChange('categoryId')}
+                            className="w-full appearance-none rounded-lg border border-outline-variant bg-background px-4 py-2.5 text-sm text-on-surface-variant outline-none focus:ring-2 focus:ring-primary"
+                          >
+                            {categories.map((category) => (
+                              <option key={category.id} value={category.id}>
+                                {category.name}
+                              </option>
+                            ))}
                           </select>
                           <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant text-sm pointer-events-none">expand_more</span>
                         </div>
@@ -95,7 +294,7 @@ export default function AddNewProduct() {
                     </div>
 
                     {/* Brand & SKU */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
                         <div className="flex justify-between items-center mb-1.5">
                           <label className="text-sm font-medium text-on-surface-variant">Brand</label>
@@ -104,8 +303,16 @@ export default function AddNewProduct() {
                           </button>
                         </div>
                         <div className="relative">
-                          <select className="w-full px-4 py-2 bg-background border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none text-sm text-on-surface-variant appearance-none">
-                            <option>Select Brand</option>
+                          <select
+                            value={form.brandId}
+                            onChange={handleFieldChange('brandId')}
+                            className="w-full appearance-none rounded-lg border border-outline-variant bg-background px-4 py-2.5 text-sm text-on-surface-variant outline-none focus:ring-2 focus:ring-primary"
+                          >
+                            {brands.map((brand) => (
+                              <option key={brand.id} value={brand.id}>
+                                {brand.name}
+                              </option>
+                            ))}
                           </select>
                           <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant text-sm pointer-events-none">expand_more</span>
                         </div>
@@ -114,14 +321,15 @@ export default function AddNewProduct() {
                         <label className="block text-sm font-medium text-on-surface-variant mb-1.5">SKU (Stock Keeping Unit)</label>
                         <input
                           type="text"
-                          defaultValue="MILK-ORG-1L"
-                          className="w-full px-4 py-2 bg-background border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none text-sm text-on-surface-variant"
+                          value={form.sku}
+                          onChange={handleFieldChange('sku')}
+                          className="w-full rounded-lg border border-outline-variant bg-background px-4 py-2.5 text-sm text-on-surface-variant outline-none focus:ring-2 focus:ring-primary"
                         />
                       </div>
                     </div>
 
                     {/* Manufacturer (half width) */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
                         <div className="flex justify-between items-center mb-1.5">
                           <label className="text-sm font-medium text-on-surface-variant">Manufacturer</label>
@@ -130,8 +338,16 @@ export default function AddNewProduct() {
                           </button>
                         </div>
                         <div className="relative">
-                          <select className="w-full px-4 py-2 bg-background border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none text-sm text-on-surface-variant appearance-none">
-                            <option>Select Manufacturer</option>
+                          <select
+                            value={form.manufacturerId}
+                            onChange={handleFieldChange('manufacturerId')}
+                            className="w-full appearance-none rounded-lg border border-outline-variant bg-background px-4 py-2.5 text-sm text-on-surface-variant outline-none focus:ring-2 focus:ring-primary"
+                          >
+                            {manufacturers.map((manufacturer) => (
+                              <option key={manufacturer.id} value={manufacturer.id}>
+                                {manufacturer.name}
+                              </option>
+                            ))}
                           </select>
                           <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant text-sm pointer-events-none">expand_more</span>
                         </div>
@@ -144,12 +360,14 @@ export default function AddNewProduct() {
                       <textarea
                         placeholder="Brief details about the product..."
                         rows={4}
-                        className="w-full px-4 py-3 bg-background border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none text-sm text-on-surface-variant resize-none"
+                        value={form.description}
+                        onChange={handleFieldChange('description')}
+                        className="w-full resize-none rounded-lg border border-outline-variant bg-background px-4 py-3 text-sm text-on-surface-variant outline-none focus:ring-2 focus:ring-primary"
                       ></textarea>
                     </div>
 
                     {/* Supplier & Product Code */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
                         <div className="flex justify-between items-center mb-1.5">
                           <label className="text-sm font-medium text-on-surface-variant">Supplier</label>
@@ -158,8 +376,16 @@ export default function AddNewProduct() {
                           </button>
                         </div>
                         <div className="relative">
-                          <select className="w-full px-4 py-2 bg-background border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none text-sm text-on-surface-variant appearance-none">
-                            <option>Select Supplier</option>
+                          <select
+                            value={form.supplierId}
+                            onChange={handleFieldChange('supplierId')}
+                            className="w-full appearance-none rounded-lg border border-outline-variant bg-background px-4 py-2.5 text-sm text-on-surface-variant outline-none focus:ring-2 focus:ring-primary"
+                          >
+                            {suppliers.map((supplier) => (
+                              <option key={supplier.id} value={supplier.id}>
+                                {supplier.name}
+                              </option>
+                            ))}
                           </select>
                           <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant text-sm pointer-events-none">expand_more</span>
                         </div>
@@ -168,8 +394,9 @@ export default function AddNewProduct() {
                         <label className="block text-sm font-medium text-on-surface-variant mb-1.5">Supplier Product Code</label>
                         <input
                           type="text"
-                          defaultValue="SUP-12345"
-                          className="w-full px-4 py-2 bg-background border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none text-sm text-on-surface-variant"
+                          value={form.supplierProductCode}
+                          onChange={handleFieldChange('supplierProductCode')}
+                          className="w-full rounded-lg border border-outline-variant bg-background px-4 py-2.5 text-sm text-on-surface-variant outline-none focus:ring-2 focus:ring-primary"
                         />
                       </div>
                     </div>
@@ -178,7 +405,7 @@ export default function AddNewProduct() {
                 </div>
 
                 {/* Additional Panels (Just to match layout feeling if there's more below) */}
-                <div className="grid grid-cols-2 gap-6 opacity-30 pointer-events-none">
+                <div className="grid grid-cols-1 gap-4 opacity-30 pointer-events-none sm:grid-cols-2 sm:gap-6">
                   <div className="h-16 border border-outline-variant rounded-xl"></div>
                   <div className="h-16 border border-outline-variant rounded-xl"></div>
                 </div>
@@ -189,41 +416,100 @@ export default function AddNewProduct() {
               <div className="space-y-6">
 
                 {/* Item Media */}
-                <div className="border border-outline-variant rounded-xl p-6 bg-surface-container-lowest shadow-sm">
-                  <div className="flex items-center gap-2 mb-4">
+                <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm sm:p-6">
+                  <div className="mb-4 flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary text-xl">image</span>
-                    <h2 className="text-xl font-bold text-on-surface">Item Media</h2>
+                    <h2 className="text-lg font-bold text-on-surface sm:text-xl">Item Media</h2>
                   </div>
 
                   <div className="space-y-4">
                     <div>
                       <p className="text-sm font-medium text-on-surface-variant mb-2">Front View (Required)</p>
-                      <div className="w-full h-48 border-2 border-dashed border-outline rounded-xl bg-background flex flex-col items-center justify-center cursor-pointer hover:bg-surface-container transition-colors">
-                        <span className="material-symbols-outlined text-4xl text-slate-300 mb-2">add_photo_alternate</span>
-                        <p className="text-sm font-medium text-on-surface-variant mb-1">Click to upload main image</p>
-                        <p className="text-[10px] text-outline-variant">Max size: 5MB (PNG, JPG)</p>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={openFilePicker}
+                        className="flex h-40 w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-outline bg-background transition-colors hover:bg-surface-container sm:h-48"
+                      >
+                        {mainImage ? (
+                          <>
+                            <img src={mainImage} alt="Product preview" className="h-full w-full rounded-xl object-cover" />
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined mb-2 text-4xl text-slate-300">add_photo_alternate</span>
+                            <p className="mb-1 text-sm font-medium text-on-surface-variant">Click to upload main image</p>
+                            <p className="text-[10px] text-outline-variant">Max size: 5MB (PNG, JPG)</p>
+                          </>
+                        )}
+                      </button>
+                      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImagePick} />
                     </div>
 
                     <div>
                       <p className="text-sm font-medium text-on-surface-variant mb-2">Gallery Images</p>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="aspect-square border border-outline-variant rounded-lg bg-background flex items-center justify-center cursor-pointer hover:bg-surface-container transition-colors">
-                          <span className="material-symbols-outlined text-outline-variant">add</span>
-                        </div>
-                        <div className="aspect-square border border-outline-variant rounded-lg bg-background flex items-center justify-center cursor-pointer hover:bg-surface-container transition-colors">
-                          <span className="material-symbols-outlined text-outline-variant">add</span>
-                        </div>
-                        <div className="aspect-square border border-outline-variant rounded-lg bg-background flex items-center justify-center cursor-pointer hover:bg-surface-container transition-colors">
-                          <span className="material-symbols-outlined text-outline-variant">add</span>
-                        </div>
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        {galleryImages.map((image, index) => (
+                          <button key={image} type="button" className="aspect-square overflow-hidden rounded-lg border border-outline-variant bg-background transition-colors hover:bg-surface-container">
+                            <img src={image} alt={`Gallery ${index + 1}`} className="h-full w-full object-cover" />
+                          </button>
+                        ))}
+                        {Array.from({ length: Math.max(0, gallerySlots - galleryImages.length) }).map((_, index) => (
+                          <button
+                            key={`gallery-placeholder-${index}`}
+                            type="button"
+                            onClick={() => galleryInputRef.current?.click()}
+                            className="aspect-square rounded-lg border border-outline-variant bg-background transition-colors hover:bg-surface-container"
+                          >
+                            <div className="flex h-full w-full items-center justify-center">
+                              <span className="material-symbols-outlined text-outline-variant">add</span>
+                            </div>
+                          </button>
+                        ))}
                       </div>
+                      <input ref={galleryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryPick} />
                     </div>
                   </div>
                 </div>
 
+                <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm sm:p-6">
+                  <div className="mb-4 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary text-xl">visibility</span>
+                    <h2 className="text-lg font-bold text-on-surface sm:text-xl">Live Preview</h2>
+                  </div>
+                  <div className="space-y-3 rounded-xl border border-outline-variant bg-background p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-base font-semibold text-on-surface">{form.name}</p>
+                        <p className="text-sm text-outline">SKU: {form.sku}</p>
+                      </div>
+                      <span className="rounded-full bg-secondary-container px-3 py-1 text-xs font-semibold text-primary">
+                        {selectedCategory?.name ?? 'Category'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-outline">Brand</p>
+                        <p className="mt-1 font-semibold text-on-surface">{selectedBrand?.name ?? '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-outline">Supplier</p>
+                        <p className="mt-1 font-semibold text-on-surface">{selectedSupplier?.name ?? '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-outline">Manufacturer</p>
+                        <p className="mt-1 font-semibold text-on-surface">{selectedManufacturer?.name ?? '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-outline">Code</p>
+                        <p className="mt-1 font-semibold text-on-surface">{form.supplierProductCode}</p>
+                      </div>
+                    </div>
+                    <p className="text-sm leading-relaxed text-on-surface-variant">{form.description}</p>
+                  </div>
+                </div>
+
                 {/* Quick Tip */}
-                <div className="bg-primary rounded-xl p-6 text-white relative overflow-hidden shadow-md">
+                <div className="relative overflow-hidden rounded-xl bg-primary p-5 text-white shadow-md sm:p-6">
                   <div className="relative z-10">
                     <h3 className="font-bold mb-2">Quick Tip</h3>
                     <p className="text-sm text-blue-50 leading-relaxed">
@@ -235,38 +521,44 @@ export default function AddNewProduct() {
 
               </div>
 
+              <div className="shrink-0 border-t border-outline-variant bg-background px-4 py-4 sm:px-6 lg:px-8">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                  <span className="text-sm font-medium text-outline">Unsaved changes detected</span>
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:gap-4">
+                    <button
+                      type="button"
+                      onClick={() => navigate('/manage-products')}
+                      className="rounded-lg px-4 py-2.5 text-sm font-medium text-on-surface-variant transition-colors hover:text-on-surface sm:px-6"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      <span className="material-symbols-outlined text-sm">save</span>
+                      {saving ? 'Saving...' : 'Save Product'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
             </div>
 
-          </div>
+          </form>
 
         </main>
-
-        {/* Bottom Sticky Bar */}
-        <div className="bg-background border-t border-outline-variant px-8 py-4 flex items-center justify-between z-10 shrink-0">
-          <span className="text-sm font-medium text-outline">Unsaved changes detected</span>
-          <div className="flex gap-4">
-            <button
-              onClick={() => navigate('/manage-products')}
-              className="px-6 py-2.5 text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors"
-            >
-              Cancel
-            </button>
-            <button className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg text-sm font-medium hover:opacity-90 transition-colors shadow-sm">
-              <span className="material-symbols-outlined text-sm">save</span>
-              Save Product
-            </button>
-          </div>
-        </div>
 
       </div>
 
       {/* Modals */}
       {activeModal && (
-        <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-surface-container-lowest rounded-xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-3 backdrop-blur-sm sm:items-center sm:p-4">
+          <div className="flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-xl bg-surface-container-lowest shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             {/* Header */}
-            <div className="flex items-center justify-between p-5 border-b border-outline-variant/50">
-              <h2 className="text-lg font-bold text-on-surface">
+            <div className="flex items-center justify-between border-b border-outline-variant/50 p-4 sm:p-5">
+              <h2 className="text-base font-bold text-on-surface sm:text-lg">
                 {activeModal === 'category' ? 'Manage Categories' :
                   activeModal === 'brand' ? 'Manage Brands' :
                     activeModal === 'manufacturer' ? 'Manage Manufacturers' :
@@ -278,7 +570,7 @@ export default function AddNewProduct() {
             </div>
 
             {/* Body */}
-            <div className="p-6 space-y-6">
+            <div className="max-h-[calc(90vh-120px)] space-y-6 overflow-y-auto p-4 sm:p-6">
               <div>
                 <label className="block text-sm font-medium text-on-surface-variant mb-2">
                   {activeModal === 'category' ? 'Add New Category' :
@@ -286,17 +578,19 @@ export default function AddNewProduct() {
                       activeModal === 'manufacturer' ? 'Add New Manufacturer' :
                         'Add New Supplier'}
                 </label>
-                <div className="flex gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row">
                   <input
                     type="text"
+                    value={modalValue}
+                    onChange={(event) => setModalValue(event.target.value)}
                     placeholder={`e.g. ${activeModal === 'category' ? 'Snacks & Sweets' :
                       activeModal === 'brand' ? 'Nestle' :
                         activeModal === 'manufacturer' ? 'General Mills' :
                           'Acme Corp'
                       }`}
-                    className="flex-1 px-4 py-2 bg-background border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none text-sm text-on-surface-variant placeholder:text-outline-variant"
+                    className="flex-1 rounded-lg border border-outline-variant bg-background px-4 py-2.5 text-sm text-on-surface-variant outline-none placeholder:text-outline-variant focus:ring-2 focus:ring-primary"
                   />
-                  <button type="button" className="px-6 py-2 bg-primary text-white font-medium rounded-lg hover:opacity-90 transition-colors">
+                  <button type="button" onClick={addModalEntry} className="rounded-lg bg-primary px-6 py-2.5 font-medium text-white transition-colors hover:opacity-90">
                     Add
                   </button>
                 </div>
@@ -306,8 +600,15 @@ export default function AddNewProduct() {
                 <div>
                   <label className="block text-sm font-medium text-on-surface-variant mb-2">Parent Category</label>
                   <div className="relative">
-                    <select className="w-full px-4 py-2 bg-background border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none text-sm text-on-surface-variant appearance-none">
+                    <select
+                      value={modalParent}
+                      onChange={(event) => setModalParent(event.target.value)}
+                      className="w-full appearance-none rounded-lg border border-outline-variant bg-background px-4 py-2.5 text-sm text-on-surface-variant outline-none focus:ring-2 focus:ring-primary"
+                    >
                       <option>None (Root Category)</option>
+                      {categories.map((category) => (
+                        <option key={category.id}>{category.name}</option>
+                      ))}
                     </select>
                     <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant text-sm pointer-events-none">expand_more</span>
                   </div>
@@ -321,25 +622,40 @@ export default function AddNewProduct() {
                       activeModal === 'manufacturer' ? 'Manufacturers' :
                         'Suppliers'}
                 </label>
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-2 border border-outline-variant rounded-lg p-2 bg-background/50">
-                  <div className="flex items-center gap-3 p-3 bg-surface-container-lowest border border-outline-variant rounded-lg shadow-sm">
-                    <span className="material-symbols-outlined text-primary text-xl">
-                      {activeModal === 'category' ? 'folder' :
-                        activeModal === 'brand' ? 'label' :
-                          'factory'}
-                    </span>
-                    <span className="text-sm font-medium text-on-surface-variant">Samboo</span>
-                  </div>
+                <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-outline-variant bg-background/50 p-2 pr-2">
+                  {(activeModal === 'category' ? categories : activeModal === 'brand' ? brands : activeModal === 'manufacturer' ? manufacturers : suppliers).map((item) => (
+                    <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest p-3 shadow-sm">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="material-symbols-outlined text-xl text-primary">
+                          {activeModal === 'category' ? 'folder' :
+                            activeModal === 'brand' ? 'label' :
+                              'factory'}
+                        </span>
+                        <div className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-on-surface-variant">{item.name}</span>
+                          {item.parent && activeModal === 'category' ? <span className="block truncate text-[11px] text-outline">Parent: {item.parent}</span> : null}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => deleteModalEntry(item.id)}
+                        className="rounded-md p-1.5 text-outline-variant transition-colors hover:bg-background hover:text-red-600"
+                        aria-label={`Delete ${item.name}`}
+                      >
+                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="p-5 border-t border-outline-variant/50 flex justify-start bg-background">
+            <div className="flex justify-start border-t border-outline-variant/50 bg-background p-4 sm:p-5">
               <button
                 type="button"
                 onClick={() => setActiveModal(null)}
-                className="px-6 py-2 text-sm font-medium text-on-surface-variant bg-surface-container-lowest border border-outline rounded-lg hover:bg-background transition-colors shadow-sm"
+                className="rounded-lg border border-outline bg-surface-container-lowest px-6 py-2.5 text-sm font-medium text-on-surface-variant shadow-sm transition-colors hover:bg-background"
               >
                 Cancel
               </button>
@@ -347,6 +663,7 @@ export default function AddNewProduct() {
           </div>
         </div>
       )}
+
     </div>
   );
 }
