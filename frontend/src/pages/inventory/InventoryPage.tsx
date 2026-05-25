@@ -377,7 +377,14 @@ export default function InventoryPage() {
               <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col">
                 <div className="p-6 border-b border-slate-100 flex justify-between items-center">
                   <h3 className="font-bold text-lg text-slate-800">Priority Alerts</h3>
-                  <button className="text-sm text-[#0b8252] font-bold hover:underline">View All</button>
+                  <Link
+                    to="/alerts"
+                    className="inline-flex items-center gap-1 text-sm text-[#0b8252] font-bold hover:underline whitespace-nowrap"
+                    aria-label="Open alerts center"
+                  >
+                    View All
+                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                  </Link>
                 </div>
                 <div className="p-6 flex flex-col gap-6">
                   {/* Alert Item 1 */}
@@ -411,6 +418,16 @@ export default function InventoryPage() {
                       <p className="text-[11px] font-bold text-[#0b8252] mt-2">4 hours ago</p>
                     </div>
                   </div>
+                </div>
+
+                <div className="p-6 pt-0 mt-auto">
+                  <Link
+                    to="/alerts"
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-[#0b8252] bg-[#eef8f2] px-4 py-2.5 text-sm font-bold text-[#0b8252] transition-colors hover:bg-[#dcfce7]"
+                  >
+                    Open Alerts Center
+                    <span className="material-symbols-outlined text-[18px]">notifications</span>
+                  </Link>
                 </div>
               </div>
 
