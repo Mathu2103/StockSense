@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import Sidebar from './Components/Sidebar';
 import InventoryHeader from './Components/InventoryHeader';
 import StatusBadge from './Components/inventory/StatusBadge';
+import CategoryMarquee from '../../components/shared/CategoryMarquee/CategoryMarquee';
 
 type ProductStatus = 'In Stock' | 'Low Stock' | 'Out of Stock' | 'Expiring Soon';
 
@@ -27,6 +28,7 @@ export default function ProductManagement() {
   const [categoryFilter, setCategoryFilter] = useState('All Categories');
   const [supplierFilter, setSupplierFilter] = useState('All Suppliers');
   const [stockFilter, setStockFilter] = useState('All Stock Status');
+  const [activeView, setActiveView] = useState<'main' | 'all-products'>('main');
 
   const products: ProductItem[] = [
     {
@@ -124,6 +126,61 @@ export default function ProductManagement() {
     { label: 'Status', value: stockFilter },
   ];
 
+  const shopProducts = [
+    {
+      id: 1,
+      name: 'Midnight Velvet Roast',
+      price: '$24.99',
+      badge: 'Limited',
+      badgeClass: 'bg-[#1b4332] text-white',
+      image: 'https://images.unsplash.com/photo-1559525839-b184a4d698c7?q=80&w=600&auto=format&fit=crop'
+    },
+    {
+      id: 2,
+      name: 'Golden Maple Granola',
+      price: '$14.50',
+      image: 'https://images.unsplash.com/photo-1517673132405-a56a62b18caf?q=80&w=600&auto=format&fit=crop'
+    },
+    {
+      id: 3,
+      name: 'Pure Alpine Sparkling',
+      price: '$8.95',
+      image: 'https://images.unsplash.com/photo-1559553156-2e97137af16f?q=80&w=600&auto=format&fit=crop'
+    },
+    {
+      id: 4,
+      name: 'Botanical Defense',
+      price: '$22.00',
+      image: 'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?q=80&w=600&auto=format&fit=crop'
+    },
+    {
+      id: 5,
+      name: 'Artisan Sourdough',
+      price: '$6.50',
+      image: 'https://images.unsplash.com/photo-1589367920969-ab8e050eb0e9?q=80&w=600&auto=format&fit=crop'
+    },
+    {
+      id: 6,
+      name: 'Cold Brew Conc.',
+      price: '$12.00',
+      badge: 'Special',
+      badgeClass: 'bg-[#ffe4e6] text-[#be123c]',
+      image: 'https://images.unsplash.com/photo-1611162458324-aae1eb4129a4?q=80&w=600&auto=format&fit=crop'
+    },
+    {
+      id: 7,
+      name: 'Organic Honey',
+      price: '$9.00',
+      image: 'https://images.unsplash.com/photo-1587049352847-4d4b1ed748d1?q=80&w=600&auto=format&fit=crop'
+    },
+    {
+      id: 8,
+      name: 'Handcrafted Sea Salt',
+      price: '$14.00',
+      image: 'https://images.unsplash.com/photo-1507048331197-7d4ac70811cf?q=80&w=600&auto=format&fit=crop'
+    },
+  ];
+
   return (
     <div className="flex min-h-screen overflow-x-hidden bg-background font-sans text-on-surface">
       <Sidebar />
@@ -142,18 +199,30 @@ export default function ProductManagement() {
 
         <main className="flex-1 overflow-y-auto overflow-x-hidden bg-background p-4 sm:p-6">
           <div className="mx-auto max-w-[1400px] space-y-6">
-            <section className="flex flex-col gap-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm sm:p-5 lg:flex-row lg:items-end lg:justify-between">
+            {activeView === 'main' ? (
+              <>
+                <section className="flex flex-col gap-4 rounded-2xl border border-outline-variant bg-surface-container-lowest p-4 shadow-sm sm:p-5 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-on-surface sm:text-3xl">Product Inventory</h1>
                 <p className="mt-1 text-sm text-outline">Real-time management of stock levels and expiration dates.</p>
               </div>
-              <Link
-                to="/manage-products/new"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary sm:w-auto"
-              >
-                <span className="material-symbols-outlined text-sm">add</span>
-                Add New Product
-              </Link>
+              <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto mt-4 lg:mt-0">
+                <button
+                  type="button"
+                  onClick={() => setActiveView('all-products')}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-primary px-5 py-2.5 text-sm font-medium text-primary shadow-sm transition-colors hover:bg-primary/10 sm:w-auto"
+                >
+                  <span className="material-symbols-outlined text-sm">visibility</span>
+                  All Product Access
+                </button>
+                <Link
+                  to="/manage-products/new"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary sm:w-auto"
+                >
+                  <span className="material-symbols-outlined text-sm">add</span>
+                  Add New Product
+                </Link>
+              </div>
             </section>
 
             <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -486,6 +555,77 @@ export default function ProductManagement() {
                 </div>
               </div>
             </section>
+            </>
+          ) : (
+            <section className="min-h-[400px] flex flex-col gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-6 shadow-sm relative overflow-hidden">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-xl font-bold text-on-surface">Inventory Products</h2>
+                <button
+                  type="button"
+                  onClick={() => setActiveView('main')}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-outline-variant px-4 py-2 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-low"
+                >
+                  <span className="material-symbols-outlined text-sm">arrow_back</span>
+                  Back to Main
+                </button>
+              </div>
+
+              {/* Background Soft Glow */}
+              <div className="absolute top-[-15%] left-[-5%] w-[600px] h-[600px] bg-teal-800/10 rounded-full blur-[120px] pointer-events-none"></div>
+
+              <div className="relative z-10 w-full pb-8">
+                {/* Header Section */}
+                <div className="mb-8">
+                  <h1 className="text-[36px] md:text-[44px] lg:text-[48px] font-extrabold text-[#111827] leading-tight mb-6 tracking-tight">
+                    Shop by Categories
+                  </h1>
+                  <CategoryMarquee />
+                </div>
+
+                {/* Product Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {shopProducts.map((product) => (
+                    <div 
+                      key={product.id} 
+                      className="bg-white rounded-[20px] p-3 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-gray-100 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] transition-all duration-300 group cursor-pointer"
+                    >
+                      {/* Image Container */}
+                      <div className="bg-[#f4f6f8] rounded-[14px] h-48 relative overflow-hidden mb-4">
+                        <img 
+                          src={product.image} 
+                          alt={product.name} 
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        />
+                        
+                        {/* Badge */}
+                        {product.badge && (
+                          <span className={`absolute top-3 left-3 px-3 py-1 text-[10px] font-bold rounded-full shadow-sm z-10 ${product.badgeClass}`}>
+                            {product.badge}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Product Info */}
+                      <div className="px-2 pb-2">
+                        <h3 className="text-[13px] font-bold text-gray-800 mb-1.5 truncate">
+                          {product.name}
+                        </h3>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-gray-600 text-[15px] font-semibold">
+                            {product.price}
+                          </span>
+                          <button className="w-7 h-7 rounded-full bg-[#eff6ff] text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors">
+                            <span className="text-[16px] leading-none font-medium mb-[1px]">+</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
           </div>
         </main>
       </div>

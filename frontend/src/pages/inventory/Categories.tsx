@@ -3,9 +3,120 @@ import InventoryHeader from './Components/InventoryHeader';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
+const categoryData = [
+  {
+    id: 'dairy',
+    name: 'Dairy Products',
+    icon: '🥛',
+    image: 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?q=80&w=600&auto=format&fit=crop',
+    status: 'Low Stock',
+    statusClass: 'bg-[#d97706]',
+    skus: 124,
+    health: '25%',
+    children: [
+      { id: 'milk', name: 'Milk Products', products: [{ name: 'Whole Milk', price: '$4.50' }, { name: 'Skim Milk', price: '$4.00' }] },
+      { id: 'cheese', name: 'Cheese Products', products: [{ name: 'Cheddar Block', price: '$2.99' }] },
+      { id: 'yogurt', name: 'Yogurt & Desserts', products: [] },
+      { id: 'butter', name: 'Butter & Margarine', products: [] },
+      { id: 'cream', name: 'Cream Products', products: [] },
+    ]
+  },
+  {
+    id: 'food',
+    name: 'Food & Grains',
+    icon: '🍚',
+    image: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?q=80&w=600&auto=format&fit=crop',
+    status: 'In Stock',
+    statusClass: 'bg-emerald-600',
+    skus: 482,
+    health: '85%',
+    children: [
+      { id: 'rice', name: 'Rice & Grains', products: [] },
+      { id: 'flour', name: 'Flour Products', products: [] },
+      { id: 'pasta', name: 'Pasta & Noodles', products: [] },
+      { id: 'lentils', name: 'Lentils & Pulses', products: [] },
+      { id: 'breakfast', name: 'Breakfast Items', products: [] },
+    ]
+  },
+  {
+    id: 'beverages',
+    name: 'Beverages',
+    icon: '🥤',
+    image: 'https://images.unsplash.com/photo-1559553156-2e97137af16f?q=80&w=600&auto=format&fit=crop',
+    status: 'In Stock',
+    statusClass: 'bg-emerald-600',
+    skus: 310,
+    health: '75%',
+    children: [
+      { id: 'soft-drinks', name: 'Soft Drinks', products: [] },
+      { id: 'fruit-juices', name: 'Fruit Juices', products: [] },
+      { id: 'tea-coffee', name: 'Tea & Coffee', products: [] },
+      { id: 'energy-drinks', name: 'Energy Drinks', products: [] },
+      { id: 'bottled-water', name: 'Bottled Water', products: [] },
+    ]
+  },
+  {
+    id: 'snacks',
+    name: 'Snacks & Confectionery',
+    icon: '🍪',
+    image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=600&auto=format&fit=crop',
+    status: 'In Stock',
+    statusClass: 'bg-emerald-600',
+    skus: 520,
+    health: '65%',
+    children: [
+      { id: 'biscuits', name: 'Biscuits & Cookies', products: [] },
+      { id: 'chips', name: 'Chips & Crisps', products: [] },
+      { id: 'chocolates', name: 'Chocolates', products: [] },
+      { id: 'candy', name: 'Candy & Sweets', products: [] },
+      { id: 'bakery-snacks', name: 'Bakery Snacks', products: [] },
+    ]
+  },
+  {
+    id: 'household',
+    name: 'Household & Cleaning',
+    icon: '🧼',
+    image: 'https://images.unsplash.com/photo-1585906560946-17b5f13426e2?q=80&w=600&auto=format&fit=crop',
+    status: 'Critical',
+    statusClass: 'bg-red-600',
+    skus: 406,
+    health: '15%',
+    children: [
+      { 
+        id: 'laundry', 
+        name: 'Laundry Products', 
+        products: [
+          { name: 'Sunlight Liquid 1L', price: '$8.50' },
+          { name: 'Sunlight Power Powder 2kg', price: '$12.00' },
+          { name: 'Fabric Softener 500ml', price: '$4.20' }
+        ] 
+      },
+      { id: 'dishwashing', name: 'Dishwashing Items', products: [] },
+      { id: 'cleaning-chems', name: 'Cleaning Chemicals', products: [] },
+      { id: 'air-fresheners', name: 'Air Fresheners', products: [] },
+      { id: 'paper-tissues', name: 'Paper & Tissues', products: [] },
+    ]
+  },
+];
+
 export default function Category() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [hierarchy, setHierarchy] = useState<'parent' | 'sub'>('parent');
+
+  const [activeView, setActiveView] = useState<'parents' | 'children' | 'products'>('parents');
+  const [selectedParent, setSelectedParent] = useState<any>(null);
+  const [selectedChild, setSelectedChild] = useState<any>(null);
+
+  // View Handlers
+  const handleViewChildren = (parent: any) => {
+    setSelectedParent(parent);
+    setActiveView('children');
+  };
+
+  const handleViewProducts = (child: any) => {
+    setSelectedChild(child);
+    setActiveView('products');
+  };
 
   return (
     <div className="flex h-screen bg-background text-on-surface font-sans overflow-hidden">
@@ -29,179 +140,206 @@ export default function Category() {
               <div>
                 <div className="flex items-center gap-2 text-sm mb-2">
                   <span className="material-symbols-outlined text-outline text-[18px]">category</span>
-                  <span className="text-on-surface-variant font-medium">Categories</span>
+                  <button onClick={() => setActiveView('parents')} className="text-on-surface-variant font-medium hover:text-primary transition-colors">Categories</button>
                   <span className="material-symbols-outlined text-outline-variant text-sm">chevron_right</span>
-                  <span className="text-on-surface font-bold">All Parents</span>
+                  
+                  {activeView !== 'parents' && selectedParent && (
+                    <>
+                      <button onClick={() => setActiveView('children')} className="text-on-surface-variant font-medium hover:text-primary transition-colors">{selectedParent.name}</button>
+                      <span className="material-symbols-outlined text-outline-variant text-sm">chevron_right</span>
+                    </>
+                  )}
+                  
+                  <span className="text-on-surface font-bold">
+                    {activeView === 'parents' ? 'All Parents' : activeView === 'children' ? 'Sub-categories' : selectedChild?.name}
+                  </span>
                 </div>
-                <h1 className="text-3xl font-bold text-on-surface mb-1 tracking-tight">Parent Categories</h1>
-                <p className="text-on-surface-variant text-sm">Organize and track your high-level product catalogs.</p>
+                <h1 className="text-3xl font-bold text-on-surface mb-1 tracking-tight">
+                  {activeView === 'parents' ? 'Parent Categories' : activeView === 'children' ? selectedParent?.name : selectedChild?.name}
+                </h1>
+                <p className="text-on-surface-variant text-sm">
+                  {activeView === 'parents' ? 'Organize and track your high-level product catalogs.' : activeView === 'children' ? 'Manage sub-categories under this parent.' : 'Manage products in this sub-category.'}
+                </p>
               </div>
-              <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-colors shadow-sm shrink-0">
+              <button 
+                onClick={() => {
+                  setHierarchy(activeView === 'parents' ? 'parent' : 'sub');
+                  setIsModalOpen(true);
+                }} 
+                className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-colors shadow-sm shrink-0"
+              >
                 <span className="material-symbols-outlined text-sm">add</span>
-                Add New Category
+                Add New {activeView === 'parents' ? 'Category' : activeView === 'children' ? 'Sub-category' : 'Product'}
               </button>
             </div>
 
-            {/* Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Card 1 */}
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm">
-                <p className="text-[11px] font-bold text-outline uppercase tracking-wider mb-2">Total Categories</p>
-                <div className="flex items-end gap-2">
-                  <span className="text-3xl font-extrabold text-on-surface leading-none">24</span>
-                  <span className="text-xs font-bold text-emerald-600 mb-1">+2 this month</span>
+            {/* Metrics (Only on parents view for cleaner look) */}
+            {activeView === 'parents' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Card 1 */}
+                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm">
+                  <p className="text-[11px] font-bold text-outline uppercase tracking-wider mb-2">Total Categories</p>
+                  <div className="flex items-end gap-2">
+                    <span className="text-3xl font-extrabold text-on-surface leading-none">{categoryData.length}</span>
+                    <span className="text-xs font-bold text-emerald-600 mb-1">+2 this month</span>
+                  </div>
                 </div>
-              </div>
 
-              {/* Card 2 */}
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm">
-                <p className="text-[11px] font-bold text-outline uppercase tracking-wider mb-2">Total SKUs</p>
-                <div className="flex items-end gap-2">
-                  <span className="text-3xl font-extrabold text-on-surface leading-none">1,842</span>
+                {/* Card 2 */}
+                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm">
+                  <p className="text-[11px] font-bold text-outline uppercase tracking-wider mb-2">Total SKUs</p>
+                  <div className="flex items-end gap-2">
+                    <span className="text-3xl font-extrabold text-on-surface leading-none">
+                      {categoryData.reduce((acc, cat) => acc + cat.skus, 0).toLocaleString()}
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              {/* Card 3 */}
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm">
-                <p className="text-[11px] font-bold text-outline uppercase tracking-wider mb-2">Low Stock Categories</p>
-                <div className="flex items-end gap-2">
-                  <span className="text-3xl font-extrabold text-red-600 leading-none">3</span>
-                  <span className="text-xs font-medium text-red-600 mb-1">Requires attention</span>
+                {/* Card 3 */}
+                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm">
+                  <p className="text-[11px] font-bold text-outline uppercase tracking-wider mb-2">Low Stock Categories</p>
+                  <div className="flex items-end gap-2">
+                    <span className="text-3xl font-extrabold text-red-600 leading-none">1</span>
+                    <span className="text-xs font-medium text-red-600 mb-1">Requires attention</span>
+                  </div>
                 </div>
-              </div>
 
-              {/* Card 4 */}
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm">
-                <p className="text-[11px] font-bold text-outline uppercase tracking-wider mb-2">Last Sync</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="material-symbols-outlined text-outline-variant text-[20px]">sync</span>
-                  <span className="text-lg font-medium text-on-surface-variant">12 mins ago</span>
+                {/* Card 4 */}
+                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm">
+                  <p className="text-[11px] font-bold text-outline uppercase tracking-wider mb-2">Last Sync</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="material-symbols-outlined text-outline-variant text-[20px]">sync</span>
+                    <span className="text-lg font-medium text-on-surface-variant">12 mins ago</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Category Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-4">
-
-              {/* Grocery */}
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm flex flex-col hover:shadow-md transition-shadow">
-                <div className="h-32 relative">
-                  <img src="https://images.unsplash.com/photo-1578916171728-46686eac8d58?q=80&w=600&auto=format&fit=crop" alt="Grocery" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                  <span className="absolute bottom-3 left-3 bg-emerald-600 text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">In Stock</span>
-                </div>
-                <div className="p-5 flex-1 flex flex-col">
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-xl font-bold text-on-surface">Grocery</h3>
-                    <div className="flex items-center gap-1 text-primary bg-secondary-container px-2 py-1 rounded text-xs font-medium">
-                      <span className="material-symbols-outlined text-[14px]">account_tree</span>
-                      4 Sub-categories
-                    </div>
+              
+              {activeView === 'parents' && categoryData.map((category) => (
+                <div key={category.id} className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm flex flex-col hover:shadow-md transition-shadow">
+                  <div className="h-32 relative">
+                    <img src={category.image} alt={category.name} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                    <span className={`absolute bottom-3 left-3 ${category.statusClass} text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider`}>
+                      {category.status}
+                    </span>
                   </div>
-
-                  <div className="mt-auto">
-                    <div className="flex justify-between text-xs font-bold text-on-surface-variant mb-1.5">
-                      <span>Active SKUs</span>
-                      <span>482 items</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mb-5">
-                      <div className="h-full bg-emerald-600 rounded-full" style={{ width: '85%' }}></div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <button className="flex-1 bg-primary text-white py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-colors flex items-center justify-center gap-1">
-                        View Sub-categories <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                      </button>
-                      <button className="w-10 h-10 border border-outline-variant rounded-lg flex items-center justify-center text-outline hover:bg-background hover:text-on-surface-variant transition-colors shrink-0">
-                        <span className="material-symbols-outlined text-[20px]">settings</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Dairy */}
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm flex flex-col hover:shadow-md transition-shadow">
-                <div className="h-32 relative">
-                  <img src="https://images.unsplash.com/photo-1628088062854-d1870b4553da?q=80&w=600&auto=format&fit=crop" alt="Dairy" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                  <span className="absolute bottom-3 left-3 bg-[#d97706] text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Low Stock</span>
-                </div>
-                <div className="p-5 flex-1 flex flex-col">
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-xl font-bold text-on-surface">Dairy</h3>
-                    <div className="flex items-center gap-1 text-primary bg-secondary-container px-2 py-1 rounded text-xs font-medium">
-                      <span className="material-symbols-outlined text-[14px]">account_tree</span>
-                      4 Sub-categories
-                    </div>
-                  </div>
-
-                  <div className="mt-auto">
-                    <div className="flex justify-between text-xs font-bold text-on-surface-variant mb-1.5">
-                      <span>Active SKUs</span>
-                      <span>124 items</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mb-5">
-                      <div className="h-full bg-[#d97706] rounded-full" style={{ width: '25%' }}></div>
+                  <div className="p-5 flex-1 flex flex-col">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-xl font-bold text-on-surface flex items-center gap-2">
+                        {category.icon} {category.name}
+                      </h3>
+                      <div className="flex items-center gap-1 text-primary bg-secondary-container px-2 py-1 rounded text-xs font-medium">
+                        <span className="material-symbols-outlined text-[14px]">account_tree</span>
+                        {category.children.length} Sub
+                      </div>
                     </div>
 
-                    <div className="flex gap-2">
-                      <button className="flex-1 bg-primary text-white py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-colors flex items-center justify-center gap-1">
-                        View Sub-categories <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                      </button>
-                      <button className="w-10 h-10 border border-outline-variant rounded-lg flex items-center justify-center text-outline hover:bg-background hover:text-on-surface-variant transition-colors shrink-0">
-                        <span className="material-symbols-outlined text-[20px]">settings</span>
-                      </button>
+                    <div className="mt-auto">
+                      <div className="flex justify-between text-xs font-bold text-on-surface-variant mb-1.5">
+                        <span>Active SKUs</span>
+                        <span>{category.skus} items</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mb-5">
+                        <div className={`h-full ${category.statusClass} rounded-full`} style={{ width: category.health }}></div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => handleViewChildren(category)}
+                          className="flex-1 bg-primary text-white py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-colors flex items-center justify-center gap-1"
+                        >
+                          View Sub-categories <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              ))}
 
-              {/* Bakery */}
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm flex flex-col hover:shadow-md transition-shadow">
-                <div className="h-32 relative">
-                  <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=600&auto=format&fit=crop" alt="Bakery" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                  <span className="absolute bottom-3 left-3 bg-emerald-600 text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">In Stock</span>
-                </div>
-                <div className="p-5 flex-1 flex flex-col">
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-xl font-bold text-on-surface">Bakery</h3>
-                    <div className="flex items-center gap-1 text-primary bg-secondary-container px-2 py-1 rounded text-xs font-medium">
-                      <span className="material-symbols-outlined text-[14px]">account_tree</span>
-                      3 Sub-categories
+              {activeView === 'children' && selectedParent && selectedParent.children.map((child: any) => (
+                <div key={child.id} className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm flex flex-col hover:border-primary transition-colors cursor-pointer" onClick={() => handleViewProducts(child)}>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="w-12 h-12 bg-secondary-container text-primary rounded-xl flex items-center justify-center">
+                      <span className="material-symbols-outlined">category</span>
                     </div>
+                    <span className="bg-slate-100 text-on-surface-variant px-2 py-1 rounded text-xs font-bold">
+                      {child.products.length} Products
+                    </span>
                   </div>
+                  <h3 className="text-lg font-bold text-on-surface mb-1">{child.name}</h3>
+                  <p className="text-sm text-outline mb-6">Manage all products under {child.name}.</p>
+                  
+                  <button className="mt-auto w-full border border-outline-variant py-2 rounded-lg text-sm font-semibold text-on-surface-variant group-hover:bg-primary group-hover:text-white transition-colors flex items-center justify-center gap-1">
+                    Manage Products <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                  </button>
+                </div>
+              ))}
 
-                  <div className="mt-auto">
-                    <div className="flex justify-between text-xs font-bold text-on-surface-variant mb-1.5">
-                      <span>Active SKUs</span>
-                      <span>95 items</span>
+              {activeView === 'products' && selectedChild && (
+                <div className="col-span-1 md:col-span-2 lg:col-span-4">
+                  {selectedChild.products.length > 0 ? (
+                    <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm">
+                      <table className="w-full text-left text-sm text-on-surface-variant">
+                        <thead className="bg-background border-b border-outline-variant">
+                          <tr>
+                            <th className="px-6 py-4 font-bold text-outline uppercase tracking-wider text-xs">Product Name</th>
+                            <th className="px-6 py-4 font-bold text-outline uppercase tracking-wider text-xs">Price</th>
+                            <th className="px-6 py-4 font-bold text-outline uppercase tracking-wider text-xs text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {selectedChild.products.map((p: any, i: number) => (
+                            <tr key={i} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-6 py-4 font-semibold text-on-surface">{p.name}</td>
+                              <td className="px-6 py-4">{p.price}</td>
+                              <td className="px-6 py-4 flex justify-end gap-2">
+                                <button className="text-primary hover:bg-secondary-container p-1.5 rounded transition-colors"><span className="material-symbols-outlined text-sm">edit</span></button>
+                                <button className="text-red-500 hover:bg-red-50 p-1.5 rounded transition-colors"><span className="material-symbols-outlined text-sm">delete</span></button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mb-5">
-                      <div className="h-full bg-emerald-600 rounded-full" style={{ width: '70%' }}></div>
+                  ) : (
+                    <div className="bg-surface-container-lowest border border-dashed border-outline-variant rounded-xl p-12 flex flex-col items-center justify-center text-center">
+                      <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 text-outline-variant">
+                        <span className="material-symbols-outlined text-3xl">inventory_2</span>
+                      </div>
+                      <h3 className="text-lg font-bold text-on-surface mb-2">No Products Found</h3>
+                      <p className="text-sm text-outline max-w-sm mb-6">There are no products listed in {selectedChild.name} yet.</p>
+                      <button className="bg-primary text-white px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2">
+                        <span className="material-symbols-outlined text-sm">add</span> Add New Product
+                      </button>
                     </div>
+                  )}
+                </div>
+              )}
 
-                    <div className="flex gap-2">
-                      <button className="flex-1 bg-primary text-white py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-colors flex items-center justify-center gap-1">
-                        View Sub-categories <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                      </button>
-                      <button className="w-10 h-10 border border-outline-variant rounded-lg flex items-center justify-center text-outline hover:bg-background hover:text-on-surface-variant transition-colors shrink-0">
-                        <span className="material-symbols-outlined text-[20px]">settings</span>
-                      </button>
-                    </div>
+              {/* Add New Category button card (only in parents or children view) */}
+              {activeView !== 'products' && (
+                <button 
+                  onClick={() => {
+                    setHierarchy(activeView === 'parents' ? 'parent' : 'sub');
+                    setIsModalOpen(true);
+                  }} 
+                  className="border-2 border-dashed border-outline rounded-xl flex flex-col items-center justify-center min-h-[220px] text-outline hover:bg-surface-container hover:border-primary-fixed hover:text-primary transition-colors group"
+                >
+                  <div className="w-14 h-14 rounded-full bg-slate-100 group-hover:bg-secondary-container flex items-center justify-center mb-4 transition-colors">
+                    <span className="material-symbols-outlined text-2xl text-outline-variant group-hover:text-primary">add</span>
                   </div>
-                </div>
-              </div>
-
-              {/* Add New Category */}
-              <button onClick={() => setIsModalOpen(true)} className="border-2 border-dashed border-outline rounded-xl flex flex-col items-center justify-center min-h-[340px] text-outline hover:bg-surface-container hover:border-primary-fixed hover:text-primary transition-colors group">
-                <div className="w-14 h-14 rounded-full bg-slate-100 group-hover:bg-secondary-container flex items-center justify-center mb-4 transition-colors">
-                  <span className="material-symbols-outlined text-2xl text-outline-variant group-hover:text-primary">add</span>
-                </div>
-                <h3 className="text-xl font-bold text-on-surface-variant group-hover:text-primary mb-1">New Parent<br />Category</h3>
-                <p className="text-sm text-outline max-w-[160px] text-center">Create custom category for cataloging</p>
-              </button>
+                  <h3 className="text-xl font-bold text-on-surface-variant group-hover:text-primary mb-1">
+                    New {activeView === 'parents' ? 'Parent Category' : 'Sub-category'}
+                  </h3>
+                  <p className="text-sm text-outline max-w-[160px] text-center">
+                    {activeView === 'parents' ? 'Create custom category for cataloging' : `Add to ${selectedParent?.name}`}
+                  </p>
+                </button>
+              )}
 
             </div>
           </div>
