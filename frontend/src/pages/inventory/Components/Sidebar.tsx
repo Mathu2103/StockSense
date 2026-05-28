@@ -5,8 +5,6 @@ export default function Sidebar() {
   const location = useLocation();
   const { logout } = useAuth();
   const currentPath = location.pathname;
-  const searchParams = new URLSearchParams(location.search);
-  const activeTab = searchParams.get('tab') || '';
 
   // Active state utility
   const isLinkActive = (path: string) => {
