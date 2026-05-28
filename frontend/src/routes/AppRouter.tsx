@@ -24,6 +24,7 @@ import Category             from '../pages/inventory/Categories'
 import InventoryAdjustments from '../pages/inventory/InventoryAdjustments'
 import Suppliers            from '../pages/inventory/Suppliers'
 import PurchaseRecords      from '../pages/inventory/PurchaseRecords'
+import ProcurementManagement from '../pages/inventory/ProcurementManagement'
 import StockMovements       from '../pages/inventory/StockMovements'
 import Alerts               from '../pages/inventory/Alerts'
 import Reports              from '../pages/inventory/Reports'
@@ -82,10 +83,13 @@ export default function AppRouter() {
           <ProtectedRoute allowedRoles={INVENTORY_ROLES}><InventoryAdjustments /></ProtectedRoute>
         } />
         <Route path="/suppliers" element={
-          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><Suppliers /></ProtectedRoute>
+          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><ProcurementManagement /></ProtectedRoute>
         } />
         <Route path="/purchase-records" element={
-          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><PurchaseRecords /></ProtectedRoute>
+          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><ProcurementManagement /></ProtectedRoute>
+        } />
+        <Route path="/procurement" element={
+          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><ProcurementManagement /></ProtectedRoute>
         } />
         <Route path="/stock-movements" element={
           <ProtectedRoute allowedRoles={INVENTORY_ROLES}><StockMovements /></ProtectedRoute>
