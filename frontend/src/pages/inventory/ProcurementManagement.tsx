@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import Sidebar from "./Components/Sidebar";
 import InventoryHeader from './Components/InventoryHeader';
@@ -817,6 +817,25 @@ export default function ProcurementManagement() {
       productsTable
     };
   }, [purchasesList, suppliersList]);
+
+  useEffect(() => {
+    const action = searchParams.get('action');
+    if (action === 'new-supplier') {
+      handleOpenAddModal();
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev);
+        next.delete('action');
+        return next;
+      }, { replace: true });
+    } else if (action === 'record-purchase') {
+      handleOpenRecordPurchase();
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev);
+        next.delete('action');
+        return next;
+      }, { replace: true });
+    }
+  }, [searchParams]);
 
   return (
     <div className="flex h-screen bg-background text-on-surface font-sans overflow-hidden">
