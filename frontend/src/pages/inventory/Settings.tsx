@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Sidebar from "./Components/Sidebar";
 import InventoryHeader from "./Components/InventoryHeader";
+import SettingsProfile from "./Components/SettingComponent/SettingsProfile";
+import SettingsAccount from "./Components/SettingComponent/SettingsAccount";
 import SettingsStockRules from "./Components/SettingComponent/SettingsStockRules";
 import SettingsAlerts from "./Components/SettingComponent/SettingsAlerts";
 import SettingsExpiry from "./Components/SettingComponent/SettingsExpiry";
@@ -12,9 +15,12 @@ import SettingsData from "./Components/SettingComponent/SettingsData";
 import SettingsAnalytics from "./Components/SettingComponent/SettingsAnalytics";
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState('Stock Rules');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'Stock Rules';
 
   const tabs = [
+    { id: 'My Profile', icon: 'person' },
+    { id: 'Account Settings', icon: 'settings' },
     { id: 'Stock Rules', icon: 'rule' },
     { id: 'Alerts', icon: 'notifications' },
     { id: 'Expiry', icon: 'event_busy' },
@@ -25,6 +31,10 @@ export default function Settings() {
     { id: 'Data', icon: 'database' },
     { id: 'Analytics', icon: 'bar_chart' },
   ];
+
+  const setActiveTab = (tabId: string) => {
+    setSearchParams({ tab: tabId });
+  };
 
   return (
     <div className="flex h-screen bg-[#f8f9fa] text-slate-800 font-sans overflow-hidden">
@@ -62,8 +72,10 @@ export default function Settings() {
 
               {/* Right Content Area */}
               <div className="flex-1 flex flex-col bg-white overflow-hidden">
-                <div className="p-8 flex-1 overflow-y-auto">
+                <div className="p-8 flex-1 overflow-y-auto bg-slate-50/30">
                   
+                  {activeTab === 'My Profile' && <SettingsProfile />}
+                  {activeTab === 'Account Settings' && <SettingsAccount />}
                   {activeTab === 'Stock Rules' && <SettingsStockRules />}
                   {activeTab === 'Alerts' && <SettingsAlerts />}
                   {activeTab === 'Expiry' && <SettingsExpiry />}
