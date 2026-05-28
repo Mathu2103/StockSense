@@ -15,6 +15,10 @@ const mockSuppliers = [
     reliability: 96,
     onTime: 98,
     status: 'Active',
+    address: '123 Business Street, Colombo, Sri Lanka',
+    taxNumber: 'TN-2024-001',
+    yearEstablished: 2015,
+    rating: 4.8,
   },
   {
     id: '2',
@@ -27,6 +31,10 @@ const mockSuppliers = [
     reliability: 92,
     onTime: 95,
     status: 'Active',
+    address: '456 Trade Complex, Kandy, Sri Lanka',
+    taxNumber: 'TN-2024-002',
+    yearEstablished: 2018,
+    rating: 4.6,
   },
   {
     id: '3',
@@ -39,6 +47,10 @@ const mockSuppliers = [
     reliability: 85,
     onTime: 80,
     status: 'Active',
+    address: '789 Market Road, Galle, Sri Lanka',
+    taxNumber: 'TN-2024-003',
+    yearEstablished: 2012,
+    rating: 4.2,
   },
   {
     id: '4',
@@ -51,13 +63,83 @@ const mockSuppliers = [
     reliability: 65,
     onTime: 60,
     status: 'Inactive',
+    address: '321 Industrial Park, Jaffna, Sri Lanka',
+    taxNumber: 'TN-2024-004',
+    yearEstablished: 2016,
+    rating: 3.5,
   },
 ];
+
+// Local subcomponents (kept inside this file per request)
+const PerformanceRankingsPanel = ({ onSelect }: { onSelect: (s: any) => void }) => {
+  const top = [
+    { name: 'ABC Distributors', score: 96, label: 'Excellent' },
+    { name: 'Fresh Foods Ltd', score: 92, label: 'Good' },
+    { name: 'Lanka Grocery Suppliers', score: 85, label: 'Average' }
+  ];
+
+  return (
+    <div className="space-y-4">
+      {top.map((sup, idx) => (
+        <div
+          key={idx}
+          onClick={() => {
+            const supplier = mockSuppliers.find(s => s.name === sup.name);
+            if (supplier) onSelect(supplier);
+          }}
+          className="flex items-center justify-between p-3 bg-background rounded-lg border border-outline-variant hover:border-primary hover:bg-primary/5 transition-all cursor-pointer"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter') { const supplier = mockSuppliers.find(s => s.name === sup.name); if (supplier) onSelect(supplier); } }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-secondary-container text-primary flex items-center justify-center font-bold">{idx + 1}</div>
+            <div className="min-w-0">
+              <p className="font-semibold text-sm text-on-surface truncate">{sup.name}</p>
+              <p className="text-xs text-outline truncate">{sup.label} Performance</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="font-bold text-lg text-on-surface">{sup.score}%</p>
+            <p className="text-xs text-outline">Reliability</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const InsightsPanel = ({ onSelect }: { onSelect: (s: any) => void }) => {
+  const items = [
+    { title: 'ABC Distributors has the highest reliability score.', supplierName: 'ABC Distributors', tone: 'info', color: 'emerald' },
+    { title: 'Fresh Foods Ltd provides the fastest deliveries.', supplierName: 'Fresh Foods Ltd', tone: 'success', color: 'emerald' },
+    { title: 'XYZ Suppliers have experienced multiple delivery delays.', supplierName: 'XYZ Suppliers', tone: 'warning', color: 'red' },
+    { title: 'Consider using ABC Distributors for urgent replenishment.', supplierName: 'ABC Distributors', tone: 'recommend', color: 'amber' }
+  ];
+
+  return (
+    <div className="space-y-3">
+      {items.map((it, i) => (
+        <div
+          key={i}
+          onClick={() => { const supplier = mockSuppliers.find(s => s.name === it.supplierName); if (supplier) onSelect(supplier); }}
+          className="p-3 border rounded-lg hover:bg-surface-container cursor-pointer"
+          role="button"
+          tabIndex={0}
+        >
+          <p className="text-sm text-on-surface font-medium">{it.title}</p>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 export default function Suppliers() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<typeof mockSuppliers[0] | null>(null);
   const [activeView, setActiveView] = useState<'dashboard' | 'list'>('dashboard');
 
   const handleKpiClick = (status: string) => {
@@ -159,64 +241,24 @@ export default function Suppliers() {
               </div>
             </div>
 
-            {/* Smart Insights & Performance */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Performance Section */}
-              <div className="lg:col-span-2 bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm">
-                <h3 className="text-lg font-bold text-on-surface flex items-center gap-2 mb-4">
-                  <span className="material-symbols-outlined text-primary">leaderboard</span>
-                  Supplier Performance Rankings
-                </h3>
-                <div className="space-y-4">
-                  {[ 
-                    { name: 'ABC Distributors', score: 96, label: 'Excellent' },
-                    { name: 'Fresh Foods Ltd', score: 92, label: 'Good' },
-                    { name: 'Lanka Grocery Suppliers', score: 85, label: 'Average' }
-                  ].map((sup, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 bg-background rounded-lg border border-outline-variant">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-secondary-container text-primary flex items-center justify-center font-bold">{idx + 1}</div>
-                        <div>
-                          <p className="font-semibold text-sm text-on-surface">{sup.name}</p>
-                          <p className="text-xs text-outline">{sup.label} Performance</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-lg text-on-surface">{sup.score}%</p>
-                        <p className="text-xs text-outline">Reliability</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Insights */}
+            
+              {/* Performance & Insights Section */}
               <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm">
                 <h3 className="text-lg font-bold text-on-surface flex items-center gap-2 mb-4">
-                  <span className="material-symbols-outlined text-amber-500">lightbulb</span>
-                  Smart Insights
+                  <span className="material-symbols-outlined text-primary">leaderboard</span>
+                  Supplier Performance
                 </h3>
-                <div className="space-y-3">
-                  <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg flex items-start gap-3">
-                    <span className="material-symbols-outlined text-blue-500 text-[20px] mt-0.5">info</span>
-                    <p className="text-sm text-blue-900 font-medium"><strong>ABC Distributors</strong> has the highest reliability score.</p>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2">
+                    <PerformanceRankingsPanel onSelect={(s) => { setSelectedSupplier(s); setIsDetailModalOpen(true); }} />
                   </div>
-                  <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg flex items-start gap-3">
-                    <span className="material-symbols-outlined text-emerald-500 text-[20px] mt-0.5">local_shipping</span>
-                    <p className="text-sm text-emerald-900 font-medium"><strong>Fresh Foods Ltd</strong> provides the fastest deliveries.</p>
-                  </div>
-                  <div className="p-3 bg-red-50 border border-red-100 rounded-lg flex items-start gap-3">
-                    <span className="material-symbols-outlined text-red-500 text-[20px] mt-0.5">warning</span>
-                    <p className="text-sm text-red-900 font-medium"><strong>XYZ Suppliers</strong> have experienced multiple delivery delays.</p>
-                  </div>
-                  <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg flex items-start gap-3">
-                    <span className="material-symbols-outlined text-amber-600 text-[20px] mt-0.5">recommend</span>
-                    <p className="text-sm text-amber-900 font-medium">Consider using <strong>ABC Distributors</strong> for urgent replenishment.</p>
+                  <div>
+                    <div className="text-sm text-outline mb-3 font-semibold uppercase tracking-wider">Smart Insights</div>
+                    <InsightsPanel onSelect={(s) => { setSelectedSupplier(s); setIsDetailModalOpen(true); }} />
                   </div>
                 </div>
               </div>
-            </div>
-
             {/* List & Filters */}
             <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden flex flex-col">
               <div className="p-4 border-b border-outline-variant flex flex-wrap items-center gap-4 bg-background">
@@ -269,7 +311,10 @@ export default function Suppliers() {
                       </tr>
                     ) : (
                       filteredSuppliers.map((s) => (
-                        <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                        <tr key={s.id} onClick={() => {
+                          setSelectedSupplier(s);
+                          setIsDetailModalOpen(true);
+                        }} className="hover:bg-slate-50 transition-colors cursor-pointer">
                           <td className="px-6 py-3">
                             <div className="font-semibold text-on-surface">{s.name}</div>
                             <div className="text-xs text-outline">{s.company}</div>
@@ -295,16 +340,20 @@ export default function Suppliers() {
                           </td>
                           <td className="px-6 py-3 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              <button className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Create PO">
+                              <button onClick={(e) => { e.stopPropagation(); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Create PO">
                                 <span className="material-symbols-outlined text-[18px]">receipt_long</span>
                               </button>
-                              <button className="p-1.5 text-primary hover:bg-secondary-container rounded transition-colors">
+                              <button onClick={(e) => { 
+                                e.stopPropagation();
+                                setSelectedSupplier(s);
+                                setIsDetailModalOpen(true);
+                              }} className="p-1.5 text-primary hover:bg-secondary-container rounded transition-colors">
                                 <span className="material-symbols-outlined text-[18px]">visibility</span>
                               </button>
-                              <button className="p-1.5 text-outline hover:text-on-surface rounded transition-colors">
+                              <button onClick={(e) => { e.stopPropagation(); }} className="p-1.5 text-outline hover:text-on-surface rounded transition-colors">
                                 <span className="material-symbols-outlined text-[18px]">edit</span>
                               </button>
-                              <button className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors">
+                              <button onClick={(e) => { e.stopPropagation(); }} className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors">
                                 <span className="material-symbols-outlined text-[18px]">delete</span>
                               </button>
                             </div>
@@ -320,6 +369,217 @@ export default function Suppliers() {
           </div>
         </main>
       </div>
+
+      {/* Supplier Detail Modal */}
+      {isDetailModalOpen && selectedSupplier && (
+        <div className="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-surface-container-lowest rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-outline-variant">
+              <div className="flex items-center gap-4 flex-1">
+                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <span className="material-symbols-outlined text-2xl text-primary">business</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-xl font-bold text-on-surface truncate">{selectedSupplier.name}</h2>
+                  <p className="text-sm text-outline truncate">{selectedSupplier.company}</p>
+                </div>
+              </div>
+              <button onClick={() => setIsDetailModalOpen(false)} className="text-outline hover:text-on-surface flex-shrink-0">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="overflow-y-auto flex-1">
+              <div className="p-6 space-y-6">
+
+                {/* Status & Rating */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedSupplier.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'}`}>
+                      {selectedSupplier.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {[...Array(5)].map((_, i) => (
+                      <span
+                        key={i}
+                        className={`material-symbols-outlined text-sm ${
+                          i < Math.floor(selectedSupplier.rating)
+                            ? 'text-amber-500'
+                            : 'text-outline-variant'
+                        }`}
+                      >
+                        star
+                      </span>
+                    ))}
+                    <span className="text-xs text-outline ml-1">{selectedSupplier.rating}/5.0</span>
+                  </div>
+                </div>
+
+                {/* Key Metrics */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-background border border-outline-variant rounded-lg p-3">
+                    <div className="text-xs font-bold uppercase tracking-wider text-outline mb-1">Products</div>
+                    <div className="text-2xl font-extrabold text-on-surface">{selectedSupplier.products}</div>
+                  </div>
+                  <div className="bg-background border border-outline-variant rounded-lg p-3">
+                    <div className="text-xs font-bold uppercase tracking-wider text-primary mb-1">Reliability</div>
+                    <div className="text-2xl font-extrabold text-on-surface">{selectedSupplier.reliability}%</div>
+                  </div>
+                  <div className="bg-background border border-outline-variant rounded-lg p-3">
+                    <div className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-1">On-Time</div>
+                    <div className="text-2xl font-extrabold text-on-surface">{selectedSupplier.onTime}%</div>
+                  </div>
+                  <div className="bg-background border border-outline-variant rounded-lg p-3">
+                    <div className="text-xs font-bold uppercase tracking-wider text-purple-600 mb-1">Est. Year</div>
+                    <div className="text-2xl font-extrabold text-on-surface">{selectedSupplier.yearEstablished}</div>
+                  </div>
+                </div>
+
+                {/* Contact & Business Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Contact Information */}
+                  <div className="border border-outline-variant rounded-lg p-4 bg-background">
+                    <h3 className="font-bold text-on-surface mb-4 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary">contact_mail</span>
+                      Contact Info
+                    </h3>
+                    <div className="space-y-3 text-sm">
+                      <div>
+                        <label className="text-xs font-bold uppercase tracking-wider text-outline block mb-0.5">Person</label>
+                        <p className="text-on-surface font-medium">{selectedSupplier.contact}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold uppercase tracking-wider text-outline block mb-0.5">Phone</label>
+                        <a href={`tel:${selectedSupplier.phone}`} className="text-primary hover:underline font-medium">
+                          {selectedSupplier.phone}
+                        </a>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold uppercase tracking-wider text-outline block mb-0.5">Email</label>
+                        <a href={`mailto:${selectedSupplier.email}`} className="text-primary hover:underline font-medium break-all text-xs">
+                          {selectedSupplier.email}
+                        </a>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold uppercase tracking-wider text-outline block mb-0.5">Address</label>
+                        <p className="text-on-surface font-medium text-xs">{selectedSupplier.address}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Business Information */}
+                  <div className="border border-outline-variant rounded-lg p-4 bg-background">
+                    <h3 className="font-bold text-on-surface mb-4 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary">business_center</span>
+                      Business Info
+                    </h3>
+                    <div className="space-y-3 text-sm">
+                      <div>
+                        <label className="text-xs font-bold uppercase tracking-wider text-outline block mb-0.5">Company</label>
+                        <p className="text-on-surface font-medium">{selectedSupplier.company}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold uppercase tracking-wider text-outline block mb-0.5">Tax Number</label>
+                        <p className="text-on-surface font-medium">{selectedSupplier.taxNumber}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold uppercase tracking-wider text-outline block mb-0.5">Status</label>
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2.5 h-2.5 rounded-full ${selectedSupplier.status === 'Active' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                          <p className="text-on-surface font-medium">{selectedSupplier.status}</p>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold uppercase tracking-wider text-outline block mb-0.5">Performance</label>
+                        <span className={`px-2 py-0.5 rounded text-xs font-bold inline-block ${
+                          selectedSupplier.reliability > 90 ? 'bg-emerald-100 text-emerald-800' :
+                          selectedSupplier.reliability > 80 ? 'bg-amber-100 text-amber-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {selectedSupplier.reliability > 90 ? 'Excellent' : selectedSupplier.reliability > 80 ? 'Good' : 'Average'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Performance Bars */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-background border border-outline-variant rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-semibold text-on-surface">Reliability Score</label>
+                      <span className="text-lg font-bold text-on-surface">{selectedSupplier.reliability}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${selectedSupplier.reliability > 90 ? 'bg-emerald-500' : selectedSupplier.reliability > 80 ? 'bg-amber-500' : 'bg-red-500'}`}
+                        style={{ width: `${selectedSupplier.reliability}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-outline mt-2">Consistency in quality delivery</p>
+                  </div>
+
+                  <div className="bg-background border border-outline-variant rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-semibold text-on-surface">On-Time Delivery</label>
+                      <span className="text-lg font-bold text-on-surface">{selectedSupplier.onTime}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${selectedSupplier.onTime > 90 ? 'bg-emerald-500' : selectedSupplier.onTime > 80 ? 'bg-amber-500' : 'bg-red-500'}`}
+                        style={{ width: `${selectedSupplier.onTime}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-outline mt-2">Last 6 months performance</p>
+                  </div>
+                </div>
+
+                {/* Smart Insights */}
+                <div className="border border-outline-variant rounded-lg p-4 bg-background">
+                  <h3 className="font-bold text-on-surface mb-3 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-amber-500 text-[20px]">lightbulb</span>
+                    Smart Insights
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    {selectedSupplier.reliability > 90 && (
+                      <div className="p-2 bg-emerald-50 border border-emerald-100 rounded flex items-start gap-2">
+                        <span className="material-symbols-outlined text-emerald-500 text-[16px] flex-shrink-0 mt-0.5">verified</span>
+                        <p className="text-emerald-900 font-medium text-xs">Excellent reliability - recommended for critical items</p>
+                      </div>
+                    )}
+                    {selectedSupplier.onTime > 95 && (
+                      <div className="p-2 bg-blue-50 border border-blue-100 rounded flex items-start gap-2">
+                        <span className="material-symbols-outlined text-blue-500 text-[16px] flex-shrink-0 mt-0.5">local_shipping</span>
+                        <p className="text-blue-900 font-medium text-xs">Outstanding on-time delivery - great for JIT orders</p>
+                      </div>
+                    )}
+                    {selectedSupplier.reliability < 75 && (
+                      <div className="p-2 bg-red-50 border border-red-100 rounded flex items-start gap-2">
+                        <span className="material-symbols-outlined text-red-500 text-[16px] flex-shrink-0 mt-0.5">warning</span>
+                        <p className="text-red-900 font-medium text-xs">Lower reliability - consider diversifying suppliers</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-outline-variant flex justify-end gap-3 bg-background">
+              <button onClick={() => setIsDetailModalOpen(false)} className="px-5 py-2.5 text-sm font-medium border border-outline-variant rounded-lg hover:bg-surface-container transition-colors text-on-surface">Close</button>
+              <button className="px-5 py-2.5 text-sm font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors shadow-sm flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px]">receipt_long</span>
+                Create PO
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Supplier Modal */}
       {isAddModalOpen && (
