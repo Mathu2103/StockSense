@@ -11,14 +11,16 @@ export default function Sidebar() {
     if (path === '/procurement') {
       return currentPath === '/procurement' || currentPath === '/suppliers' || currentPath === '/purchase-records';
     }
+    if (path === '/manage-products') {
+      return currentPath === '/manage-products' || currentPath === '/categories';
+    }
     return currentPath === path;
   };
 
   const navLinks = [
     { name: 'Dashboard', path: '/inventory', icon: 'grid_view' },
     { name: 'Inventory Analytics', path: '/inventory-analytics', icon: 'trending_up' },
-    { name: 'Products', path: '/manage-products', icon: 'inventory_2' },
-    { name: 'Categories', path: '/categories', icon: 'category' },
+    { name: 'Product Catalog', path: '/manage-products', icon: 'inventory_2' },
     { name: 'Inventory Adjustments', path: '/inventory-adjustments', icon: 'sync_alt' },
     { name: 'Procurement Management', path: '/procurement', icon: 'local_shipping' },
     { name: 'Stock Movements', path: '/stock-movements', icon: 'monitoring' },

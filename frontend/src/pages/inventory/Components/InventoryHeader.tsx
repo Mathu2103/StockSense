@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
 
 interface InventoryHeaderProps {
@@ -506,16 +506,73 @@ export default function InventoryHeader({ children }: InventoryHeaderProps) {
   const [time, setTime] = useState(new Date());
   // Single active state to make sure only ONE dropdown is open at a time
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const location = useLocation();
+  const currentPath = location.pathname;
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
+  // Generate breadcrumb path automatically based on current location
+  const getBreadcrumbs = () => {
+    if (currentPath === '/inventory') {
+      return (
+        <span className="text-[14.5px] font-extrabold text-[#0b8252] tracking-tight">Inventory</span>
+      );
+    }
+
+    let pageLabel = '';
+    if (currentPath.startsWith('/manage-products')) {
+      pageLabel = 'Product Catalog';
+    } else if (currentPath.startsWith('/inventory-analytics')) {
+      pageLabel = 'Analytics';
+    } else if (currentPath.startsWith('/inventory-adjustments')) {
+      pageLabel = 'Adjustments';
+    } else if (currentPath.startsWith('/procurement') || currentPath.startsWith('/suppliers')) {
+      pageLabel = 'Procurement';
+    } else if (currentPath.startsWith('/stock-movements')) {
+      pageLabel = 'Stock Movements';
+    } else if (currentPath.startsWith('/alerts')) {
+      pageLabel = 'Alerts';
+    } else if (currentPath.startsWith('/reports')) {
+      pageLabel = 'Reports';
+    } else if (currentPath.startsWith('/settings')) {
+      pageLabel = 'Settings';
+    } else if (currentPath.startsWith('/categories')) {
+      pageLabel = 'Categories';
+    } else {
+      const segments = currentPath.split('/').filter(Boolean);
+      if (segments.length > 0) {
+        pageLabel = segments[segments.length - 1]
+          .replace(/-/g, ' ')
+          .replace(/\b\w/g, c => c.toUpperCase());
+      }
+    }
+
+    if (!pageLabel) {
+      return <span className="text-[14.5px] font-extrabold text-[#0b8252] tracking-tight">Inventory</span>;
+    }
+
+    return (
+      <div className="flex items-center gap-1.5 text-[14.5px] font-semibold text-slate-500">
+        <Link 
+          to="/inventory" 
+          className="hover:text-[#0b8252] transition-colors cursor-pointer"
+        >
+          Inventory
+        </Link>
+        <span className="material-symbols-outlined text-[15px] text-slate-400 select-none">chevron_right</span>
+        <span className="text-[#0b8252] font-bold">{pageLabel}</span>
+      </div>
+    );
+  };
+
   return (
     <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200/60 flex items-center justify-between px-6 shrink-0 w-full z-10 sticky top-0">
       {/* Left side content (Breadcrumbs, Search, etc.) */}
-      <div className="flex-1 flex items-center">
+      <div className="flex-1 flex items-center gap-4">
+        {getBreadcrumbs()}
         {children}
       </div>
 
