@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import Sidebar from './Components/Sidebar';
 import InventoryHeader from './Components/InventoryHeader';
 
@@ -7,22 +7,73 @@ import InventoryHeader from './Components/InventoryHeader';
 import ProductsRegistry, { ProductItem } from './Components/product-catalog/ProductsRegistry';
 import CategoryRegistry from './Components/product-catalog/CategoryRegistry';
 import NewProductForm from './Components/product-catalog/NewProductForm';
+import BrandRegistry, { BrandItem } from './Components/product-catalog/BrandRegistry';
+import { SupplierItem } from './Components/product-catalog/SupplierRegistry';
 
 // Initial preloaded mock supermarket categories matching specifications
 const initialCategories = [
   {
+    id: 'grocery',
+    name: 'Grocery',
+    icon: '🛒',
+    image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=600&auto=format&fit=crop',
+    status: 'In Stock',
+    statusClass: 'bg-emerald-600',
+    skus: 64,
+    health: '92%',
+    description: 'Staples, pulses, grains, flour, spices, and dried foods.',
+    children: [
+      { id: 'rice-flour', name: 'Rice & Flour' },
+      { id: 'spices', name: 'Spices & Condiments' },
+      { id: 'biscuits', name: 'Biscuits & Snacks' },
+    ]
+  },
+  {
     id: 'dairy',
-    name: 'Dairy Products',
+    name: 'Dairy',
     icon: '🥛',
     image: 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?q=80&w=600&auto=format&fit=crop',
     status: 'In Stock',
     statusClass: 'bg-emerald-600',
     skus: 14,
     health: '90%',
+    description: 'Fresh milk, block cheese, salted butter, and fresh cream.',
     children: [
       { id: 'milk', name: 'Milk Products' },
       { id: 'cheese', name: 'Cheese Products' },
       { id: 'yogurt', name: 'Yogurt & Cream' },
+    ]
+  },
+  {
+    id: 'bakery',
+    name: 'Bakery',
+    icon: '🍞',
+    image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=600&auto=format&fit=crop',
+    status: 'In Stock',
+    statusClass: 'bg-emerald-600',
+    skus: 12,
+    health: '94%',
+    description: 'Freshly baked loaves of bread, chocolate chip cookies, and tea buns.',
+    children: [
+      { id: 'bread', name: 'Loaf Bread' },
+      { id: 'cookies', name: 'Cookies & Pastries' },
+      { id: 'buns', name: 'Buns & Cakes' },
+    ]
+  },
+  {
+    id: 'frozen',
+    name: 'Frozen Foods',
+    icon: '❄️',
+    image: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?q=80&w=600&auto=format&fit=crop',
+    status: 'In Stock',
+    statusClass: 'bg-emerald-600',
+    skus: 28,
+    health: '88%',
+    description: 'Frozen ice cream tubs, meat cuts, frozen seafood, and mixed veggies.',
+    children: [
+      { id: 'ice-cream', name: 'Ice Cream' },
+      { id: 'meat-seafood', name: 'Frozen Meat & Seafood' },
+      { id: 'veg', name: 'Frozen Vegetables' },
     ]
   },
   {
@@ -34,6 +85,7 @@ const initialCategories = [
     statusClass: 'bg-emerald-600',
     skus: 48,
     health: '95%',
+    description: 'Carbonated soda pop, energy drinks, bottled mineral water, and fruit juices.',
     children: [
       { id: 'soft-drinks', name: 'Soft Drinks' },
       { id: 'fruit-juices', name: 'Juice' },
@@ -42,31 +94,18 @@ const initialCategories = [
   },
   {
     id: 'household',
-    name: 'Household Items',
+    name: 'Household',
     icon: '🧼',
-    image: 'https://images.unsplash.com/photo-1585906560946-17b5f13426e2?q=80&w=600&auto=format&fit=crop',
-    status: 'Low Stock',
-    statusClass: 'bg-[#d97706]',
-    skus: 23,
-    health: '45%',
-    children: [
-      { id: 'cleaning', name: 'Cleaning Products' },
-      { id: 'tissue', name: 'Tissue Paper' },
-    ]
-  },
-  {
-    id: 'personal',
-    name: 'Personal Care Products',
-    icon: '🧴',
-    image: 'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?q=80&w=600&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?q=80&w=600&auto=format&fit=crop',
     status: 'In Stock',
     statusClass: 'bg-emerald-600',
-    skus: 32,
-    health: '80%',
+    skus: 22,
+    health: '91%',
+    description: 'Laundry detergents, dish soaps, garbage bins, and cleaning brushes.',
     children: [
-      { id: 'shampoo', name: 'Shampoo' },
-      { id: 'soap', name: 'Soap' },
-      { id: 'toothpaste', name: 'Toothpaste' },
+      { id: 'detergent', name: 'Detergents & Soaps' },
+      { id: 'utensils', name: 'Cleaning Utensils' },
+      { id: 'paper-goods', name: 'Tissues & Wipes' },
     ]
   }
 ];
@@ -78,15 +117,19 @@ const initialProducts: ProductItem[] = [
     name: 'Anchor Milk Powder 400g',
     sku: 'DAI-005',
     barcode: '4790012948577',
-    category: 'Dairy Products',
+    category: 'Dairy',
     subcategory: 'Milk Products',
     supplier: 'FreshFarm Supplies',
+    brand: 'Anchor',
     unitType: 'Pack',
     stock: 240,
     reorderLevel: 30,
     costPrice: 450.00,
     sellingPrice: 520.00,
     status: 'Active',
+    description: 'Premium milk powder manufactured in New Zealand and packed locally in Sri Lanka.',
+    mfgDate: '2026-04-10',
+    expiryDate: '2027-04-10',
     lastUpdated: 'May 28, 2026',
     imageUrl: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?q=80&w=200&auto=format&fit=crop'
   },
@@ -97,13 +140,17 @@ const initialProducts: ProductItem[] = [
     barcode: '0038847291101',
     category: 'Beverages',
     subcategory: 'Soft Drinks',
-    supplier: 'Golden Crust Bakery',
+    supplier: 'Ceylon Beverage Distributors',
+    brand: 'Coca-Cola',
     unitType: 'Bottle',
     stock: 8, // Low stock since reorderLevel is 15
     reorderLevel: 15,
     costPrice: 120.00,
     sellingPrice: 150.00,
     status: 'Active',
+    description: 'Refreshing carbonated soft drink bottle, best served chilled.',
+    mfgDate: '2026-05-01',
+    expiryDate: '2026-11-01',
     lastUpdated: 'May 28, 2026',
     imageUrl: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?q=80&w=200&auto=format&fit=crop'
   },
@@ -112,65 +159,95 @@ const initialProducts: ProductItem[] = [
     name: 'Sunlight Soap',
     sku: 'HOU-012',
     barcode: '0099221188334',
-    category: 'Household Items',
-    subcategory: 'Cleaning Products',
-    supplier: 'Ocean Harvest',
+    category: 'Household',
+    subcategory: 'Detergents & Soaps',
+    supplier: 'FreshFarm Supplies',
+    brand: 'Sunlight',
     unitType: 'Piece',
     stock: 142,
     reorderLevel: 25,
     costPrice: 85.00,
     sellingPrice: 105.00,
     status: 'Active',
+    description: 'Multi-purpose household laundry and dishwashing soap cake.',
+    mfgDate: '2026-03-20',
+    expiryDate: '2028-03-20',
     lastUpdated: 'May 28, 2026',
     imageUrl: 'https://images.unsplash.com/photo-1607006342411-b01354cc792a?q=80&w=200&auto=format&fit=crop'
   },
   {
     id: '4',
     name: 'Signal Toothpaste',
-    sku: 'PER-009',
+    sku: 'GRO-009',
     barcode: '0044556677882',
-    category: 'Personal Care Products',
-    subcategory: 'Toothpaste',
+    category: 'Grocery',
+    subcategory: 'Spices & Condiments',
     supplier: 'FreshFarm Supplies',
+    brand: 'Signal',
     unitType: 'Piece',
     stock: 0, // Out of stock
     reorderLevel: 20,
     costPrice: 140.00,
     sellingPrice: 175.00,
     status: 'Active',
+    description: 'Double active fluoride toothpaste for strong cavity protection.',
+    mfgDate: '2026-02-12',
+    expiryDate: '2028-02-12',
     lastUpdated: 'May 28, 2026',
     imageUrl: 'https://images.unsplash.com/photo-1607613009820-a29f7bb81c04?q=80&w=200&auto=format&fit=crop'
   },
   {
     id: '5',
     name: 'Munchee Chocolate Biscuit',
-    sku: 'SNA-042',
+    sku: 'GRO-042',
     barcode: '4790012948600',
-    category: 'Personal Care Products', // using personal care as placeholder
-    subcategory: 'Soap',
+    category: 'Grocery',
+    subcategory: 'Biscuits & Snacks',
     supplier: 'Golden Crust Bakery',
+    brand: 'Munchee',
     unitType: 'Pack',
     stock: 90,
     reorderLevel: 15,
     costPrice: 180.00,
     sellingPrice: 210.00,
     status: 'Active',
+    description: 'Crispy chocolate biscuits with rich chocolate cream filling.',
+    mfgDate: '2026-05-10',
+    expiryDate: '2026-11-10',
     lastUpdated: 'May 28, 2026',
     imageUrl: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?q=80&w=200&auto=format&fit=crop'
   }
 ];
 
 export default function ProductManagement() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'products';
 
-  // React shared inventory states
+  // React shared catalog states
   const [products, setProducts] = useState<ProductItem[]>(initialProducts);
   const [categories, setCategories] = useState(initialCategories);
   const [loading, setLoading] = useState(false);
 
+  // preloaded brands directory
+  const [brands, setBrands] = useState<BrandItem[]>([
+    { id: 'b-1', name: 'Anchor', description: 'Premium dairy products and milk powders.', productCount: 1 },
+    { id: 'b-2', name: 'Coca-Cola', description: 'Carbonated soft drinks and beverages.', productCount: 1 },
+    { id: 'b-3', name: 'Sunlight', description: 'Leading household cleaning and laundry brands.', productCount: 1 },
+    { id: 'b-4', name: 'Signal', description: 'Oral healthcare and toothpastes.', productCount: 1 },
+    { id: 'b-5', name: 'Munchee', description: 'Biscuits, wafers, and bakery snacks.', productCount: 1 },
+  ]);
+
+  // preloaded suppliers directory
+  const [suppliers, setSuppliers] = useState<SupplierItem[]>([
+    { id: 's-1', name: 'FreshFarm Supplies', phone: '+94 77 123 4567', email: 'sales@freshfarm.lk', address: '45 Orchard Lane, Colombo 03', status: 'Active' },
+    { id: 's-2', name: 'Golden Crust Bakery', phone: '+94 11 234 5678', email: 'orders@goldencrust.lk', address: '12 Bakery Lane, Kandy', status: 'Active' },
+    { id: 's-3', name: 'Ocean Harvest', phone: '+94 91 345 6789', email: 'supply@oceanharvest.lk', address: '78 Fishery Pier, Galle', status: 'Active' },
+    { id: 's-4', name: 'Ceylon Beverage Distributors', phone: '+94 71 456 7890', email: 'info@ceylonbev.lk', address: '102 Industrial Zone, Orugodawatta', status: 'Active' }
+  ]);
+
   // Filter redirection state
-  const [initialSearch, setInitialSearch] = useState('');
+  const [initialSearch] = useState('');
   const [initialCategory, setInitialCategory] = useState('All Categories');
 
   // Edit target state
@@ -184,17 +261,12 @@ export default function ProductManagement() {
     window.setTimeout(() => setToast(null), 3000);
   };
 
-  // Dynamic values for category and supplier dropdown lists
+  // Dynamic lists derived for dropdown selectors
   const categoryNamesList = useMemo(() => categories.map((cat) => cat.name), [categories]);
-  const suppliersMockList = [
-    { id: '1', name: 'FreshFarm Supplies' },
-    { id: '2', name: 'Golden Crust Bakery' },
-    { id: '3', name: 'Ocean Harvest' }
-  ];
-  const supplierNamesList = useMemo(() => suppliersMockList.map((sup) => sup.name), []);
+  const supplierNamesList = useMemo(() => suppliers.map((sup) => sup.name), [suppliers]);
 
   // View tabs toggles
-  const handleTabChange = (tabName: 'products' | 'categories' | 'new-product') => {
+  const handleTabChange = (tabName: string) => {
     if (tabName !== 'new-product') {
       setEditingProduct(null);
     }
@@ -202,17 +274,18 @@ export default function ProductManagement() {
   };
 
   // Add category handler
-  const handleAddCategoryNode = (newCat: { name: string; hierarchy: 'parent' | 'sub'; parentId: string }) => {
+  const handleAddCategoryNode = (newCat: { name: string; description: string; hierarchy: 'parent' | 'sub'; parentId: string; image?: string | null }) => {
     if (newCat.hierarchy === 'parent') {
       const added = {
         id: `cat_${Date.now()}`,
         name: newCat.name,
         icon: '📦',
-        image: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?q=80&w=600&auto=format&fit=crop',
+        image: newCat.image || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?q=80&w=600&auto=format&fit=crop',
         status: 'In Stock',
         statusClass: 'bg-emerald-600',
         skus: 0,
         health: '100%',
+        description: newCat.description,
         children: []
       };
       setCategories((prev) => [...prev, added]);
@@ -239,6 +312,59 @@ export default function ProductManagement() {
       setCategories((prev) => prev.filter((c) => c.id !== id));
       showToast('Category archived successfully.', 'info');
     }
+  };
+
+  // Edit Category node
+  const handleEditCategoryNode = (id: string, updatedName: string, updatedDescription: string, updatedImage?: string | null) => {
+    setCategories((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, name: updatedName, description: updatedDescription, ...(updatedImage !== undefined ? { image: updatedImage || c.image } : {}) } : c))
+    );
+    showToast('Category updated successfully.');
+  };
+
+  // Brand registry handlers
+  const handleAddBrand = (brandData: Omit<BrandItem, 'id' | 'productCount'>) => {
+    const newBrand: BrandItem = {
+      ...brandData,
+      id: `brand_${Date.now()}`,
+      productCount: 0
+    };
+    setBrands((prev) => [...prev, newBrand]);
+    showToast(`Brand "${brandData.name}" registered successfully.`);
+  };
+
+  const handleEditBrand = (id: string, updatedFields: Partial<BrandItem>) => {
+    setBrands((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, ...updatedFields } : b))
+    );
+    showToast(`Brand details updated successfully.`);
+  };
+
+  const handleDeleteBrand = (id: string) => {
+    setBrands((prev) => prev.filter((b) => b.id !== id));
+    showToast('Brand deleted successfully.', 'info');
+  };
+
+  // Supplier registry handlers
+  const handleAddSupplier = (supplierData: Omit<SupplierItem, 'id'>) => {
+    const newSup: SupplierItem = {
+      ...supplierData,
+      id: `sup_${Date.now()}`
+    };
+    setSuppliers((prev) => [...prev, newSup]);
+    showToast(`Supplier "${supplierData.name}" registered successfully.`);
+  };
+
+  const handleEditSupplier = (id: string, updatedFields: Partial<SupplierItem>) => {
+    setSuppliers((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, ...updatedFields } : s))
+    );
+    showToast(`Supplier details updated successfully.`);
+  };
+
+  const handleDeleteSupplier = (id: string) => {
+    setSuppliers((prev) => prev.filter((s) => s.id !== id));
+    showToast('Supplier deleted successfully.', 'info');
   };
 
   // Save product (handles both Create and Edit)
@@ -274,7 +400,7 @@ export default function ProductManagement() {
       id: `copy_${Date.now()}`,
       name: `${product.name} (Copy)`,
       sku: `${product.sku}-COPY`,
-      barcode: `BAR-${Math.floor(100000 + Math.random() * 900000)}`,
+      barcode: `479${Math.floor(1000000000 + Math.random() * 9000000000)}`,
       lastUpdated: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     };
     setProducts((prev) => [duplicated, ...prev]);
@@ -335,70 +461,53 @@ export default function ProductManagement() {
 
           {/* Dynamic Toast popup */}
           {toast && (
-            <div className="fixed top-20 right-8 z-50 flex items-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-xl shadow-xl text-xs font-bold animate-bounce border border-slate-700">
-              <span className="material-symbols-outlined text-emerald-400 text-sm">
+            <div className="fixed top-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-lg animate-in fade-in slide-in-from-top-4 duration-200">
+              <span className={`material-symbols-outlined ${toast.type === 'success' ? 'text-primary' : 'text-blue-600'}`}>
                 {toast.type === 'success' ? 'check_circle' : 'info'}
               </span>
-              <span>{toast.message}</span>
+              <span className="text-xs font-extrabold text-on-surface">{toast.message}</span>
             </div>
           )}
 
-          <div className="max-w-[1200px] mx-auto space-y-6">
-            
-            {/* Breadcrumb mapping */}
-            <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs font-bold text-outline">
-              <span className="hover:text-on-surface transition-colors cursor-pointer">Inventory</span>
-              <span className="material-symbols-outlined text-sm text-outline-variant">chevron_right</span>
-              <span className="text-primary font-black">Product Catalog</span>
-            </div>
-
-            {/* Core Header description */}
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 border-b border-outline-variant pb-4">
+          <div className="space-y-6 max-w-7xl mx-auto">
+            {/* Header controls section */}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-black text-on-surface tracking-tight sm:text-3xl">Product Catalog</h1>
-                <p className="text-on-surface-variant text-xs mt-1 max-w-[800px] leading-relaxed">
-                  Manage supermarket products, categories, supplier assignments, stock settings, and pricing information from a centralized catalog workspace.
+                <h1 className="text-xl font-black tracking-tight text-on-surface sm:text-2xl">
+                  Supermarket Product Catalog
+                </h1>
+                <p className="text-xs text-outline mt-1 font-medium">
+                  Add, edit, delete, and visual search through all supermarket catalog nodes, brands registry, and suppliers.
                 </p>
               </div>
 
-              {/* Action Buttons & Tabs Row */}
-              <div className="flex flex-wrap items-center gap-3 shrink-0">
-                {/* Standard Action Buttons */}
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleImportPlaceholder}
-                    className="px-3.5 py-1.5 bg-white border border-outline rounded-lg text-xs font-bold text-on-surface-variant hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-1"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">file_upload</span>
-                    Import
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleExportCSV}
-                    className="px-3.5 py-1.5 bg-white border border-outline rounded-lg text-xs font-bold text-on-surface-variant hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-1"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">file_download</span>
-                    Export
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleTabChange('new-product')}
-                    className="px-4 py-1.5 bg-primary text-white rounded-lg text-xs font-extrabold hover:opacity-90 transition-all shadow-sm flex items-center gap-1"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">add</span>
-                    Add Product
-                  </button>
-                </div>
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={handleImportPlaceholder}
+                  className="flex items-center gap-1.5 px-3 py-2 border border-outline rounded-lg text-xs font-bold text-on-surface-variant hover:bg-slate-50 transition-colors shadow-sm bg-white"
+                >
+                  <span className="material-symbols-outlined text-sm">publish</span>
+                  Import CSV
+                </button>
+                <button
+                  onClick={handleExportCSV}
+                  className="flex items-center gap-1.5 px-3 py-2 border border-outline rounded-lg text-xs font-bold text-on-surface-variant hover:bg-slate-50 transition-colors shadow-sm bg-white"
+                >
+                  <span className="material-symbols-outlined text-sm">download</span>
+                  Export Catalog
+                </button>
+              </div>
+            </div>
 
-                <div className="h-6 w-px bg-slate-200 hidden sm:block" />
-
-                {/* Segmented control tabs */}
-                <div className="flex bg-slate-100 p-1 rounded-lg shrink-0 gap-1 text-xs font-bold">
+            {/* Segment Controls Navigation Tab Bar */}
+            <div className="border-b border-outline-variant pb-px">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="inline-flex p-1 bg-surface-container-low border border-outline-variant/60 rounded-lg text-xs font-medium w-full sm:w-auto overflow-x-auto gap-1">
                   <button
                     type="button"
                     onClick={() => handleTabChange('products')}
-                    className={`px-4 py-1.5 rounded-md transition-all ${
+                    className={`px-4 py-1.5 rounded-md transition-all whitespace-nowrap ${
                       activeTab === 'products' ? 'bg-white text-primary shadow-sm font-black' : 'text-on-surface-variant hover:text-on-surface'
                     }`}
                   >
@@ -407,7 +516,7 @@ export default function ProductManagement() {
                   <button
                     type="button"
                     onClick={() => handleTabChange('categories')}
-                    className={`px-4 py-1.5 rounded-md transition-all ${
+                    className={`px-4 py-1.5 rounded-md transition-all whitespace-nowrap ${
                       activeTab === 'categories' ? 'bg-white text-primary shadow-sm font-black' : 'text-on-surface-variant hover:text-on-surface'
                     }`}
                   >
@@ -415,8 +524,25 @@ export default function ProductManagement() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => handleTabChange('brands')}
+                    className={`px-4 py-1.5 rounded-md transition-all whitespace-nowrap ${
+                      activeTab === 'brands' ? 'bg-white text-primary shadow-sm font-black' : 'text-on-surface-variant hover:text-on-surface'
+                    }`}
+                  >
+                    Brands
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/procurement?tab=suppliers')}
+                    className="px-4 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface transition-all whitespace-nowrap flex items-center gap-1 hover:bg-slate-50"
+                  >
+                    <span className="material-symbols-outlined text-[15px] text-outline">open_in_new</span>
+                    Suppliers Directory
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => handleTabChange('new-product')}
-                    className={`px-4 py-1.5 rounded-md transition-all ${
+                    className={`px-4 py-1.5 rounded-md transition-all whitespace-nowrap ${
                       activeTab === 'new-product' ? 'bg-white text-primary shadow-sm font-black' : 'text-on-surface-variant hover:text-on-surface'
                     }`}
                   >
@@ -446,16 +572,26 @@ export default function ProductManagement() {
                 categories={categories}
                 onViewProducts={handleViewCategoryProducts}
                 onAddCategory={handleAddCategoryNode}
-                onEditCategory={() => {}}
+                onEditCategory={handleEditCategoryNode}
                 onAddSubcategory={() => {}}
                 onArchiveCategory={handleArchiveCategory}
+              />
+            )}
+
+            {activeTab === 'brands' && (
+              <BrandRegistry
+                brands={brands}
+                onAddBrand={handleAddBrand}
+                onEditBrand={handleEditBrand}
+                onDeleteBrand={handleDeleteBrand}
               />
             )}
 
             {activeTab === 'new-product' && (
               <NewProductForm
                 categories={categories}
-                suppliers={suppliersMockList}
+                suppliers={suppliers}
+                brands={brands}
                 onSave={handleSaveProduct}
                 onCancel={(discarded) => {
                   if (discarded) showToast('Product form discarded.', 'info');

@@ -406,13 +406,26 @@ export default function ProcurementManagement() {
   };
 
   // Validation Form for Suppliers
-  const validateForm = () => {
+  const validateForm = (ignoreId?: string | null) => {
     let isValid = true;
     const errors = {
       name: '', contact: '', phone: '', email: '', companyName: '', brn: '', taxNumber: '', street: '', city: '', province: '', categories: '',
     };
 
-    if (!formData.name.trim()) { errors.name = 'Supplier name is required'; isValid = false; }
+    if (!formData.name.trim()) { 
+      errors.name = 'Supplier name is required'; 
+      isValid = false; 
+    } else {
+      const isDuplicate = suppliersList.some(s => 
+        s.name.toLowerCase() === formData.name.trim().toLowerCase() && 
+        s.id !== ignoreId
+      );
+      if (isDuplicate) {
+        errors.name = `Supplier "${formData.name.trim()}" already exists.`;
+        isValid = false;
+      }
+    }
+
     if (!formData.contact.trim()) { errors.contact = 'Contact person is required'; isValid = false; }
 
     const phoneRegex = /^[+]?[0-9\s-]{7,15}$/;
@@ -503,7 +516,7 @@ export default function ProcurementManagement() {
 
   const handleEditSupplierSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validateForm(selectedSupplier?.id)) return;
     if (!selectedSupplier) return;
 
     setSuppliersList(prev => prev.map(s => {
