@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Sidebar from "./Components/Sidebar";
 import InventoryHeader from "./Components/InventoryHeader";
@@ -9,7 +9,7 @@ type AlertSeverity = 'Critical' | 'Warning' | 'Info';
 type Tab = 'All Alerts' | AlertCategory;
 
 interface AlertItem {
-  id: number;
+  id: number | string;
   category: AlertCategory;
   severity: AlertSeverity;
   issueType: string;
@@ -35,19 +35,10 @@ interface Toast {
   type: 'success' | 'info';
 }
 
-// ── Seed Data ─────────────────────────────────────────────────────────────────
-const SEED: AlertItem[] = [
+// ── Seed Bulletins Data ───────────────────────────────────────────────────────
+const BULLETINS: AlertItem[] = [
   {
-    id: 1, category: 'Low Stock', severity: 'Critical', issueType: 'Low Stock', currentStock: 5, suggestedAction: 'Reorder Now',
-    icon: 'water_drop', iconBg: 'bg-red-50', iconColor: 'text-red-400', accentColor: 'bg-red-600',
-    title: 'Fresh Organic Milk (1L) — Critical Low',
-    description: 'Inventory level is currently at 5 units. Recommended restock quantity: 120 units based on average daily sales.',
-    time: '2 mins ago', read: false, dismissed: false,
-    primaryAction: 'Restock Now', secondaryAction: 'View Details',
-    primaryBtnClass: 'bg-[#0b8252] hover:bg-[#096b43]',
-  },
-  {
-    id: 2, category: 'Expiring Soon', severity: 'Warning', issueType: 'Expiring Soon', currentStock: 15, suggestedAction: 'Apply Markdown',
+    id: 'bulletin_expiry_beef', category: 'Expiring Soon', severity: 'Warning', issueType: 'Expiring Soon', currentStock: 15, suggestedAction: 'Apply Markdown',
     icon: 'set_meal', iconBg: 'bg-amber-50', iconColor: 'text-amber-500', accentColor: 'bg-amber-600',
     title: 'Angus Beef Patties (4pk) — Expiring Soon',
     description: 'Batch #4492 expires in 48 hours. 15 units remaining in stock. Consider immediate markdown.',
@@ -56,34 +47,7 @@ const SEED: AlertItem[] = [
     primaryBtnClass: 'bg-amber-700 hover:bg-amber-800',
   },
   {
-    id: 3, category: 'Reorder Recommendation', severity: 'Info', issueType: 'Reorder Recommendation', currentStock: 24, suggestedAction: 'Reorder Now',
-    icon: 'show_chart', iconBg: 'bg-blue-50', iconColor: 'text-blue-500', accentColor: 'bg-blue-600',
-    title: 'Rice 5kg expected to run out in 3 days',
-    description: 'Sales trends indicate depletion in 3 days. Suggested reorder quantity: 140 units.',
-    time: '2 hours ago', read: false, dismissed: false,
-    primaryAction: 'View Product', secondaryAction: 'Mark as Read',
-    primaryBtnClass: 'bg-[#0b8252] hover:bg-[#096b43]',
-  },
-  {
-    id: 4, category: 'Low Stock', severity: 'Warning', issueType: 'Low Stock', currentStock: 24, suggestedAction: 'Monitor Closely',
-    icon: 'eco', iconBg: 'bg-slate-100', iconColor: 'text-slate-400', accentColor: 'bg-amber-600',
-    title: 'Fresh Avocados — Low Stock',
-    description: 'Stock level is reaching reorder point. Current: 24 units. Forecasted run-out by end of business day.',
-    time: '5 hours ago', read: false, dismissed: false,
-    primaryAction: 'Reorder Now', secondaryAction: 'View Product',
-    primaryBtnClass: 'bg-[#0b8252] hover:bg-[#096b43]',
-  },
-  {
-    id: 5, category: 'Out of Stock', severity: 'Critical', issueType: 'Out of Stock', currentStock: 0, suggestedAction: 'Urgent Reorder',
-    icon: 'local_pizza', iconBg: 'bg-red-50', iconColor: 'text-red-400', accentColor: 'bg-red-600',
-    title: 'Frozen Pizza Margherita — Out of Stock',
-    description: 'No stock is available. Immediate reorder is needed to prevent missed sales.',
-    time: '6 hours ago', read: true, dismissed: false,
-    primaryAction: 'Reorder Now', secondaryAction: 'Dismiss Alert',
-    primaryBtnClass: 'bg-red-600 hover:bg-red-700',
-  },
-  {
-    id: 6, category: 'Overstock', severity: 'Info', issueType: 'Overstock', currentStock: 58, suggestedAction: 'Promote / Discount',
+    id: 'bulletin_overstock_cheese', category: 'Overstock', severity: 'Info', issueType: 'Overstock', currentStock: 58, suggestedAction: 'Promote / Discount',
     icon: 'trending_down', iconBg: 'bg-blue-50', iconColor: 'text-blue-400', accentColor: 'bg-blue-600',
     title: 'Imported Cheese Board — Overstock Alert',
     description: 'Product is moving slowly with 58 units on hand. Consider a bundle offer or markdown to clear stock.',
@@ -92,16 +56,7 @@ const SEED: AlertItem[] = [
     primaryBtnClass: 'bg-[#0b8252] hover:bg-[#096b43]',
   },
   {
-    id: 7, category: 'Reorder Recommendation', severity: 'Info', issueType: 'Reorder Recommendation', currentStock: 18, suggestedAction: 'Urgent Restock',
-    icon: 'local_drink', iconBg: 'bg-blue-50', iconColor: 'text-blue-500', accentColor: 'bg-blue-600',
-    title: 'Milk Packet requires urgent restock',
-    description: 'Sales are high and the current stock is insufficient for the next shift. Reorder before evening peak.',
-    time: 'Today', read: false, dismissed: false,
-    primaryAction: 'Reorder Now', secondaryAction: 'View Product',
-    primaryBtnClass: 'bg-[#0b8252] hover:bg-[#096b43]',
-  },
-  {
-    id: 8, category: 'Low Stock', severity: 'Warning', issueType: 'Low Stock', currentStock: 11, suggestedAction: 'Check Supplier Delay',
+    id: 'bulletin_supplier_delay', category: 'Low Stock', severity: 'Warning', issueType: 'Low Stock', currentStock: 11, suggestedAction: 'Check Supplier Delay',
     icon: 'local_shipping', iconBg: 'bg-amber-50', iconColor: 'text-amber-600', accentColor: 'bg-amber-600',
     title: 'Supplier delays increasing stock risk',
     description: 'Expected delivery has been delayed, which may push this item below reorder threshold within 48 hours.',
@@ -116,7 +71,7 @@ const TABS: Tab[] = ['All Alerts', 'Low Stock', 'Out of Stock', 'Expiring Soon',
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function Alerts() {
   const [activeTab, setActiveTab]       = useState<Tab>('All Alerts');
-  const [alerts, setAlerts]             = useState<AlertItem[]>(SEED);
+  const [alerts, setAlerts]             = useState<AlertItem[]>([]);
   const [toasts, setToasts]             = useState<Toast[]>([]);
   const [showFilters, setShowFilters]   = useState(false);
   const [sevFilter, setSevFilter]       = useState<AlertSeverity | 'All'>('All');
@@ -129,23 +84,174 @@ export default function Alerts() {
     setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000);
   }, []);
 
+  // ── Load and construct dynamic alerts ──────────────────────────────────────
+  const loadDynamicAlerts = useCallback(() => {
+    const storedProds = localStorage.getItem('stocksense_product_catalog_products');
+    let products: any[] = [];
+    if (storedProds) {
+      try {
+        products = JSON.parse(storedProds);
+      } catch (e) {
+        products = [];
+      }
+    }
+
+    const dynamicAlerts: AlertItem[] = [];
+    products.forEach(p => {
+      if (p.stock === 0) {
+        dynamicAlerts.push({
+          id: `dyn_out_${p.sku}`,
+          category: 'Out of Stock',
+          severity: 'Critical',
+          issueType: 'Out of Stock',
+          currentStock: 0,
+          suggestedAction: 'Urgent Reorder',
+          icon: 'cancel',
+          iconBg: 'bg-red-50',
+          iconColor: 'text-red-500',
+          accentColor: 'bg-red-600',
+          title: `${p.name} — Out of Stock`,
+          description: `No stock is available. Immediate reorder of ${p.reorderLevel * 3} units is recommended to prevent missed sales.`,
+          time: 'Real-time alert',
+          read: false,
+          dismissed: false,
+          primaryAction: 'Restock Now',
+          secondaryAction: 'Dismiss Alert',
+          primaryBtnClass: 'bg-red-600 hover:bg-red-700',
+        });
+      } else if (p.stock <= p.reorderLevel) {
+        dynamicAlerts.push({
+          id: `dyn_low_${p.sku}`,
+          category: 'Low Stock',
+          severity: 'Warning',
+          issueType: 'Low Stock',
+          currentStock: p.stock,
+          suggestedAction: 'Reorder Now',
+          icon: 'warning',
+          iconBg: 'bg-amber-50',
+          iconColor: 'text-amber-500',
+          accentColor: 'bg-amber-600',
+          title: `${p.name} — Low Stock Alert`,
+          description: `Inventory level is currently at ${p.stock} units, below the safety threshold of ${p.reorderLevel}.`,
+          time: 'Real-time alert',
+          read: false,
+          dismissed: false,
+          primaryAction: 'Restock Now',
+          secondaryAction: 'Dismiss Alert',
+          primaryBtnClass: 'bg-[#0b8252] hover:bg-[#096b43]',
+        });
+      }
+    });
+
+    const savedStatesStr = localStorage.getItem('stocksense_alerts_read_dismiss_states');
+    let savedStates: Record<string, { read: boolean, dismissed: boolean }> = {};
+    if (savedStatesStr) {
+      try {
+        savedStates = JSON.parse(savedStatesStr);
+      } catch {}
+    }
+
+    const combined = [...dynamicAlerts, ...BULLETINS].map(item => {
+      const saved = savedStates[String(item.id)];
+      if (saved) {
+        return { ...item, read: saved.read, dismissed: saved.dismissed };
+      }
+      return item;
+    });
+
+    setAlerts(combined);
+  }, []);
+
+  useEffect(() => {
+    loadDynamicAlerts();
+  }, [loadDynamicAlerts]);
+
+  // Persist read/dismiss changes
+  const saveAlertStates = useCallback((updatedAlerts: AlertItem[]) => {
+    const states: Record<string, { read: boolean, dismissed: boolean }> = {};
+    updatedAlerts.forEach(a => {
+      states[String(a.id)] = { read: a.read, dismissed: a.dismissed };
+    });
+    localStorage.setItem('stocksense_alerts_read_dismiss_states', JSON.stringify(states));
+  }, []);
+
   // ── Actions ────────────────────────────────────────────────────────────────
-  const dismiss = (id: number) => {
-    setAlerts(p => p.map(a => a.id === id ? { ...a, dismissed: true } : a));
+  const dismiss = (id: number | string) => {
+    setAlerts(p => {
+      const next = p.map(a => a.id === id ? { ...a, dismissed: true } : a);
+      saveAlertStates(next);
+      return next;
+    });
     toast('Alert dismissed.', 'info');
   };
 
-  const markRead = (id: number) =>
-    setAlerts(p => p.map(a => a.id === id ? { ...a, read: true } : a));
+  const markRead = (id: number | string) => {
+    setAlerts(p => {
+      const next = p.map(a => a.id === id ? { ...a, read: true } : a);
+      saveAlertStates(next);
+      return next;
+    });
+  };
 
   const markAllRead = () => {
-    setAlerts(p => p.map(a => ({ ...a, read: true })));
+    setAlerts(p => {
+      const next = p.map(a => ({ ...a, read: true }));
+      saveAlertStates(next);
+      return next;
+    });
     toast('All alerts marked as read.');
   };
 
   const handlePrimary = (a: AlertItem) => {
     markRead(a.id);
     const name = a.title.split('—')[0].trim();
+    
+    // Check if it is a dynamic stock alert SKU reorder
+    if (typeof a.id === 'string' && a.id.startsWith('dyn_')) {
+      const parts = a.id.split('_');
+      const sku = parts[parts.length - 1]; // extract SKU
+      
+      const storedProds = localStorage.getItem('stocksense_product_catalog_products');
+      if (storedProds) {
+        try {
+          const products = JSON.parse(storedProds);
+          const idx = products.findIndex((p: any) => p.sku === sku);
+          if (idx !== -1) {
+            const product = products[idx];
+            const before = product.stock;
+            const after = before + 100;
+            product.stock = after;
+            product.lastUpdated = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            localStorage.setItem('stocksense_product_catalog_products', JSON.stringify(products));
+
+            // Add ledger entry
+            const storedLedger = localStorage.getItem('stocksense_ledger_records');
+            if (storedLedger) {
+              const ledger = JSON.parse(storedLedger);
+              ledger.push({
+                id: `led_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                timestamp: new Date().toISOString(),
+                productName: product.name,
+                sku: product.sku,
+                movementType: 'GRN',
+                quantityChange: 100,
+                beforeStock: before,
+                afterStock: after,
+                reason: `Quick Restocked from alerts center`,
+                user: 'Inventory Manager',
+                status: 'Success'
+              });
+              localStorage.setItem('stocksense_ledger_records', JSON.stringify(ledger));
+            }
+
+            toast(`Restocked successfully! 100 ${product.unitType}s added to "${product.name}".`);
+            loadDynamicAlerts(); // reload
+            return;
+          }
+        } catch (e) {}
+      }
+    }
+
     if (a.primaryAction === 'Restock Now' || a.primaryAction === 'Quick Order' || a.primaryAction === 'Reorder Now')
       toast(`Restock order created for "${name}".`);
     else if (a.primaryAction.startsWith('Apply'))

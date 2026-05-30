@@ -1,8 +1,30 @@
+import { useState, useEffect } from 'react';
 import Sidebar from './Components/Sidebar';
 import { Link } from 'react-router-dom';
 import InventoryHeader from './Components/InventoryHeader';
+import { inventoryOperationsService, ProductItem, LedgerEntry } from './Components/operations/inventoryOperationsService';
 
 export default function InventoryPage() {
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [recentLedger, setRecentLedger] = useState<LedgerEntry[]>([]);
+
+  useEffect(() => {
+    async function loadDashboardData() {
+      const prods = await inventoryOperationsService.getProducts();
+      setProducts(prods);
+      const ledgerData = await inventoryOperationsService.getLedger();
+      setRecentLedger(ledgerData.slice(0, 5)); // show top 5 latest
+    }
+    loadDashboardData();
+  }, []);
+
+  // Calculate live statistics
+  const totalProducts = products.length;
+  const lowStockCount = products.filter(p => p.stock > 0 && p.stock <= p.reorderLevel).length;
+  const outOfStockCount = products.filter(p => p.stock === 0).length;
+  const inventoryValue = products.reduce((acc, p) => acc + p.stock * p.costPrice, 0);
+  const activeSectorsCount = new Set(products.map(p => p.category)).size;
+
   return (
     <div className="flex h-screen bg-[#f8f9fa] text-slate-800 font-sans overflow-hidden">
       {/* Sidebar */}
@@ -31,21 +53,21 @@ export default function InventoryPage() {
             {/* KPI Cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {/* Total Products */}
-              <Link to="/manage-products?tab=products" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group">
+              <Link to="/manage-products?tab=products" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-[#0b8252]/40 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex justify-between items-start mb-4">
                   <div className="w-10 h-10 rounded-lg bg-[#eef8f2] text-[#0b8252] flex items-center justify-center group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined">inventory_2</span>
                   </div>
-                  <span className="text-[11px] font-bold px-2 py-0.5 bg-[#eef8f2] text-[#0b8252] rounded-full">+12%</span>
+                  <span className="text-[11px] font-bold px-2 py-0.5 bg-[#eef8f2] text-[#0b8252] rounded-full">Live</span>
                 </div>
                 <div>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Total Products</p>
-                  <p className="text-2xl font-bold text-slate-800 leading-none">12,482</p>
+                  <p className="text-2xl font-bold text-slate-800 leading-none">{totalProducts}</p>
                 </div>
               </Link>
 
               {/* Low Stock */}
-              <Link to="/manage-products?tab=products" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group">
+              <Link to="/alerts" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-[#0b8252]/40 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex justify-between items-start mb-4">
                   <div className="w-10 h-10 rounded-lg bg-[#fff4ed] text-[#d97706] flex items-center justify-center group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined">warning</span>
@@ -54,12 +76,12 @@ export default function InventoryPage() {
                 </div>
                 <div>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Low Stock</p>
-                  <p className="text-2xl font-bold text-slate-800 leading-none">84 Items</p>
+                  <p className="text-2xl font-bold text-slate-800 leading-none">{lowStockCount} Items</p>
                 </div>
               </Link>
 
               {/* Out of Stock */}
-              <Link to="/manage-products?tab=products" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group">
+              <Link to="/alerts" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-[#0b8252]/40 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex justify-between items-start mb-4">
                   <div className="w-10 h-10 rounded-lg bg-[#fef2f2] text-[#dc2626] flex items-center justify-center group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined">block</span>
@@ -68,12 +90,12 @@ export default function InventoryPage() {
                 </div>
                 <div>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Out of Stock</p>
-                  <p className="text-2xl font-bold text-slate-800 leading-none">12 Items</p>
+                  <p className="text-2xl font-bold text-slate-800 leading-none">{outOfStockCount} Items</p>
                 </div>
               </Link>
 
               {/* Inventory Value */}
-              <Link to="/inventory-analytics" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group">
+              <Link to="/inventory-analytics" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-[#0b8252]/40 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex justify-between items-start mb-4">
                   <div className="w-10 h-10 rounded-lg bg-[#eef8f2] text-[#0b8252] flex items-center justify-center group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined">monetization_on</span>
@@ -81,12 +103,12 @@ export default function InventoryPage() {
                 </div>
                 <div>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Inventory Value</p>
-                  <p className="text-2xl font-bold text-slate-800 leading-none">$428.5k</p>
+                  <p className="text-2xl font-bold text-slate-800 leading-none">Rs. {(inventoryValue / 1000).toFixed(1)}k</p>
                 </div>
               </Link>
 
               {/* Active Sectors */}
-              <Link to="/manage-products?tab=categories" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group">
+              <Link to="/manage-products?tab=categories" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-[#0b8252]/40 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex justify-between items-start mb-4">
                   <div className="w-10 h-10 rounded-lg bg-[#eef8f2] text-[#0b8252] flex items-center justify-center group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined">category</span>
@@ -94,12 +116,12 @@ export default function InventoryPage() {
                 </div>
                 <div>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Active Sectors</p>
-                  <p className="text-2xl font-bold text-slate-800 leading-none">42 <span className="text-base font-semibold">Sectors</span></p>
+                  <p className="text-2xl font-bold text-slate-800 leading-none">{activeSectorsCount} <span className="text-base font-semibold">Sectors</span></p>
                 </div>
               </Link>
 
               {/* Restock Orders */}
-              <Link to="/procurement" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group">
+              <Link to="/procurement" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-[#0b8252]/40 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex justify-between items-start mb-4">
                   <div className="w-10 h-10 rounded-lg bg-[#eef8f2] text-[#0b8252] flex items-center justify-center group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined">local_shipping</span>
@@ -458,50 +480,47 @@ export default function InventoryPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-600 text-sm">
-                      <tr className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4 font-medium text-slate-500">14:22 PM</td>
-                        <td className="px-6 py-4 font-bold text-slate-800 leading-snug">
-                          Organic<br />Bananas<br />(1kg)
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="px-2 py-1 text-[10px] font-bold bg-[#eef8f2] text-[#0b8252] rounded uppercase tracking-wide">Stock Added</span>
-                        </td>
-                        <td className="px-6 py-4 font-bold text-[#0b8252]">+200</td>
-                        <td className="px-6 py-4 text-slate-500">Admin_Mike</td>
-                      </tr>
-                      <tr className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4 font-medium text-slate-500">13:05 PM</td>
-                        <td className="px-6 py-4 font-bold text-slate-800 leading-snug">
-                          Whole<br />Wheat<br />Bread
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="px-2 py-1 text-[10px] font-bold bg-[#fef2f2] text-[#dc2626] rounded uppercase tracking-wide inline-block leading-tight">Waste<br />Removed</span>
-                        </td>
-                        <td className="px-6 py-4 font-bold text-[#dc2626]">-15</td>
-                        <td className="px-6 py-4 text-slate-500">J_Doe</td>
-                      </tr>
-                      <tr className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4 font-medium text-slate-500">11:45 AM</td>
-                        <td className="px-6 py-4 font-bold text-slate-800 leading-snug">
-                          Sparkling<br />Water<br />500ml
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="px-2 py-1 text-[10px] font-bold bg-[#e0f2fe] text-[#0284c7] rounded uppercase tracking-wide">Transfer</span>
-                        </td>
-                        <td className="px-6 py-4 font-bold text-slate-800">50</td>
-                        <td className="px-6 py-4 text-slate-500">Admin_Mike</td>
-                      </tr>
-                      <tr className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4 font-medium text-slate-500">09:12 AM</td>
-                        <td className="px-6 py-4 font-bold text-slate-800 leading-snug">
-                          Dark<br />Chocolate<br />70%
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="px-2 py-1 text-[10px] font-bold bg-[#eef8f2] text-[#0b8252] rounded uppercase tracking-wide">Stock Added</span>
-                        </td>
-                        <td className="px-6 py-4 font-bold text-[#0b8252]">+500</td>
-                        <td className="px-6 py-4 text-slate-500">S_Miller</td>
-                      </tr>
+                      {recentLedger.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-8 text-center text-slate-400 font-medium">
+                            No recent transaction logs in auditor ledger.
+                          </td>
+                        </tr>
+                      ) : (
+                        recentLedger.map(item => {
+                          const isPositive = item.quantityChange > 0;
+                          const actionLabel = item.movementType === 'GRN' ? 'Stock Added' : 
+                                              item.movementType === 'Sale' ? 'POS Checkout' : 
+                                              item.movementType === 'Expiry Removal' ? 'Waste Removed' : 'Adjustment';
+                          
+                          const badgeBg = item.movementType === 'GRN' ? 'bg-[#eef8f2] text-[#0b8252]' : 
+                                          item.movementType === 'Sale' ? 'bg-[#e0f2fe] text-[#0284c7]' : 
+                                          item.movementType === 'Expiry Removal' ? 'bg-[#fef2f2] text-[#dc2626]' : 'bg-[#fff4ed] text-[#d97706]';
+                          
+                          const qtyColor = isPositive ? 'text-[#0b8252]' : (item.quantityChange < 0 ? 'text-[#dc2626]' : 'text-slate-800');
+                          
+                          // Format timestamp beautifully
+                          const timeStr = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                          return (
+                            <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-6 py-4 font-medium text-slate-500">{timeStr}</td>
+                              <td className="px-6 py-4 font-bold text-slate-800 leading-snug max-w-[200px] truncate" title={item.productName}>
+                                {item.productName}
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className={`px-2 py-1 text-[10px] font-bold rounded uppercase tracking-wide ${badgeBg}`}>
+                                  {actionLabel}
+                                </span>
+                              </td>
+                              <td className={`px-6 py-4 font-bold ${qtyColor}`}>
+                                {isPositive ? `+${item.quantityChange}` : item.quantityChange}
+                              </td>
+                              <td className="px-6 py-4 text-slate-500">{item.user}</td>
+                            </tr>
+                          );
+                        })
+                      )}
                     </tbody>
                   </table>
                 </div>
