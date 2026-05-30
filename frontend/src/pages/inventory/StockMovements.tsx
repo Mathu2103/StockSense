@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import Sidebar from './Components/Sidebar';
 import InventoryHeader from './Components/InventoryHeader';
 
@@ -32,10 +33,10 @@ export default function StockMovements() {
                     <span className="material-symbols-outlined text-[18px]">print</span> Print
                   </button>
                 </div>
-                <button className="flex items-center gap-2 bg-[#0b8252] text-white px-5 py-2.5 rounded-lg font-bold text-sm shadow-sm hover:bg-[#096b43] transition-colors w-full sm:w-auto">
+                <Link to="/inventory-adjustments" className="flex items-center justify-center gap-2 bg-[#0b8252] text-white px-5 py-2.5 rounded-lg font-bold text-sm shadow-sm hover:bg-[#096b43] transition-colors w-full sm:w-auto">
                   <span className="material-symbols-outlined text-[18px]">add</span>
                   New Manual Adjustment
-                </button>
+                </Link>
               </div>
             </div>
 
@@ -60,7 +61,7 @@ export default function StockMovements() {
                 </div>
                 <p className="text-xs font-bold text-slate-500 mb-0.5">Net Value Change</p>
                 <div className="flex flex-col mt-1">
-                  <h3 className="text-2xl font-bold text-slate-800">+$45,210.00</h3>
+                  <h3 className="text-2xl font-bold text-slate-800">+Rs. 452,100.00</h3>
                   <span className="text-[11px] font-medium text-slate-400 mt-1">Based on current stock levels</span>
                 </div>
               </div>
@@ -159,7 +160,7 @@ export default function StockMovements() {
                         cat: "Dairy",
                         type: "PURCHASE IN", typeClass: "bg-[#eef8f2] text-[#0b8252]",
                         qty: "+24", qtyClass: "text-[#10b981] font-bold",
-                        cost: "$1.20",
+                        cost: "Rs. 450.00",
                         ref: "PO-8821",
                         user: "Alex Rivera", avatar: "AR", avatarColor: "bg-blue-100 text-blue-700", isSys: false
                       },
@@ -169,7 +170,7 @@ export default function StockMovements() {
                         cat: "Produce",
                         type: "SALE OUT", typeClass: "bg-[#fee2e2] text-[#ef4444]",
                         qty: "-2", qtyClass: "text-[#ef4444] font-bold",
-                        cost: "$4.50",
+                        cost: "Rs. 950.00",
                         ref: "INV-44910",
                         user: "POS-Terminal-04", avatar: "point_of_sale", avatarColor: "text-slate-500", isSys: true
                       },
@@ -179,7 +180,7 @@ export default function StockMovements() {
                         cat: "Dairy",
                         type: "DAMAGE OUT", typeClass: "bg-slate-100 text-slate-600",
                         qty: "-5", qtyClass: "text-[#ef4444] font-bold",
-                        cost: "$3.50",
+                        cost: "Rs. 750.00",
                         ref: "ADJ-5581",
                         user: "Jane Doe (Whse)", avatar: "JD", avatarColor: "bg-slate-200 text-slate-700", isSys: false
                       },
@@ -189,7 +190,7 @@ export default function StockMovements() {
                         cat: "Produce",
                         type: "RETURN", typeClass: "bg-blue-50 text-blue-600",
                         qty: "+1", qtyClass: "text-[#10b981] font-bold",
-                        cost: "$2.99",
+                        cost: "Rs. 690.00",
                         ref: "RTN-9981",
                         user: "Service Desk", avatar: "headset_mic", avatarColor: "text-slate-500", isSys: true
                       },
@@ -199,7 +200,7 @@ export default function StockMovements() {
                         cat: "Dry Goods",
                         type: "ADJUSTMENT", typeClass: "bg-orange-50 text-orange-600",
                         qty: "+10", qtyClass: "text-[#10b981] font-bold",
-                        cost: "$1.10",
+                        cost: "Rs. 320.00",
                         ref: "ADJ-2281",
                         user: "Mark Kim", avatar: "MK", avatarColor: "bg-orange-100 text-orange-700", isSys: false
                       },

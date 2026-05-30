@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import Sidebar from "./Components/Sidebar";
 import InventoryHeader from "./Components/InventoryHeader";
 
@@ -440,17 +441,17 @@ export default function Alerts() {
 
                       {/* Required Actions */}
                       <div className="grid grid-cols-2 gap-2 mt-4 sm:mt-0 min-w-[220px] sm:min-w-[240px] self-start sm:self-center">
-                        <button
-                          onClick={() => toast(`Opened product details for "${alert.title.split('—')[0].trim()}".`, 'info')}
-                          className={`px-3 py-2 rounded-lg text-xs font-bold border transition-colors ${getActionButtonClass(false)}`}
+                        <Link
+                          to="/manage-products?tab=products"
+                          className={`flex items-center justify-center px-3 py-2 rounded-lg text-xs font-bold border transition-colors ${getActionButtonClass(false)}`}
                         >
                           View Product
-                        </button>
+                        </Link>
                         <button
                           onClick={() => handlePrimary(alert)}
                           className={`px-3 py-2 rounded-lg text-xs font-bold border transition-colors ${getActionButtonClass(true)}`}
                         >
-                          Reorder Now
+                          {alert.primaryAction}
                         </button>
                         <button
                           onClick={() => dismiss(alert.id)}

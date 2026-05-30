@@ -5,36 +5,33 @@ import PublicLayout from '../components/layout/PublicLayout/PublicLayout'
 import ProtectedRoute from '../components/shared/ProtectedRoute/ProtectedRoute'
 
 // Public Pages
-import HomePage     from '../pages/public/HomePage'
-import OffersPage   from '../pages/public/OffersPage'
+import HomePage from '../pages/public/HomePage'
+import OffersPage from '../pages/public/OffersPage'
 import ProductsPage from '../pages/public/ProductsPage'
 import CategoryPage from '../pages/public/CategoryPage'
 import AboutUsPage from '../pages/public/AboutUsPage'
 
 // Auth Pages
-import LoginPage        from '../pages/auth/LoginPage'
+import LoginPage from '../pages/auth/LoginPage'
 import UnauthorizedPage from '../pages/auth/UnauthorizedPage'
 
 // Inventory Pages (ADMIN + INVENTORY_MANAGER)
-import InventoryPage        from '../pages/inventory/InventoryPage'
-import InventoryAnalytics   from '../pages/inventory/InventoryAnalytics'
-import ProductManagement    from '../pages/inventory/ProductManagement'
-import AddNewProduct        from '../pages/inventory/AddNewProduct'
-import Category             from '../pages/inventory/Categories'
+import InventoryPage from '../pages/inventory/InventoryPage'
+import InventoryAnalytics from '../pages/inventory/InventoryAnalytics'
+import ProductManagement from '../pages/inventory/ProductManagement'
 import InventoryAdjustments from '../pages/inventory/InventoryAdjustments'
-import Suppliers            from '../pages/inventory/Suppliers'
-import PurchaseRecords      from '../pages/inventory/PurchaseRecords'
-import StockMovements       from '../pages/inventory/StockMovements'
-import Alerts               from '../pages/inventory/Alerts'
-import Reports              from '../pages/inventory/Reports'
-import Settings             from '../pages/inventory/Settings'
+import ProcurementManagement from '../pages/inventory/ProcurementManagement'
+import StockMovements from '../pages/inventory/StockMovements'
+import Alerts from '../pages/inventory/Alerts'
+import Reports from '../pages/inventory/Reports'
+import Settings from '../pages/inventory/Settings'
 
 // Protected Route Groups
-import AdminRoutes   from './AdminRoutes'
+import AdminRoutes from './AdminRoutes'
 import CashierRoutes from './CashierRoutes'
 
 const INVENTORY_ROLES = ['ADMIN', 'INVENTORY_MANAGER']
-const CASHIER_ROLES   = ['ADMIN', 'CASHIER']
+const CASHIER_ROLES = ['ADMIN', 'CASHIER']
 
 export default function AppRouter() {
   return (
@@ -46,7 +43,7 @@ export default function AppRouter() {
         ══════════════════════════════════════════════ */}
         <Route element={<PublicLayout />}>
 
-          <Route path="/"       element={<HomePage />} />
+          <Route path="/" element={<HomePage />} />
           <Route path="/offers" element={<OffersPage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/category/:categoryId" element={<CategoryPage />} />
@@ -57,7 +54,7 @@ export default function AppRouter() {
         {/* ══════════════════════════════════════════════
             AUTH PAGES — Standalone (no layout)
         ══════════════════════════════════════════════ */}
-        <Route path="/login"        element={<LoginPage />} />
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
         {/* ══════════════════════════════════════════════
@@ -73,19 +70,22 @@ export default function AppRouter() {
           <ProtectedRoute allowedRoles={INVENTORY_ROLES}><ProductManagement /></ProtectedRoute>
         } />
         <Route path="/manage-products/new" element={
-          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><AddNewProduct /></ProtectedRoute>
+          <Navigate to="/manage-products?tab=new-product" replace />
         } />
         <Route path="/categories" element={
-          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><Category /></ProtectedRoute>
+          <Navigate to="/manage-products?tab=categories" replace />
         } />
         <Route path="/inventory-adjustments" element={
           <ProtectedRoute allowedRoles={INVENTORY_ROLES}><InventoryAdjustments /></ProtectedRoute>
         } />
         <Route path="/suppliers" element={
-          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><Suppliers /></ProtectedRoute>
+          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><ProcurementManagement /></ProtectedRoute>
         } />
         <Route path="/purchase-records" element={
-          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><PurchaseRecords /></ProtectedRoute>
+          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><ProcurementManagement /></ProtectedRoute>
+        } />
+        <Route path="/procurement" element={
+          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><ProcurementManagement /></ProtectedRoute>
         } />
         <Route path="/stock-movements" element={
           <ProtectedRoute allowedRoles={INVENTORY_ROLES}><StockMovements /></ProtectedRoute>

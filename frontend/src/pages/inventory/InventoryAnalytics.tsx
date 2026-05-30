@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import Sidebar from './Components/Sidebar';
 import InventoryHeader from './Components/InventoryHeader';
 
@@ -6,10 +7,7 @@ export default function InventoryAnalytics() {
     <div className="flex h-screen bg-[#f8f9fa] text-slate-800 font-sans overflow-hidden">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        <InventoryHeader>
-          {/* We will leave it empty to keep the left side standard, or if needed we can put something here. 
-              The screenshot shows the top title under the header, so the header left side is empty */}
-        </InventoryHeader>
+        <InventoryHeader />
 
         <main className="flex-1 overflow-y-auto px-6 py-6 bg-[#f8f9fa]">
           <div className="max-w-[1400px] w-full mx-auto space-y-6">
@@ -34,9 +32,9 @@ export default function InventoryAnalytics() {
             {/* KPI Cards Row */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {/* Total Products */}
-              <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between h-[110px]">
+              <Link to="/manage-products?tab=products" className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between h-[110px] hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex justify-between items-start">
-                  <div className="w-8 h-8 rounded bg-[#eef8f2] text-[#0b8252] flex items-center justify-center">
+                  <div className="w-8 h-8 rounded bg-[#eef8f2] text-[#0b8252] flex items-center justify-center group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined text-[18px]">inventory_2</span>
                   </div>
                   <span className="text-xs font-bold text-[#10b981]">+12%</span>
@@ -45,12 +43,12 @@ export default function InventoryAnalytics() {
                   <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Total Products</p>
                   <p className="text-xl font-bold text-slate-800 leading-none">12,482</p>
                 </div>
-              </div>
+              </Link>
 
               {/* Categories */}
-              <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between h-[110px]">
+              <Link to="/manage-products?tab=categories" className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between h-[110px] hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex justify-between items-start">
-                  <div className="w-8 h-8 rounded bg-[#f1f5f9] text-[#64748b] flex items-center justify-center">
+                  <div className="w-8 h-8 rounded bg-[#f1f5f9] text-[#64748b] flex items-center justify-center group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined text-[18px]">category</span>
                   </div>
                   <span className="text-xs font-bold text-slate-400">Static</span>
@@ -59,12 +57,12 @@ export default function InventoryAnalytics() {
                   <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Categories</p>
                   <p className="text-xl font-bold text-slate-800 leading-none">48</p>
                 </div>
-              </div>
+              </Link>
 
               {/* Low Stock */}
-              <div className="bg-white rounded-xl border border-slate-200 border-l-4 border-l-[#d97706] p-4 shadow-sm flex flex-col justify-between h-[110px]">
+              <Link to="/alerts" className="bg-white rounded-xl border border-slate-200 border-l-4 border-l-[#d97706] p-4 shadow-sm flex flex-col justify-between h-[110px] hover:border-[#d97706]/40 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex justify-between items-start">
-                  <div className="w-8 h-8 rounded bg-[#fef3c7] text-[#d97706] flex items-center justify-center">
+                  <div className="w-8 h-8 rounded bg-[#fef3c7] text-[#d97706] flex items-center justify-center group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined text-[18px]">error</span>
                   </div>
                   <span className="text-xs font-bold text-[#dc2626]">Critical</span>
@@ -73,12 +71,12 @@ export default function InventoryAnalytics() {
                   <p className="text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-0.5">Low Stock</p>
                   <p className="text-xl font-bold text-[#92400e] leading-none">142</p>
                 </div>
-              </div>
+              </Link>
 
               {/* Out of Stock */}
-              <div className="bg-white rounded-xl border border-slate-200 border-l-4 border-l-[#ef4444] p-4 shadow-sm flex flex-col justify-between h-[110px]">
+              <Link to="/alerts" className="bg-white rounded-xl border border-slate-200 border-l-4 border-l-[#ef4444] p-4 shadow-sm flex flex-col justify-between h-[110px] hover:border-[#ef4444]/40 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex justify-between items-start">
-                  <div className="w-8 h-8 rounded bg-[#fee2e2] text-[#ef4444] flex items-center justify-center">
+                  <div className="w-8 h-8 rounded bg-[#fee2e2] text-[#ef4444] flex items-center justify-center group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined text-[18px]">cancel</span>
                   </div>
                   <span className="text-xs font-bold text-[#ef4444]">-5%</span>
@@ -87,12 +85,12 @@ export default function InventoryAnalytics() {
                   <p className="text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-0.5">Out of Stock</p>
                   <p className="text-xl font-bold text-[#b91c1c] leading-none">24</p>
                 </div>
-              </div>
+              </Link>
 
               {/* Expired */}
-              <div className="bg-white rounded-xl border border-slate-200 border-l-4 border-l-[#b45309] p-4 shadow-sm flex flex-col justify-between h-[110px]">
+              <Link to="/alerts" className="bg-white rounded-xl border border-slate-200 border-l-4 border-l-[#b45309] p-4 shadow-sm flex flex-col justify-between h-[110px] hover:border-[#b45309]/40 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex justify-between items-start">
-                  <div className="w-8 h-8 rounded bg-[#fef3c7] text-[#92400e] flex items-center justify-center">
+                  <div className="w-8 h-8 rounded bg-[#fef3c7] text-[#92400e] flex items-center justify-center group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined text-[18px]">event_busy</span>
                   </div>
                   <span className="text-xs font-bold text-[#92400e]">Expiring</span>
@@ -101,12 +99,12 @@ export default function InventoryAnalytics() {
                   <p className="text-[11px] font-bold text-slate-800 uppercase tracking-wider mb-0.5">Expired</p>
                   <p className="text-xl font-bold text-slate-800 leading-none">18</p>
                 </div>
-              </div>
+              </Link>
 
               {/* Suppliers */}
-              <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between h-[110px]">
+              <Link to="/suppliers" className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between h-[110px] hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex justify-between items-start">
-                  <div className="w-8 h-8 rounded bg-[#dcfce7] text-[#10b981] flex items-center justify-center">
+                  <div className="w-8 h-8 rounded bg-[#dcfce7] text-[#10b981] flex items-center justify-center group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined text-[18px]">local_shipping</span>
                   </div>
                   <span className="text-xs font-bold text-[#10b981]">+2</span>
@@ -115,7 +113,7 @@ export default function InventoryAnalytics() {
                   <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Suppliers</p>
                   <p className="text-xl font-bold text-slate-800 leading-none">115</p>
                 </div>
-              </div>
+              </Link>
             </div>
 
             {/* Middle Row: Chart & AI Insights */}

@@ -128,11 +128,11 @@ function PurchaseOrdersTab() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
                   {[
-                    { ref: "PR-00881", date: "Oct 24 2023", sup: "Green Harvest Co.", prod: "Organic Milk 1L", qty: "200 units", price: "$1.20", total: "$240.00", status: "RECEIVED", sClass: "bg-[#eef8f2] text-[#0b8252]" },
-                    { ref: "PR-00882", date: "Oct 25 2023", sup: "Fresh Dairy Inc.", prod: "Cheddar Cheese 200g", qty: "50 units", price: "$4.50", total: "$225.00", status: "PENDING", sClass: "bg-[#fef3c7] text-[#d97706]" },
-                    { ref: "PR-00883", date: "Oct 25 2023", sup: "Global Grains Ltd.", prod: "Whole Wheat Bread", qty: "100 units", price: "$2.10", total: "$210.00", status: "PARTIAL", sClass: "bg-[#fee2e2] text-[#ef4444]" },
-                    { ref: "PR-00884", date: "Oct 25 2023", sup: "Orchard Valley", prod: "Red Apples (Box)", qty: "15 units", price: "$30.00", total: "$450.00", status: "RECEIVED", sClass: "bg-[#eef8f2] text-[#0b8252]" },
-                    { ref: "PR-00885", date: "Oct 26 2023", sup: "Beverage Prox", prod: "Sparkling Water 500ml", qty: "500 units", price: "$0.45", total: "$225.00", status: "PENDING", sClass: "bg-[#fef3c7] text-[#d97706]" },
+                    { ref: "PR-00881", date: "Oct 24 2023", sup: "Green Harvest Co.", prod: "Organic Milk 1L", qty: "200 units", price: "Rs. 450.00", total: "Rs. 90,000.00", status: "RECEIVED", sClass: "bg-[#eef8f2] text-[#0b8252]" },
+                    { ref: "PR-00882", date: "Oct 25 2023", sup: "Fresh Dairy Inc.", prod: "Cheddar Cheese 200g", qty: "50 units", price: "Rs. 950.00", total: "Rs. 47,500.00", status: "PENDING", sClass: "bg-[#fef3c7] text-[#d97706]" },
+                    { ref: "PR-00883", date: "Oct 25 2023", sup: "Global Grains Ltd.", prod: "Whole Wheat Bread", qty: "100 units", price: "Rs. 220.00", total: "Rs. 22,000.00", status: "PARTIAL", sClass: "bg-[#fee2e2] text-[#ef4444]" },
+                    { ref: "PR-00884", date: "Oct 25 2023", sup: "Orchard Valley", prod: "Red Apples (Box)", qty: "15 units", price: "Rs. 8,500.00", total: "Rs. 127,500.00", status: "RECEIVED", sClass: "bg-[#eef8f2] text-[#0b8252]" },
+                    { ref: "PR-00885", date: "Oct 26 2023", sup: "Beverage Prox", prod: "Sparkling Water 500ml", qty: "500 units", price: "Rs. 180.00", total: "Rs. 90,000.00", status: "PENDING", sClass: "bg-[#fef3c7] text-[#d97706]" },
                   ].map((item, i) => (
                     <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                       <td className="p-4 font-bold text-[#0b8252]">{item.ref}</td>

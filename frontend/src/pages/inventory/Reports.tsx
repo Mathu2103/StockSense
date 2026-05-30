@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Sidebar from './Components/Sidebar';
 import InventoryHeader from './Components/InventoryHeader';
+import brandLogo from './assets/logo.png';
 
 type ViewState = 'overview' | 'sales' | 'inventory' | 'supplier' | 'activity' | 'purchase' | 'alert';
 
@@ -12,13 +13,13 @@ const downloadReport = (
   format: 'pdf' | 'excel' | 'csv' = 'csv',
   reportData?: { headers: string[], rows: (string | number)[][] }
 ) => {
-  const headers = reportData?.headers || ['ID / Ref', 'Category', 'Description', 'Value / Status'];
+  const headers = reportData?.headers || ['Product Ref', 'Category', 'Supermarket Description', 'Asset Value / Cost'];
   const rows = reportData?.rows || [
-    ['#001', 'Operations', `Dummy Record 1 for ${reportName}`, 'Complete'],
-    ['#002', 'Finance', `Dummy Record 2 for ${reportName}`, 'Pending'],
-    ['#003', 'Inventory', `Dummy Record 3 for ${reportName}`, 'Alert'],
-    ['#004', 'System', `Dummy Record 4 for ${reportName}`, 'Active'],
-    ['#005', 'Logistics', `Dummy Record 5 for ${reportName}`, 'In Transit'],
+    ['INV-9823', 'Dairy', 'Fresh Milk 1L Procurement Reorder', 'Rs. 45,000.00'],
+    ['INV-8823', 'Produce', 'Organic Avocados Stock Intake', 'Rs. 201,880.00'],
+    ['INV-7721', 'Grocery', 'Ceylon Black Tea Consignment', 'Rs. 132,000.00'],
+    ['INV-4412', 'Beverage', 'Spring Water Case Restocking', 'Rs. 84,900.00'],
+    ['INV-1102', 'Bakery', 'Whole Wheat Bread Batch Audit', 'Rs. 22,000.00'],
   ];
 
   if (format === 'pdf') {
@@ -33,18 +34,18 @@ const downloadReport = (
         <style>
           body { font-family: 'Inter', system-ui, sans-serif; color: #334155; margin: 40px; background: #fff; }
           .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #0b8252; padding-bottom: 20px; margin-bottom: 30px; }
-          .logo { display: flex; align-items: center; gap: 10px; }
-          .logo-icon { background: #0b8252; color: white; width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 24px; }
-          h1 { color: #0f172a; margin: 0; font-size: 28px; font-weight: 800; }
-          h2 { color: #0b8252; margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
-          .meta { text-align: right; font-size: 12px; color: #64748b; }
-          .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
-          .kpi-card { background: #f8f9fa; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; border-left: 4px solid #0b8252; }
-          .kpi-title { font-size: 12px; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 5px; }
-          .kpi-value { font-size: 24px; font-weight: bold; color: #0f172a; margin: 0; }
+          .logo { display: flex; align-items: center; gap: 12px; }
+          .logo-icon { background: #0b8252; color: white; width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 26px; }
+          h1 { color: #0f172a; margin: 0; font-size: 24px; font-weight: 800; }
+          h2 { color: #0b8252; margin: 0; font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+          .meta { text-align: right; font-size: 11px; color: #64748b; line-height: 1.5; }
+          .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px; }
+          .kpi-card { background: #f8f9fa; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; border-left: 4px solid #0b8252; }
+          .kpi-title { font-size: 11px; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 5px; }
+          .kpi-value { font-size: 18px; font-weight: bold; color: #0f172a; margin: 0; }
           table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-          th { background: #eef8f2; color: #0b8252; font-weight: bold; font-size: 12px; text-transform: uppercase; text-align: left; padding: 12px 16px; border-bottom: 2px solid #bbf7d0; }
-          td { padding: 12px 16px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+          th { background: #eef8f2; color: #0b8252; font-weight: bold; font-size: 11px; text-transform: uppercase; text-align: left; padding: 10px 14px; border-bottom: 2px solid #bbf7d0; }
+          td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #334155; }
           tr:nth-child(even) { background: #f8f9fa; }
           .footer { margin-top: 50px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 20px; }
           @media print { body { margin: 0; } }
@@ -53,26 +54,32 @@ const downloadReport = (
       <body>
         <div class="header">
           <div class="logo">
-            <div class="logo-icon">S</div>
+            <img src="${brandLogo}" style="width: 48px; height: 48px; object-fit: contain; border-radius: 8px; border: 1px solid #e2e8f0; padding: 2px; background: #fff;" />
             <div>
-              <h2>StockSense</h2>
+              <h2>CHAMSON MULTI SHOP</h2>
               <h1>${reportName.replace(/_/g, ' ')}</h1>
             </div>
           </div>
           <div class="meta">
+            <p><strong>Branch:</strong> Colombo 03 Branch</p>
+            <p><strong>Business Reg:</strong> PV-00283921</p>
+            <p><strong>TIN (18% VAT):</strong> 203928172</p>
             <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
-            <p><strong>Operator:</strong> System Admin</p>
           </div>
         </div>
         
         <div class="kpi-grid">
           <div class="kpi-card">
             <div class="kpi-title">Report Period</div>
-            <div class="kpi-value">Current Period</div>
+            <div class="kpi-value">Active Audit</div>
           </div>
           <div class="kpi-card">
             <div class="kpi-title">Total Records</div>
             <div class="kpi-value">${rows.length}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-title">Currency Standard</div>
+            <div class="kpi-value">LKR (Rs.)</div>
           </div>
           <div class="kpi-card">
             <div class="kpi-title">Status</div>
@@ -97,7 +104,7 @@ const downloadReport = (
         </table>
 
         <div class="footer">
-          &copy; ${new Date().getFullYear()} StockSense Inventory Management. This is a system-generated document.
+          &copy; ${new Date().getFullYear()} Chamson Multi Shop. This is a system-generated document.
         </div>
         <script>
           window.onload = () => { window.print(); };
@@ -161,15 +168,195 @@ export default function Reports() {
 // 1. OVERVIEW COMPONENT
 // --------------------------------------------------------------------------------
 function ReportsOverview({ onViewChange }: { onViewChange: (view: ViewState) => void }) {
+  const [showModal, setShowModal] = useState(false);
+  const [reportTitle, setReportTitle] = useState('Custom Supermarket Report');
+  const [reportCategory, setReportCategory] = useState('Sales');
+  const [reportDepartment, setReportDepartment] = useState('All Departments');
+  const [reportFormat, setReportFormat] = useState<'pdf' | 'excel' | 'csv'>('pdf');
+  const [metrics, setMetrics] = useState({
+    revenue: true,
+    margins: true,
+    shrinkage: false,
+    turnover: false
+  });
+
+  const handleGenerate = () => {
+    const headers = ['Metric Description', 'Reporting Tab', 'Computed Value', 'Verification'];
+    const rows = [
+      ['Consolidated Supermarket Valuation', reportCategory, 'Rs. 14,500,000.00', 'Audited'],
+      ['Target Store Department Filter', reportCategory, reportDepartment, 'Active'],
+      ['Report Generation Window', reportCategory, new Date().toLocaleDateString(), 'System Certified'],
+      ['Estimated Operational Margin', reportCategory, '24.8% Gross Margin', 'Calculated'],
+    ];
+
+    downloadReport(reportTitle.replace(/\s+/g, '_'), reportFormat, { headers, rows });
+    setShowModal(false);
+  };
+
   return (
     <div className="animate-in fade-in duration-300">
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Reports & Analytics</h1>
-          <p className="text-slate-500 text-sm mt-1">Detailed insights into your supermarket's daily operations and performance.</p>
+      {/* Custom Report Modal Overlay */}
+      {showModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-100">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#0b8252] text-2xl">insert_chart</span>
+                <div>
+                  <h3 className="font-bold text-lg text-slate-800">Create Custom Report</h3>
+                  <p className="text-xs text-slate-500">Configure parameters for instant operational printouts</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Report Title */}
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Report Name</label>
+                <input 
+                  type="text" 
+                  value={reportTitle} 
+                  onChange={(e) => setReportTitle(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b8252] focus:border-[#0b8252] text-sm text-slate-800"
+                  placeholder="e.g. Monthly Produce Wastage Summary"
+                />
+              </div>
+
+              {/* Categorization & Department */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Report Stream</label>
+                  <select 
+                    value={reportCategory}
+                    onChange={(e) => setReportCategory(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0b8252]"
+                  >
+                    <option value="Sales">Sales Reports</option>
+                    <option value="Inventory">Inventory Reports</option>
+                    <option value="Supplier">Supplier Reports</option>
+                    <option value="Procurement">Purchase Records</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Department</label>
+                  <select 
+                    value={reportDepartment}
+                    onChange={(e) => setReportDepartment(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0b8252]"
+                  >
+                    <option value="All Departments">All Departments</option>
+                    <option value="Dairy">Dairy</option>
+                    <option value="Produce">Fresh Produce</option>
+                    <option value="Bakery">Bakery</option>
+                    <option value="Pantry">Pantry / Grocery</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Included Metrics */}
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Operational Metrics</label>
+                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                  <label className="flex items-center gap-2.5 text-xs text-slate-700 font-medium cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={metrics.revenue} 
+                      onChange={(e) => setMetrics({...metrics, revenue: e.target.checked})}
+                      className="rounded text-[#0b8252] focus:ring-[#0b8252] w-4 h-4"
+                    />
+                    Revenue Totals
+                  </label>
+                  <label className="flex items-center gap-2.5 text-xs text-slate-700 font-medium cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={metrics.margins} 
+                      onChange={(e) => setMetrics({...metrics, margins: e.target.checked})}
+                      className="rounded text-[#0b8252] focus:ring-[#0b8252] w-4 h-4"
+                    />
+                    Financial Margins
+                  </label>
+                  <label className="flex items-center gap-2.5 text-xs text-slate-700 font-medium cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={metrics.shrinkage} 
+                      onChange={(e) => setMetrics({...metrics, shrinkage: e.target.checked})}
+                      className="rounded text-[#0b8252] focus:ring-[#0b8252] w-4 h-4"
+                    />
+                    Shrinkage Audit
+                  </label>
+                  <label className="flex items-center gap-2.5 text-xs text-slate-700 font-medium cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={metrics.turnover} 
+                      onChange={(e) => setMetrics({...metrics, turnover: e.target.checked})}
+                      className="rounded text-[#0b8252] focus:ring-[#0b8252] w-4 h-4"
+                    />
+                    Stock Turnover
+                  </label>
+                </div>
+              </div>
+
+              {/* Format selection */}
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Export Format</label>
+                <div className="flex gap-4">
+                  {(['pdf', 'excel', 'csv'] as const).map((format) => (
+                    <label key={format} className="flex-1 flex items-center justify-between p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition-all select-none">
+                      <span className="text-xs font-bold uppercase text-slate-600">{format}</span>
+                      <input 
+                        type="radio" 
+                        name="exportFormat"
+                        checked={reportFormat === format}
+                        onChange={() => setReportFormat(format)}
+                        className="text-[#0b8252] focus:ring-[#0b8252] w-4 h-4"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3">
+              <button 
+                onClick={() => setShowModal(false)}
+                className="px-5 py-2.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-500 hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleGenerate}
+                className="px-5 py-2.5 rounded-lg bg-[#0b8252] hover:bg-[#096b43] text-xs font-bold text-white shadow-md transition-all flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-[16px]">download</span>
+                Generate & Export
+              </button>
+            </div>
+          </div>
         </div>
-        <button className="flex items-center gap-2 bg-[#0b8252] text-white px-5 py-2.5 rounded-lg font-bold text-sm shadow-sm hover:bg-[#096b43] transition-colors">
+      )}
+
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 bg-slate-50 p-6 rounded-2xl border border-slate-100 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 bg-white rounded-xl p-1 shadow-sm border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+            <img src={brandLogo} alt="Chamson Multi Shop Logo" className="w-full h-full object-contain" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Reports & Analytics</h1>
+            <p className="text-slate-500 text-sm mt-0.5">Detailed insights into Chamson Multi Shop's daily operations and performance.</p>
+          </div>
+        </div>
+        <button 
+          onClick={() => setShowModal(true)}
+          className="flex items-center gap-2 bg-[#0b8252] text-white px-5 py-2.5 rounded-lg font-bold text-sm shadow-sm hover:bg-[#096b43] transition-colors shrink-0 self-start sm:self-auto"
+        >
           <span className="material-symbols-outlined text-[18px]">insert_chart</span>
           Create Custom Report
         </button>
@@ -320,22 +507,22 @@ function SalesReports({ onViewChange }: { onViewChange: (view: ViewState) => voi
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
   const dataMap = {
-    Today: { sales: '$248,392.50', orders: '1,842', top: 'Organic Avocados', topUnits: '412', topRev: '$1,231.88', trend: '+12.5%', chart: [40, 75, 50, 95, 80, 45, 25] },
-    Week: { sales: '$1,482,900.00', orders: '12,940', top: 'Spring Water 24pk', topUnits: '3,842', topRev: '$23,013.58', trend: '+8.2%', chart: [60, 55, 80, 75, 95, 100, 85] },
-    Month: { sales: '$6,293,400.00', orders: '54,200', top: 'Grade A Large Eggs', topUnits: '18,390', topRev: '$78,157.50', trend: '+15.4%', chart: [40, 50, 45, 60, 70, 85, 90] },
-    Year: { sales: '$75,200,800.00', orders: '648,300', top: 'Organic Avocados', topUnits: '182,400', topRev: '$545,376.00', trend: '+22.1%', chart: [30, 40, 35, 50, 60, 80, 95] },
-    'Custom Range': { sales: '$104,200.00', orders: '840', top: 'Premium Coffee', topUnits: '240', topRev: '$3,000.00', trend: '+4.1%', chart: [50, 60, 40, 70, 80, 60, 40] }
+    Today: { sales: 'Rs. 248,392.50', salesTrend: '+12.5%', orders: '1,842', ordersTrend: '+8.1%', top: 'Organic Avocados', topUnits: '412', topRev: 'Rs. 201,880.00', chart: [40, 75, 50, 95, 80, 45, 25] },
+    Week: { sales: 'Rs. 1,482,900.00', salesTrend: '+8.2%', orders: '12,940', ordersTrend: '+5.4%', top: 'Spring Water 24pk', topUnits: '3,842', topRev: 'Rs. 450,500.00', chart: [60, 55, 80, 75, 95, 100, 85] },
+    Month: { sales: 'Rs. 6,293,400.00', salesTrend: '+15.4%', orders: '54,200', ordersTrend: '+12.0%', top: 'Grade A Large Eggs', topUnits: '18,390', topRev: 'Rs. 1,275,500.00', chart: [40, 50, 45, 60, 70, 85, 90] },
+    Year: { sales: 'Rs. 75,200,800.00', salesTrend: '+22.1%', orders: '648,300', ordersTrend: '+18.5%', top: 'Organic Avocados', topUnits: '182,400', topRev: 'Rs. 18,376,000.00', chart: [30, 40, 35, 50, 60, 80, 95] },
+    'Custom Range': { sales: 'Rs. 104,200.00', salesTrend: '+4.1%', orders: '840', ordersTrend: '+2.1%', top: 'Premium Coffee', topUnits: '240', topRev: 'Rs. 42,000.00', chart: [50, 60, 40, 70, 80, 60, 40] }
   };
 
   const activeData = dataMap[period] || dataMap['Today'];
 
   const allProducts = [
-    { name: "Grade A Large Eggs (12pk)", cat: "Dairy", sku: "EG-29384-L", qty: 328, price: "$4.25", rev: "$1,394.00", status: "IN STOCK", icon: "egg", sClass: "bg-[#dcfce7] text-[#16a34a]" },
-    { name: "Organic Avocados", cat: "Produce", sku: "AV-11022-O", qty: 412, price: "$2.99", rev: "$1,231.88", status: "LOW STOCK", icon: "eco", sClass: "bg-[#fee2e2] text-[#ef4444]" },
-    { name: "Premium Roasted Coffee 500g", cat: "Grocery", sku: "CF-88392-P", qty: 194, price: "$12.50", rev: "$2,425.00", status: "IN STOCK", icon: "local_cafe", sClass: "bg-[#dcfce7] text-[#16a34a]" },
-    { name: "Spring Water 24pk", cat: "Grocery", sku: "WT-77281-S", qty: 582, price: "$5.99", rev: "$3,486.18", status: "IN STOCK", icon: "water_drop", sClass: "bg-[#dcfce7] text-[#16a34a]" },
-    { name: "Cheddar Cheese 200g", cat: "Dairy", sku: "CH-11200-D", qty: 150, price: "$5.50", rev: "$825.00", status: "IN STOCK", icon: "kitchen", sClass: "bg-[#dcfce7] text-[#16a34a]" },
-    { name: "Fresh Strawberries", cat: "Produce", sku: "ST-99001-P", qty: 85, price: "$4.99", rev: "$424.15", status: "LOW STOCK", icon: "local_dining", sClass: "bg-[#fee2e2] text-[#ef4444]" },
+    { name: "Grade A Large Eggs (12pk)", cat: "Dairy", sku: "EG-29384-L", qty: 328, price: "Rs. 450.00", rev: "Rs. 147,600.00", status: "IN STOCK", icon: "egg", sClass: "bg-[#dcfce7] text-[#16a34a]" },
+    { name: "Organic Avocados", cat: "Produce", sku: "AV-11022-O", qty: 412, price: "Rs. 490.00", rev: "Rs. 201,880.00", status: "LOW STOCK", icon: "eco", sClass: "bg-[#fee2e2] text-[#ef4444]" },
+    { name: "Premium Roasted Coffee 500g", cat: "Grocery", sku: "CF-88392-P", qty: 194, price: "Rs. 2,400.00", rev: "Rs. 465,600.00", status: "IN STOCK", icon: "local_cafe", sClass: "bg-[#dcfce7] text-[#16a34a]" },
+    { name: "Spring Water 24pk", cat: "Grocery", sku: "WT-77281-S", qty: 582, price: "Rs. 1,450.00", rev: "Rs. 843,900.00", status: "IN STOCK", icon: "water_drop", sClass: "bg-[#dcfce7] text-[#16a34a]" },
+    { name: "Cheddar Cheese 200g", cat: "Dairy", sku: "CH-11200-D", qty: 150, price: "Rs. 950.00", rev: "Rs. 142,500.00", status: "IN STOCK", icon: "kitchen", sClass: "bg-[#dcfce7] text-[#16a34a]" },
+    { name: "Fresh Strawberries", cat: "Produce", sku: "ST-99001-P", qty: 85, price: "Rs. 890.00", rev: "Rs. 75,650.00", status: "LOW STOCK", icon: "local_dining", sClass: "bg-[#fee2e2] text-[#ef4444]" },
   ];
 
   const filteredProducts = categoryFilter === 'All Departments' 
@@ -457,7 +644,7 @@ function SalesReports({ onViewChange }: { onViewChange: (view: ViewState) => voi
           </div>
           <h3 className="text-4xl font-bold text-slate-800 tracking-tight">{activeData.sales}</h3>
           <p className="text-xs font-bold text-[#10b981] mt-3 flex items-center gap-1">
-            <span className="material-symbols-outlined text-[14px]">trending_up</span> {activeData.trend}
+            <span className="material-symbols-outlined text-[14px]">trending_up</span> {activeData.salesTrend}
           </p>
         </div>
 
@@ -469,7 +656,7 @@ function SalesReports({ onViewChange }: { onViewChange: (view: ViewState) => voi
           </div>
           <h3 className="text-4xl font-bold text-slate-800 tracking-tight">{activeData.orders}</h3>
           <p className="text-xs font-bold text-[#10b981] mt-3 flex items-center gap-1">
-            <span className="material-symbols-outlined text-[14px]">trending_up</span> {activeData.trend}
+            <span className="material-symbols-outlined text-[14px]">trending_up</span> {activeData.ordersTrend}
           </p>
         </div>
 
@@ -480,7 +667,7 @@ function SalesReports({ onViewChange }: { onViewChange: (view: ViewState) => voi
               <span className="material-symbols-outlined text-[16px]">stars</span>
               <p className="text-xs font-bold uppercase tracking-wider">Top Selling Product</p>
             </div>
-            <h3 className="text-2xl font-bold text-slate-800 leading-tight">{activeData.top.split(' ').map((w,i)=><React.Fragment key={i}>{w}<br/></React.Fragment>)}</h3>
+            <h3 className="text-2xl font-bold text-slate-800 leading-tight truncate">{activeData.top}</h3>
             <div className="mt-3">
               <p className="text-xs text-slate-600 mb-0.5">{activeData.topUnits} Units Sold</p>
               <p className="text-sm font-bold text-[#0b8252]">Revenue: {activeData.topRev}</p>
@@ -572,51 +759,6 @@ function SalesReports({ onViewChange }: { onViewChange: (view: ViewState) => voi
           </div>
         </div>
       </div>
-
-      {/* Bottom Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-8">
-
-        {/* Hourly Sales Velocity */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col">
-          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-6">Sales Velocity ({period === 'Custom Range' && dateRange.start ? `${dateRange.start} to ${dateRange.end}` : period})</h3>
-          <div className="flex-1 flex items-end justify-between gap-2 md:gap-4 h-[140px] px-2 border-b border-slate-100 pb-2">
-            {activeData.chart.map((h, i) => (
-              <div key={i} className="w-full flex justify-center group relative">
-                <div
-                  className={`w-full max-w-[40px] rounded-t-sm transition-all duration-500 group-hover:opacity-80 ${i === 4 ? 'bg-[#0b8252]' : 'bg-[#eef8f2]'}`}
-                  style={{ height: `${h}%` }}
-                ></div>
-                {/* Tooltip on hover */}
-                <span className="absolute -top-8 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                  {h * 12} units
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-between items-center mt-2 px-2 text-[10px] font-bold text-slate-400">
-            <span>START</span>
-            <span>PEAK</span>
-            <span>END</span>
-          </div>
-        </div>
-
-        {/* Data Refresh Pulse */}
-        <div className="bg-gradient-to-br from-[#eef8f2] to-[#dcfce7] rounded-xl border border-[#bbf7d0] p-6 shadow-sm flex flex-col items-center justify-center text-center relative overflow-hidden">
-          <div className="relative z-10 space-y-4">
-            <div>
-              <h3 className="font-bold text-xl text-slate-800">Data Refresh Pulse</h3>
-              <p className="text-sm text-slate-600 mt-1">Real-time sync active with 42 registers.</p>
-            </div>
-            <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm border border-white/40 px-4 py-2 rounded-full shadow-sm">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#10b981] animate-pulse"></span>
-              <span className="text-xs font-bold text-[#0b8252]">System Online</span>
-            </div>
-          </div>
-          {/* Decorative background circle */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-white/20 rounded-full blur-3xl pointer-events-none"></div>
-        </div>
-
-      </div>
     </div>
   );
 }
@@ -634,11 +776,11 @@ function InventoryReports({ onViewChange }: { onViewChange: (view: ViewState) =>
   const [statusFilter, setStatusFilter] = useState('All Statuses');
 
   const dataMap: Record<string, any> = {
-    Today: { val: '$142,500', prod: '1,842', low: '156', exp: '24', t1: '+3.2%', t2: '-12', t3: '+5' },
-    Week: { val: '$139,200', prod: '1,830', low: '180', exp: '12', t1: '-1.5%', t2: '+24', t3: '-12' },
-    Month: { val: '$145,000', prod: '1,900', low: '140', exp: '30', t1: '+5.0%', t2: '-16', t3: '+6' },
-    Year: { val: '$160,000', prod: '2,100', low: '100', exp: '45', t1: '+12.0%', t2: '-56', t3: '+21' },
-    'Custom Range': { val: '$140,000', prod: '1,850', low: '160', exp: '20', t1: '+1.0%', t2: '+4', t3: '-4' }
+    Today: { val: 'Rs. 14,250,000', prod: '1,842', low: '156', exp: '24', t1: '+3.2%', t2: '-12', t3: '+5', chart: [30, 45, 40, 55, 50, 65, 70] },
+    Week: { val: 'Rs. 13,920,000', prod: '1,830', low: '180', exp: '12', t1: '-1.5%', t2: '+24', t3: '-12', chart: [40, 35, 55, 45, 60, 50, 40] },
+    Month: { val: 'Rs. 14,500,000', prod: '1,900', low: '140', exp: '30', t1: '+5.0%', t2: '-16', t3: '+6', chart: [40, 65, 45, 80, 55, 90, 70] },
+    Year: { val: 'Rs. 16,000,000', prod: '2,100', low: '100', exp: '45', t1: '+12.0%', t2: '-56', t3: '+21', chart: [50, 60, 55, 70, 75, 85, 90] },
+    'Custom Range': { val: 'Rs. 14,000,000', prod: '1,850', low: '160', exp: '20', t1: '+1.0%', t2: '+4', t3: '-4', chart: [45, 55, 50, 65, 60, 75, 80] }
   };
 
   const activeData = dataMap[period] || dataMap['Month'];
@@ -679,6 +821,16 @@ function InventoryReports({ onViewChange }: { onViewChange: (view: ViewState) =>
   const reportHeaders = ['Product', 'Category', 'Qty', 'Sold', 'Status'];
   const reportRows = filteredItems.map(p => [p.name, p.cat, p.qty, p.sold, p.status]);
   const reportData = { headers: reportHeaders, rows: reportRows };
+
+  // Dynamic calculations for Stock Status pie chart
+  const totalProductsCount = parseInt(activeData.prod.replace(/,/g, '')) || 1900;
+  const lowStockCount = parseInt(activeData.low.replace(/,/g, '')) || 0;
+  const expiredCount = parseInt(activeData.exp.replace(/,/g, '')) || 0;
+  const inStockCount = Math.max(0, totalProductsCount - lowStockCount - expiredCount);
+  
+  const inStockPct = (inStockCount / totalProductsCount) * 100;
+  const lowPct = (lowStockCount / totalProductsCount) * 100;
+  // expPct is the remainder up to 100%
 
   return (
     <div className="animate-in fade-in duration-300 space-y-6 pb-12">
@@ -882,20 +1034,23 @@ function InventoryReports({ onViewChange }: { onViewChange: (view: ViewState) =>
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Inventory Trend Chart Placeholder */}
           <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-white/40 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] p-6 hover:-translate-y-1 transition-transform">
-            <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2"><span className="material-symbols-outlined text-[#0b8252]">show_chart</span> Inventory Trend ({period})</h3>
+            <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2"><span className="material-symbols-outlined text-[#0b8252]">bar_chart</span> Inventory by Category</h3>
             <div className="h-[180px] flex items-end justify-between gap-2 border-b border-slate-100 pb-2 relative">
               <div className="absolute top-1/4 w-full border-t border-dashed border-slate-200"></div>
               <div className="absolute top-2/4 w-full border-t border-dashed border-slate-200"></div>
               <div className="absolute top-3/4 w-full border-t border-dashed border-slate-200"></div>
-              {[40, 65, 45, 80, 55, 90, 70].map((h, i) => (
-                <div key={i} className="w-full relative group h-full flex items-end justify-center">
-                  <div className="w-3/4 bg-gradient-to-t from-[#0b8252]/20 to-[#0b8252] rounded-t-sm relative z-10 transition-all duration-300 group-hover:opacity-80" style={{ height: `${period === 'Week' ? h - 10 : h}%` }}></div>
-                  <span className="absolute -top-8 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 whitespace-nowrap">Day {i+1}</span>
-                </div>
-              ))}
+              {[...(activeData.chart || [40, 65, 45, 80, 55, 90, 70])].map((h, i) => {
+                const categories = ['Dairy', 'Pantry', 'Produce', 'Bakery', 'Snacks', 'Meat', 'Frozen'];
+                return (
+                  <div key={i} className="w-full relative group h-full flex items-end justify-center">
+                    <div className="w-3/4 bg-gradient-to-t from-[#0b8252]/20 to-[#0b8252] rounded-t-sm relative z-10 transition-all duration-300 group-hover:opacity-80" style={{ height: `${h}%` }}></div>
+                    <span className="absolute -top-8 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 whitespace-nowrap">{categories[i]}</span>
+                  </div>
+                );
+              })}
             </div>
-            <div className="flex justify-between items-center mt-2 text-[10px] font-bold text-slate-400">
-              <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+            <div className="flex justify-between items-center mt-2 px-1 text-[10px] font-bold text-slate-400">
+              <span>Dairy</span><span>Pantry</span><span>Produce</span><span>Bakery</span><span>Snacks</span><span>Meat</span><span>Frozen</span>
             </div>
           </div>
 
@@ -903,7 +1058,7 @@ function InventoryReports({ onViewChange }: { onViewChange: (view: ViewState) =>
           <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-white/40 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] p-6 hover:-translate-y-1 transition-transform">
             <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2"><span className="material-symbols-outlined text-[#0b8252]">pie_chart</span> Stock Status</h3>
             <div className="flex flex-col items-center justify-center h-[180px]">
-              <div className="relative w-32 h-32 rounded-full flex items-center justify-center shadow-inner" style={{ background: 'conic-gradient(#10b981 0% 70%, #f59e0b 70% 85%, #ef4444 85% 100%)' }}>
+              <div className="relative w-32 h-32 rounded-full flex items-center justify-center shadow-inner transition-all duration-500" style={{ background: `conic-gradient(#10b981 0% ${inStockPct}%, #f59e0b ${inStockPct}% ${inStockPct + lowPct}%, #ef4444 ${inStockPct + lowPct}% 100%)` }}>
                 <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center flex-col shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]">
                   <span className="text-2xl font-bold text-slate-800">{activeData.prod}</span>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Total</span>
@@ -943,24 +1098,24 @@ function InventoryReports({ onViewChange }: { onViewChange: (view: ViewState) =>
             </ul>
           </div>
 
-          {/* 7. QUICK ACTIONS PANEL */}
+          {/* 7. QUICK ACCESS PANEL */}
           <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-white/40 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] p-5">
-            <h3 className="font-bold text-slate-800 mb-4 text-sm uppercase tracking-wider">Quick Actions</h3>
+            <h3 className="font-bold text-slate-800 mb-4 text-sm uppercase tracking-wider">Quick Access</h3>
             <div className="grid grid-cols-2 gap-3">
-              <button className="flex flex-col items-center justify-center gap-2 bg-[#f8f9fa] border border-slate-200 p-3 rounded-xl hover:bg-[#eef8f2] hover:border-[#bbf7d0] hover:text-[#0b8252] text-slate-600 transition-colors group">
-                <span className="material-symbols-outlined text-[24px] group-hover:scale-110 transition-transform">add_box</span>
+              <button onClick={() => onViewChange('activity')} className="flex flex-col items-center justify-center gap-2 bg-[#f8f9fa] border border-slate-200 p-3 rounded-xl hover:bg-[#eef8f2] hover:border-[#bbf7d0] hover:text-[#0b8252] hover:shadow-md text-slate-600 transition-all duration-300 group">
+                <span className="material-symbols-outlined text-[24px] group-hover:scale-110 group-hover:-translate-y-1 transition-transform">add_box</span>
                 <span className="text-xs font-bold">Add Stock</span>
               </button>
-              <button className="flex flex-col items-center justify-center gap-2 bg-[#f8f9fa] border border-slate-200 p-3 rounded-xl hover:bg-[#eef8f2] hover:border-[#bbf7d0] hover:text-[#0b8252] text-slate-600 transition-colors group">
-                <span className="material-symbols-outlined text-[24px] group-hover:scale-110 transition-transform">receipt_long</span>
+              <button onClick={() => onViewChange('purchase')} className="flex flex-col items-center justify-center gap-2 bg-[#f8f9fa] border border-slate-200 p-3 rounded-xl hover:bg-[#eef8f2] hover:border-[#bbf7d0] hover:text-[#0b8252] hover:shadow-md text-slate-600 transition-all duration-300 group">
+                <span className="material-symbols-outlined text-[24px] group-hover:scale-110 group-hover:-translate-y-1 transition-transform">receipt_long</span>
                 <span className="text-xs font-bold">Create PO</span>
               </button>
-              <button className="flex flex-col items-center justify-center gap-2 bg-[#f8f9fa] border border-slate-200 p-3 rounded-xl hover:bg-[#fef3c7] hover:border-[#fde68a] hover:text-[#d97706] text-slate-600 transition-colors group">
-                <span className="material-symbols-outlined text-[24px] group-hover:scale-110 transition-transform">warning</span>
+              <button onClick={() => onViewChange('alert')} className="flex flex-col items-center justify-center gap-2 bg-[#f8f9fa] border border-slate-200 p-3 rounded-xl hover:bg-[#fef3c7] hover:border-[#fde68a] hover:text-[#d97706] hover:shadow-md text-slate-600 transition-all duration-300 group">
+                <span className="material-symbols-outlined text-[24px] group-hover:scale-110 group-hover:-translate-y-1 transition-transform">warning</span>
                 <span className="text-xs font-bold text-center">View Low</span>
               </button>
-              <button className="flex flex-col items-center justify-center gap-2 bg-[#f8f9fa] border border-slate-200 p-3 rounded-xl hover:bg-[#fee2e2] hover:border-[#fecaca] hover:text-[#ef4444] text-slate-600 transition-colors group">
-                <span className="material-symbols-outlined text-[24px] group-hover:scale-110 transition-transform">event_busy</span>
+              <button onClick={() => onViewChange('alert')} className="flex flex-col items-center justify-center gap-2 bg-[#f8f9fa] border border-slate-200 p-3 rounded-xl hover:bg-[#fee2e2] hover:border-[#fecaca] hover:text-[#ef4444] hover:shadow-md text-slate-600 transition-all duration-300 group">
+                <span className="material-symbols-outlined text-[24px] group-hover:scale-110 group-hover:-translate-y-1 transition-transform">event_busy</span>
                 <span className="text-xs font-bold text-center">Mark Expired</span>
               </button>
             </div>
@@ -1711,11 +1866,11 @@ function PurchaseReports({ onViewChange }: { onViewChange: (view: ViewState) => 
     : `Purchase_Report_${period}`;
 
   const allPurchases = [
-    { ref: "PR-00881", date: "Oct 24 2023", sup: "Green Harvest Co.", prod: "Organic Milk 1L", qty: "200 units", price: "$1.20", total: "$240.00", status: "RECEIVED", sClass: "bg-[#eef8f2] text-[#0b8252]" },
-    { ref: "PR-00882", date: "Oct 25 2023", sup: "Fresh Dairy Inc.", prod: "Cheddar Cheese 200g", qty: "50 units", price: "$4.50", total: "$225.00", status: "PENDING", sClass: "bg-[#fef3c7] text-[#d97706]" },
-    { ref: "PR-00883", date: "Oct 25 2023", sup: "Global Grains Ltd.", prod: "Whole Wheat Bread", qty: "100 units", price: "$2.10", total: "$210.00", status: "PARTIAL", sClass: "bg-[#fee2e2] text-[#ef4444]" },
-    { ref: "PR-00884", date: "Oct 25 2023", sup: "Orchard Valley", prod: "Red Apples (Box)", qty: "15 units", price: "$30.00", total: "$450.00", status: "RECEIVED", sClass: "bg-[#eef8f2] text-[#0b8252]" },
-    { ref: "PR-00885", date: "Oct 26 2023", sup: "Beverage Prox", prod: "Sparkling Water 500ml", qty: "500 units", price: "$0.45", total: "$225.00", status: "PENDING", sClass: "bg-[#fef3c7] text-[#d97706]" },
+    { ref: "PR-00881", date: "Oct 24 2023", sup: "Green Harvest Co.", prod: "Organic Milk 1L", qty: "200 units", price: "Rs. 450.00", total: "Rs. 90,000.00", status: "RECEIVED", sClass: "bg-[#eef8f2] text-[#0b8252]" },
+    { ref: "PR-00882", date: "Oct 25 2023", sup: "Fresh Dairy Inc.", prod: "Cheddar Cheese 200g", qty: "50 units", price: "Rs. 950.00", total: "Rs. 47,500.00", status: "PENDING", sClass: "bg-[#fef3c7] text-[#d97706]" },
+    { ref: "PR-00883", date: "Oct 25 2023", sup: "Global Grains Ltd.", prod: "Whole Wheat Bread", qty: "100 units", price: "Rs. 220.00", total: "Rs. 22,000.00", status: "PARTIAL", sClass: "bg-[#fee2e2] text-[#ef4444]" },
+    { ref: "PR-00884", date: "Oct 25 2023", sup: "Orchard Valley", prod: "Red Apples (Box)", qty: "15 units", price: "Rs. 8,500.00", total: "Rs. 127,500.00", status: "RECEIVED", sClass: "bg-[#eef8f2] text-[#0b8252]" },
+    { ref: "PR-00885", date: "Oct 26 2023", sup: "Beverage Prox", prod: "Sparkling Water 500ml", qty: "500 units", price: "Rs. 180.00", total: "Rs. 90,000.00", status: "PENDING", sClass: "bg-[#fef3c7] text-[#d97706]" },
   ];
 
   const filteredPurchases = allPurchases.filter(p => statusFilter === 'All Statuses' || p.status === statusFilter);

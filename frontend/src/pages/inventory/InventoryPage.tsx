@@ -31,9 +31,9 @@ export default function InventoryPage() {
             {/* KPI Cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {/* Total Products */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <Link to="/manage-products?tab=products" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#eef8f2] text-[#0b8252] flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-lg bg-[#eef8f2] text-[#0b8252] flex items-center justify-center group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined">inventory_2</span>
                   </div>
                   <span className="text-[11px] font-bold px-2 py-0.5 bg-[#eef8f2] text-[#0b8252] rounded-full">+12%</span>
@@ -42,12 +42,12 @@ export default function InventoryPage() {
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Total Products</p>
                   <p className="text-2xl font-bold text-slate-800 leading-none">12,482</p>
                 </div>
-              </div>
+              </Link>
 
               {/* Low Stock */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <Link to="/manage-products?tab=products" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#fff4ed] text-[#d97706] flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-lg bg-[#fff4ed] text-[#d97706] flex items-center justify-center group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined">warning</span>
                   </div>
                   <span className="text-[11px] font-bold px-2 py-0.5 bg-[#fff4ed] text-[#d97706] rounded-full">Alert</span>
@@ -56,12 +56,12 @@ export default function InventoryPage() {
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Low Stock</p>
                   <p className="text-2xl font-bold text-slate-800 leading-none">84 Items</p>
                 </div>
-              </div>
+              </Link>
 
               {/* Out of Stock */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <Link to="/manage-products?tab=products" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#fef2f2] text-[#dc2626] flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-lg bg-[#fef2f2] text-[#dc2626] flex items-center justify-center group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined">block</span>
                   </div>
                   <span className="text-[11px] font-bold px-2 py-0.5 bg-[#fef2f2] text-[#dc2626] rounded-full">Critical</span>
@@ -70,12 +70,12 @@ export default function InventoryPage() {
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Out of Stock</p>
                   <p className="text-2xl font-bold text-slate-800 leading-none">12 Items</p>
                 </div>
-              </div>
+              </Link>
 
               {/* Inventory Value */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <Link to="/inventory-analytics" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#eef8f2] text-[#0b8252] flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-lg bg-[#eef8f2] text-[#0b8252] flex items-center justify-center group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined">monetization_on</span>
                   </div>
                 </div>
@@ -83,12 +83,12 @@ export default function InventoryPage() {
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Inventory Value</p>
                   <p className="text-2xl font-bold text-slate-800 leading-none">$428.5k</p>
                 </div>
-              </div>
+              </Link>
 
               {/* Active Sectors */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <Link to="/manage-products?tab=categories" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#eef8f2] text-[#0b8252] flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-lg bg-[#eef8f2] text-[#0b8252] flex items-center justify-center group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined">category</span>
                   </div>
                 </div>
@@ -96,12 +96,12 @@ export default function InventoryPage() {
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Active Sectors</p>
                   <p className="text-2xl font-bold text-slate-800 leading-none">42 <span className="text-base font-semibold">Sectors</span></p>
                 </div>
-              </div>
+              </Link>
 
               {/* Restock Orders */}
-              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <Link to="/procurement" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#eef8f2] text-[#0b8252] flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-lg bg-[#eef8f2] text-[#0b8252] flex items-center justify-center group-hover:scale-105 transition-transform">
                     <span className="material-symbols-outlined">local_shipping</span>
                   </div>
                 </div>
@@ -109,7 +109,7 @@ export default function InventoryPage() {
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Restock Orders</p>
                   <p className="text-2xl font-bold text-slate-800 leading-none">5 <span className="text-base font-semibold">Pending</span></p>
                 </div>
-              </div>
+              </Link>
             </div>
 
             {/* Charts Section */}
@@ -275,8 +275,10 @@ export default function InventoryPage() {
               {/* Top Suppliers */}
               <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
                 <div className="flex justify-between items-center mb-6">
-                  <h3 className="font-bold text-lg text-slate-400">Top Suppliers</h3>
-                  <span className="material-symbols-outlined text-slate-300 text-[24px] cursor-pointer">swap_vert</span>
+                  <h3 className="font-bold text-lg text-slate-800">Top Suppliers</h3>
+                  <Link to="/suppliers" className="text-sm text-[#0b8252] font-bold hover:underline flex items-center gap-1">
+                    Manage <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                  </Link>
                 </div>
 
                 <div className="space-y-4 flex-1">
@@ -439,9 +441,9 @@ export default function InventoryPage() {
                     <button className="text-sm font-semibold text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-slate-50 shadow-sm">
                       This Week <span className="material-symbols-outlined text-[16px]">expand_more</span>
                     </button>
-                    <button className="text-sm text-[#0b8252] font-bold hover:underline flex items-center gap-1">
+                    <Link to="/stock-movements" className="text-sm text-[#0b8252] font-bold hover:underline flex items-center gap-1">
                       View Log <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-                    </button>
+                    </Link>
                   </div>
                 </div>
                 <div className="overflow-x-auto flex-1">
