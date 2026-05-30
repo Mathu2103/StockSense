@@ -172,9 +172,10 @@ export default function POSPage() {
               }
               navigate('/');
             }}
-            className="w-full flex items-center justify-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-red-100"
+            className="w-full flex items-center gap-3 px-3 py-2 text-on-surface-variant font-medium hover:bg-surface-container rounded-lg transition-colors"
           >
-            <LogOut className="w-4 h-4 mr-2" /> Logout
+            <span className="material-symbols-outlined text-outline-variant">logout</span>
+            Logout
           </button>
         </div>
       </div>
