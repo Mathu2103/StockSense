@@ -1,0 +1,425 @@
+import { useEffect, useState, useMemo } from 'react';
+import { inventoryOperationsService, ProductItem, AdjustmentRecord } from './inventoryOperationsService';
+
+export default function StockAdjustments() {
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [adjustments, setAdjustments] = useState<AdjustmentRecord[]>([]);
+  const [toast, setToast] = useState<string | null>(null);
+
+  // Form state
+  const [selectedProductIndex, setSelectedProductIndex] = useState(0);
+  const [qtyDelta, setQtyDelta] = useState<number>(-5);
+  const [selectedReason, setSelectedReason] = useState<'Damaged' | 'Lost' | 'Expired' | 'Returned' | 'Counting error' | 'System correction'>('Damaged');
+  const [adjustedBy, setAdjustedBy] = useState('Jane Doe');
+
+  // Selected adjustment for detail timeline modal
+  const [viewingAdjustment, setViewingAdjustment] = useState<AdjustmentRecord | null>(null);
+
+  useEffect(() => {
+    loadAdjustmentData();
+  }, []);
+
+  const loadAdjustmentData = async () => {
+    const prods = await inventoryOperationsService.getProducts();
+    setProducts(prods);
+    const adjs = await inventoryOperationsService.getAdjustments();
+    setAdjustments(adjs);
+  };
+
+  const triggerToast = (message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // 1. ACTIVE SELECTION DETAILS
+  const activeProduct = useMemo(() => {
+    if (products.length === 0) return null;
+    return products[selectedProductIndex] || null;
+  }, [products, selectedProductIndex]);
+
+  // 2. LIVE HIGH DISCREPANCY WARNING DETECTOR
+  const liveWarning = useMemo(() => {
+    if (!activeProduct) return null;
+    const value = Math.abs(qtyDelta * activeProduct.sellingPrice);
+    const count = Math.abs(qtyDelta);
+    
+    if (count >= 50 || value >= 5000) {
+      return {
+        value,
+        count,
+        msg: `⚠️ RESTRICTED TRANSACTION VALUE WARNING: This adjustment exceeds standard operation bounds (volume ${count} items, value Rs. ${value.toLocaleString()}). This correction will be logged under "Needs Review" status and locked pending Secondary Auditor authentication.`
+      };
+    }
+    return null;
+  }, [activeProduct, qtyDelta]);
+
+  // 3. ADJUSTMENT ANALYTICS SUMMARY
+  const analyticsSummary = useMemo(() => {
+    let totalValue = 0;
+    let totalItemsCount = 0;
+    let approvedCount = 0;
+    let reviewCount = 0;
+
+    adjustments.forEach(a => {
+      totalValue += a.totalValue;
+      totalItemsCount += Math.abs(a.qtyChanged);
+      if (a.status === 'Approved') approvedCount++;
+      if (a.status === 'Needs Review') reviewCount++;
+    });
+
+    const averageVal = adjustments.length > 0 ? Math.round(totalValue / adjustments.length) : 0;
+
+    return {
+      totalValue,
+      totalItemsCount,
+      approvedCount,
+      reviewCount,
+      averageVal,
+      totalCount: adjustments.length
+    };
+  }, [adjustments]);
+
+  // 4. SUBMIT ADJUSTMENT FLOW
+  const handleSaveAdjustment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeProduct) return;
+    if (qtyDelta === 0) {
+      triggerToast('Stock change quantity delta cannot be zero.');
+      return;
+    }
+
+    try {
+      const newAdj = await inventoryOperationsService.createAdjustment({
+        productName: activeProduct.name,
+        sku: activeProduct.sku,
+        qtyChanged: qtyDelta,
+        reason: selectedReason,
+        adjustedBy,
+        date: new Date().toISOString().split('T')[0]
+      });
+
+      // Reload
+      const adjs = await inventoryOperationsService.getAdjustments();
+      setAdjustments(adjs);
+      
+      // Reset qty delta
+      setQtyDelta(-5);
+      
+      triggerToast(`Stock adjustment record ${newAdj.adjustmentNumber} synchronized successfully!`);
+    } catch (err: any) {
+      triggerToast(err.message || 'Error occurred while saving stock adjustment.');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Toast alert */}
+      {toast && (
+        <div className="fixed top-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl shadow-lg animate-in fade-in slide-in-from-top-4 duration-200">
+          <span className="material-symbols-outlined text-primary text-emerald-400">check_circle</span>
+          <span className="text-xs font-extrabold text-white">{toast}</span>
+        </div>
+      )}
+
+      {/* DOCK ADJUSTMENTS ANALYTICS CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">
+          <span className="text-xs font-black text-slate-400 uppercase tracking-widest block">Total Adjusted Value</span>
+          <span className="text-2xl font-black text-slate-800">Rs. {analyticsSummary.totalValue.toLocaleString()}</span>
+          <span className="text-[10px] text-slate-400 font-extrabold block">Absolute monetary correction value</span>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">
+          <span className="text-xs font-black text-slate-400 uppercase tracking-widest block">Total Adjusted Stock</span>
+          <span className="text-2xl font-black text-slate-800">{analyticsSummary.totalItemsCount} units</span>
+          <span className="text-[10px] text-slate-400 font-extrabold block">Sum volume of corrected stock lines</span>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">
+          <span className="text-xs font-black text-slate-400 uppercase tracking-widest block">Review Lock Ratio</span>
+          <span className="text-2xl font-black text-amber-600">{analyticsSummary.reviewCount} locked</span>
+          <span className="text-[10px] text-slate-400 font-extrabold block">Awaiting manager authentication checks</span>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">
+          <span className="text-xs font-black text-slate-400 uppercase tracking-widest block">Average Discrepancy Size</span>
+          <span className="text-2xl font-black text-slate-800">Rs. {analyticsSummary.averageVal.toLocaleString()}</span>
+          <span className="text-[10px] text-slate-400 font-extrabold block">Average value corrected per audit item</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* INTERACTIVE FORM CONTAINER */}
+        <div className="lg:col-span-1">
+          <form onSubmit={handleSaveAdjustment} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
+            <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2">Log Stock Discrepancy</h3>
+
+            {/* Select Product */}
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Select Product Node</label>
+              {products.length > 0 && (
+                <select
+                  value={selectedProductIndex}
+                  onChange={(e) => setSelectedProductIndex(parseInt(e.target.value))}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0b8252]"
+                >
+                  {products.map((p, idx) => (
+                    <option key={p.id} value={idx}>
+                      {p.name} (Stock: {p.stock})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Current Product Stats Panel */}
+            {activeProduct && (
+              <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="block text-[9px] text-slate-400 font-bold">SKU ID:</span>
+                  <span className="font-mono font-bold text-slate-700">{activeProduct.sku}</span>
+                </div>
+                <div>
+                  <span className="block text-[9px] text-slate-400 font-bold">Current Stock:</span>
+                  <span className="font-black text-slate-800">{activeProduct.stock} units</span>
+                </div>
+              </div>
+            )}
+
+            {/* Qty delta changes */}
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Quantity Change Delta (+/-)</label>
+              <input
+                type="number"
+                value={qtyDelta}
+                onChange={(e) => setQtyDelta(parseInt(e.target.value) || 0)}
+                placeholder="-5 for damages, +5 for found stock"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0b8252]"
+              />
+              <span className="text-[10px] text-slate-400 font-extrabold mt-1 block">
+                Use negative figures for losses, positive for counting gains.
+              </span>
+            </div>
+
+            {/* Adjustment Reason */}
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Discrepancy Reason Category</label>
+              <select
+                value={selectedReason}
+                onChange={(e) => setSelectedReason(e.target.value as any)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none"
+              >
+                <option value="Damaged">Damaged Goods</option>
+                <option value="Lost">Lost / Stolen Items</option>
+                <option value="Expired">Expired Batches</option>
+                <option value="Returned">Customer Returns</option>
+                <option value="Counting error">Counting Inventory Error</option>
+                <option value="System correction">System Database Correction</option>
+              </select>
+            </div>
+
+            {/* Operator */}
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Authorized Operator</label>
+              <input
+                type="text"
+                value={adjustedBy}
+                onChange={(e) => setAdjustedBy(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none"
+              />
+            </div>
+
+            {/* REAL-TIME WARNING BANNER */}
+            {liveWarning && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 animate-pulse">
+                <p className="text-[10px] text-amber-800 font-black leading-relaxed">
+                  {liveWarning.msg}
+                </p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full py-2.5 bg-primary bg-[#0b8252] text-white rounded-lg text-xs font-black hover:bg-[#096a43] transition-colors shadow-sm text-center"
+            >
+              Commit Stock Correction
+            </button>
+          </form>
+        </div>
+
+        {/* ADJUSTMENT HISTORY TABLE */}
+        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+          <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">Adjustment Audit Log</h3>
+          <div className="overflow-x-auto rounded-xl border border-slate-100 max-h-[480px]">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-50 text-slate-500 font-black uppercase text-[10px] border-b border-slate-100">
+                  <th className="px-4 py-3">Reference No</th>
+                  <th className="px-4 py-3">Product Name</th>
+                  <th className="px-4 py-3 text-center">Change Qty</th>
+                  <th className="px-4 py-3">Reason Category</th>
+                  <th className="px-4 py-3 text-right">Corrective Value</th>
+                  <th className="px-4 py-3 text-center">Verification Status</th>
+                  <th className="px-4 py-3 w-10"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {adjustments.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-12 text-center text-slate-400 font-bold">
+                      No adjustments logged yet.
+                    </td>
+                  </tr>
+                ) : (
+                  adjustments.map((a) => (
+                    <tr key={a.id} className="hover:bg-slate-50/50">
+                      <td className="px-4 py-3 font-mono font-extrabold text-[#0b8252]">{a.adjustmentNumber}</td>
+                      <td className="px-4 py-3 font-bold text-slate-800">{a.productName}</td>
+                      <td className={`px-4 py-3 text-center font-black ${a.qtyChanged > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {a.qtyChanged > 0 ? `+${a.qtyChanged}` : a.qtyChanged}
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 font-bold">{a.reason}</td>
+                      <td className="px-4 py-3 text-right font-black text-slate-800">Rs. {a.totalValue.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-center">
+                        {a.status === 'Approved' ? (
+                          <span className="inline-block px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-extrabold text-[10px] rounded-full border border-emerald-100">
+                            Approved
+                          </span>
+                        ) : a.status === 'Needs Review' ? (
+                          <span className="inline-block px-2.5 py-0.5 bg-amber-50 text-amber-700 font-extrabold text-[10px] rounded-full border border-amber-100 animate-pulse">
+                            Needs Review
+                          </span>
+                        ) : (
+                          <span className="inline-block px-2.5 py-0.5 bg-slate-50 text-slate-700 font-extrabold text-[10px] rounded-full border border-slate-100">
+                            Pending
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setViewingAdjustment(a)}
+                          className="text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">timeline</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* APPROVAL WORKFLOW DETAIL TIMELINE MODAL */}
+      {viewingAdjustment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Correction verification</span>
+                <h3 className="text-sm font-black text-slate-800">Approval Workflow Timeline</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingAdjustment(null)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <span className="material-symbols-outlined text-md">close</span>
+              </button>
+            </div>
+
+            {/* Product description card */}
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-xs space-y-1.5">
+              <div className="flex justify-between font-black text-slate-800">
+                <span>{viewingAdjustment.productName}</span>
+                <span className="font-mono text-[#0b8252]">{viewingAdjustment.adjustmentNumber}</span>
+              </div>
+              <div className="flex justify-between text-slate-500 font-bold">
+                <span>Quantity Change:</span>
+                <span className={viewingAdjustment.qtyChanged > 0 ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}>
+                  {viewingAdjustment.qtyChanged} units
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-500 font-bold">
+                <span>Corrective Value:</span>
+                <span className="font-black text-slate-700">Rs. {viewingAdjustment.totalValue.toLocaleString()}</span>
+              </div>
+            </div>
+
+            {/* DYNAMIC TIMELINE WORKFLOW FLOW */}
+            <div className="space-y-4 pt-2">
+              <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Verification Steps</span>
+              
+              <div className="relative border-l-2 border-slate-100 pl-6 ml-3 space-y-6 text-xs">
+                {/* Step 1: Logged */}
+                <div className="relative">
+                  <div className="absolute -left-[31px] top-0.5 bg-emerald-500 text-white rounded-full w-4 h-4 flex items-center justify-center border border-white">
+                    <span className="material-symbols-outlined text-[10px] font-black">check</span>
+                  </div>
+                  <h4 className="font-black text-slate-800">Step 1: Correction Logged</h4>
+                  <p className="text-[10px] text-slate-400 font-medium mt-0.5">Logged by Operator {viewingAdjustment.adjustedBy} for reason "{viewingAdjustment.reason}"</p>
+                </div>
+
+                {/* Step 2: Verification */}
+                <div className="relative">
+                  {viewingAdjustment.status === 'Approved' ? (
+                    <>
+                      <div className="absolute -left-[31px] top-0.5 bg-emerald-500 text-white rounded-full w-4 h-4 flex items-center justify-center border border-white">
+                        <span className="material-symbols-outlined text-[10px] font-black">check</span>
+                      </div>
+                      <h4 className="font-black text-slate-800">Step 2: Auditor Verification Passed</h4>
+                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">Transaction verified automatically under operational value safety bounds.</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="absolute -left-[31px] top-0.5 bg-amber-500 text-white rounded-full w-4 h-4 flex items-center justify-center border border-white animate-pulse">
+                        <span className="material-symbols-outlined text-[10px] font-black">lock</span>
+                      </div>
+                      <h4 className="font-black text-amber-800">Step 2: Awaiting Manager Verification</h4>
+                      <p className="text-[10px] text-amber-600/80 font-medium mt-0.5">Adjustment requires secondary double-signature review due to threshold limits.</p>
+                    </>
+                  )}
+                </div>
+
+                {/* Step 3: Ledger Synced */}
+                <div className="relative">
+                  {viewingAdjustment.status === 'Approved' ? (
+                    <>
+                      <div className="absolute -left-[31px] top-0.5 bg-emerald-500 text-white rounded-full w-4 h-4 flex items-center justify-center border border-white">
+                        <span className="material-symbols-outlined text-[10px] font-black">check</span>
+                      </div>
+                      <h4 className="font-black text-slate-800">Step 3: Unified Ledger Synchronized</h4>
+                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">Stock quantities decremented/incremented successfully and audits closed.</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="absolute -left-[31px] top-0.5 bg-slate-200 text-slate-400 rounded-full w-4 h-4 flex items-center justify-center border border-white">
+                        <span className="material-symbols-outlined text-[10px] font-black">hourglass_empty</span>
+                      </div>
+                      <h4 className="font-bold text-slate-400">Step 3: Ledger Synchronized Pending</h4>
+                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">Transaction waiting for Step 2 completion before finalized write operations.</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Controls */}
+            <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setViewingAdjustment(null)}
+                className="px-4 py-2 bg-slate-100 text-slate-700 font-black rounded-lg text-xs hover:bg-slate-200 transition-colors shadow-sm w-full text-center"
+              >
+                Close Timeline Inspector
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

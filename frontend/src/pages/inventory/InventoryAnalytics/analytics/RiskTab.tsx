@@ -1,0 +1,175 @@
+/**
+ * RiskTab.tsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Renders the "Risk & Loss Audits" tab on the Inventory Analytics page.
+ * This file integrates two audit panels used by shop managers to identify
+ * stock risks and perishable wastage:
+ *
+ *   ┌──────────────────────────────────────┬───────────────────────────────────┐
+ *   │ DeadStockAnalysisSection             │ ExpiryLossAnalysisSection         │
+ *   │ (lg:col-span-2)                      │                                   │
+ *   │ Table of products with 0 movement    │ Summary banner showing total Rs.  │
+ *   │ over 45+ days — row colour reflects  │ lost to expiry, then a detail     │
+ *   │ Critical (red) / Slow (amber) status │ table + Markdown Discount button  │
+ *   └──────────────────────────────────────┴───────────────────────────────────┘
+ *
+ * Data flow:
+ *   InventoryAnalytics (state + useMemo) → RiskTab (props) →
+ *   DeadStockAnalysisSection / ExpiryLossAnalysisSection
+ *
+ * The triggerToast callback is forwarded to ExpiryLossAnalysisSection so the
+ * "Auto-Apply Markdown Discount" button can display a feedback notification
+ * without the child knowing about global state.
+ *
+ * All sub-functions are local (not exported) — tightly coupled to this tab.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+import { DeadStockProps, ExpiryLossProps, DeadStockItem, ExpiryLossItem } from './analyticsTypes';
+
+// ─── Combined props for the Risk & Loss Audits tab ───────────────────────────
+interface RiskTabProps {
+  dynamicDeadStock: DeadStockItem[];
+  dynamicExpiryLoss: ExpiryLossItem[];
+  totalExpiryLoss: number;
+  triggerToast: (msg: string) => void;
+}
+
+// ─── Main Tab Wrapper ─────────────────────────────────────────────────────────
+export default function RiskTab({
+  dynamicDeadStock,
+  dynamicExpiryLoss,
+  totalExpiryLoss,
+  triggerToast
+}: RiskTabProps) {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <DeadStockAnalysisSection dynamicDeadStock={dynamicDeadStock} />
+        <ExpiryLossAnalysisSection
+          dynamicExpiryLoss={dynamicExpiryLoss}
+          totalExpiryLoss={totalExpiryLoss}
+          triggerToast={triggerToast}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Dead Stock Inactivity Audit Table ────────────────────────────────────────
+function DeadStockAnalysisSection({ dynamicDeadStock }: DeadStockProps) {
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm lg:col-span-2">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h3 className="font-extrabold text-base text-slate-800 leading-tight">Dead Stock Analysis</h3>
+          <p className="text-[11px] font-medium text-slate-500 mt-1">Products inactive with zero movement over 45 days</p>
+        </div>
+        <span className="px-2 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[10px] font-bold">
+          Auditor Flagged
+        </span>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-slate-200 bg-slate-50/70">
+              {['Product Name', 'Last Active', 'Days Inactive', 'Cost Value', 'Urgency'].map((h, i) => (
+                <th key={i} className={`p-3 text-xs font-black text-slate-500 uppercase tracking-widest ${i === 1 || i === 2 || i === 4 ? 'text-center' : i === 3 ? 'text-right' : ''}`}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 text-slate-700 text-sm">
+            {dynamicDeadStock.map((item, idx) => {
+              const isCritical  = item.status === 'Critical';
+              const isSlow      = item.status === 'Slow Moving';
+              return (
+                <tr key={idx} className={`transition-colors ${
+                  isCritical ? 'bg-rose-50/20 hover:bg-rose-50/40' :
+                  isSlow     ? 'bg-amber-50/20 hover:bg-amber-50/40' :
+                               'opacity-60 bg-slate-50 hover:opacity-100'
+                }`}>
+                  <td className="p-3 font-extrabold text-slate-800">{item.name}</td>
+                  <td className="p-3 text-center font-bold text-slate-500">{item.lastMovement}</td>
+                  <td className="p-3 text-center font-black text-slate-800">{item.daysInactive} days</td>
+                  <td className="p-3 text-right font-extrabold text-slate-800">Rs. {item.costValue.toLocaleString()}</td>
+                  <td className="p-3 text-center">
+                    <span className={`px-2 py-0.5 text-[9px] font-black rounded uppercase tracking-wider ${
+                      isCritical ? 'bg-rose-100 text-rose-700 border border-rose-200' :
+                      isSlow     ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                                   'bg-slate-100 text-slate-600'
+                    }`}>
+                      {item.status}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── Expiry Wastage Summary Panel ─────────────────────────────────────────────
+function ExpiryLossAnalysisSection({ dynamicExpiryLoss, totalExpiryLoss, triggerToast }: ExpiryLossProps) {
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col justify-between">
+      <div>
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h3 className="font-extrabold text-base text-slate-800 leading-tight">Expiry Loss Analysis</h3>
+            <p className="text-[11px] font-medium text-slate-500 mt-1">Perishable stock wastage and value losses</p>
+          </div>
+          <span className="material-symbols-outlined text-rose-500 text-[20px]">event_busy</span>
+        </div>
+
+        {/* Summary Banner */}
+        <div className="bg-gradient-to-br from-rose-50 to-[#fff2f2] border border-rose-200 rounded-xl p-4 mb-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Total Expiry Wastage</p>
+              <p className="text-xl font-black text-rose-700 tracking-tight leading-none">Rs. {totalExpiryLoss.toLocaleString()}</p>
+            </div>
+            <span className="px-2 py-1 bg-rose-600 text-white rounded text-[10px] font-black uppercase tracking-wider shadow-sm animate-pulse">
+              Action Needed
+            </span>
+          </div>
+        </div>
+
+        {/* Expiry Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50/70">
+                {['Product', 'Qty', 'Value Loss', 'Expiry'].map((h, i) => (
+                  <th key={i} className={`p-3 text-[10px] font-black text-slate-500 uppercase tracking-widest ${i === 1 || i === 3 ? 'text-center' : i === 2 ? 'text-right' : ''}`}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-slate-700 text-xs">
+              {dynamicExpiryLoss.map((item, idx) => (
+                <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                  <td className="p-3 font-extrabold text-slate-800">{item.name}</td>
+                  <td className="p-3 text-center font-black text-slate-500">{item.expiredQty} units</td>
+                  <td className="p-3 text-right font-black text-rose-600">-Rs. {item.lossValue.toLocaleString()}</td>
+                  <td className="p-3 text-center font-bold text-slate-500">{item.expiryDate}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Action Footer */}
+      <div className="border-t border-slate-100 pt-4 mt-6">
+        <button
+          onClick={() => triggerToast('Markdown promo active! All items expiring in 7 days discounted by 30%!')}
+          className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-lg text-xs transition-colors shadow-sm"
+        >
+          Auto-Apply Markdown Discount
+        </button>
+      </div>
+    </div>
+  );
+}

@@ -16,15 +16,14 @@ import LoginPage from '../pages/auth/LoginPage'
 import UnauthorizedPage from '../pages/auth/UnauthorizedPage'
 
 // Inventory Pages (ADMIN + INVENTORY_MANAGER)
-import InventoryPage from '../pages/inventory/InventoryPage'
-import InventoryAnalytics from '../pages/inventory/InventoryAnalytics'
-import ProductManagement from '../pages/inventory/ProductManagement'
-import InventoryAdjustments from '../pages/inventory/InventoryAdjustments'
-import ProcurementManagement from '../pages/inventory/ProcurementManagement'
-import StockMovements from '../pages/inventory/StockMovements'
-import Alerts from '../pages/inventory/Alerts'
-import Reports from '../pages/inventory/Reports'
-import Settings from '../pages/inventory/Settings'
+import InventoryPage from '../pages/inventory/Dashboard/InventoryPage'
+import InventoryAnalytics from '../pages/inventory/InventoryAnalytics/InventoryAnalytics'
+import ProductManagement from '../pages/inventory/ProductManagement/ProductManagement'
+import ProcurementManagement from '../pages/inventory/ProcurementManagement/ProcurementManagement'
+import InventoryOperations from '../pages/inventory/StockOperations/StockOperations'
+import Alerts from '../pages/inventory/Alerts/Alerts'
+import Reports from '../pages/inventory/Reports/Reports'
+import Settings from '../pages/inventory/settings/Settings'
 
 // Protected Route Groups
 import AdminRoutes from './AdminRoutes'
@@ -76,7 +75,7 @@ export default function AppRouter() {
           <Navigate to="/manage-products?tab=categories" replace />
         } />
         <Route path="/inventory-adjustments" element={
-          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><InventoryAdjustments /></ProtectedRoute>
+          <Navigate to="/inventory-operations?tab=adjustments" replace />
         } />
         <Route path="/suppliers" element={
           <ProtectedRoute allowedRoles={INVENTORY_ROLES}><ProcurementManagement /></ProtectedRoute>
@@ -88,7 +87,10 @@ export default function AppRouter() {
           <ProtectedRoute allowedRoles={INVENTORY_ROLES}><ProcurementManagement /></ProtectedRoute>
         } />
         <Route path="/stock-movements" element={
-          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><StockMovements /></ProtectedRoute>
+          <Navigate to="/inventory-operations?tab=movements" replace />
+        } />
+        <Route path="/inventory-operations" element={
+          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><InventoryOperations /></ProtectedRoute>
         } />
         <Route path="/alerts" element={
           <ProtectedRoute allowedRoles={INVENTORY_ROLES}><Alerts /></ProtectedRoute>
