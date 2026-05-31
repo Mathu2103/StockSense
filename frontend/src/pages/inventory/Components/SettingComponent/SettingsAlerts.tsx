@@ -1,26 +1,18 @@
 import React from 'react';
 import { Toggle } from './Toggle';
 
-interface StockRulesConfig {
-  enableLowStockAlerts: boolean;
-  enableOutOfStockAlerts: boolean;
-  enableDeadStockAlerts: boolean;
-  notifyInApp: boolean;
-  notifyEmail: boolean;
-  notifySMS: boolean;
-}
+import { StockRulesConfig } from './StockRulesConfig';
 
 interface Props {
   rules: StockRulesConfig;
-  onChange: (updated: StockRulesConfig) => void;
+  onChange: (updated: Partial<StockRulesConfig>) => void;
 }
 
 export default function SettingsAlerts({ rules, onChange }: Props) {
   const updateField = (field: keyof StockRulesConfig, value: any) => {
     onChange({
-      ...rules,
       [field]: value
-    });
+    } as Partial<StockRulesConfig>);
   };
 
   return (

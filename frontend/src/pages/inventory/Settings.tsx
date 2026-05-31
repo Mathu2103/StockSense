@@ -7,21 +7,7 @@ import SettingsAccount from "./Components/SettingComponent/SettingsAccount";
 import SettingsStockRules from "./Components/SettingComponent/SettingsStockRules";
 import SettingsAlerts from "./Components/SettingComponent/SettingsAlerts";
 
-interface StockRulesConfig {
-  defaultReorderLevel: string;
-  minimumStockThreshold: string;
-  maximumStockLimit: string;
-  stockUpdateMode: string;
-  allowNegativeStock: boolean;
-  autoDeductStock: boolean;
-  // Alert settings
-  enableLowStockAlerts: boolean;
-  enableOutOfStockAlerts: boolean;
-  enableDeadStockAlerts: boolean;
-  notifyInApp: boolean;
-  notifyEmail: boolean;
-  notifySMS: boolean;
-}
+import { StockRulesConfig } from './Components/SettingComponent/StockRulesConfig';
 
 const DEFAULT_RULES: StockRulesConfig = {
   defaultReorderLevel: '50',
@@ -127,10 +113,10 @@ export default function Settings() {
                   {activeTab === 'My Profile' && <SettingsProfile />}
                   {activeTab === 'Account Settings' && <SettingsAccount />}
                   {activeTab === 'Stock Rules' && (
-                    <SettingsStockRules rules={rules} onChange={(updated) => setRules(updated)} />
+                    <SettingsStockRules rules={rules} onChange={(updated) => setRules(prev => ({...prev, ...updated}))} />
                   )}
                   {activeTab === 'Alerts' && (
-                    <SettingsAlerts rules={rules} onChange={(updated) => setRules(updated)} />
+                    <SettingsAlerts rules={rules} onChange={(updated) => setRules(prev => ({...prev, ...updated}))} />
                   )}
 
                 </div>
