@@ -14,37 +14,57 @@ const API_URL = import.meta.env.VITE_NODE_API_URL || 'http://localhost:5000/api'
 const api = axios.create({ baseURL: API_URL, withCredentials: true, headers: { 'Content-Type': 'application/json' } })
 
 export const inventoryService = {
-  async getProducts(params = {}) {
+  async getProducts(params = {}): Promise<Product[]> {
     try {
-      const res = await api.get('/products', { params })
+      const res = await api.get<Product[]>('/products', { params })
       return res.data
     } catch (err) {
-      return Promise.reject(err)
+      throw err
     }
   },
 
-  async getProduct(id: string) {
-    const res = await api.get(`/products/${id}`)
-    return res.data
+  async getProduct(id: string): Promise<Product> {
+    try {
+      const res = await api.get<Product>(`/products/${id}`)
+      return res.data
+    } catch (err) {
+      throw err
+    }
   },
 
-  async createProduct(payload: Partial<Product>) {
-    const res = await api.post('/products', payload)
-    return res.data
+  async createProduct(payload: Partial<Product>): Promise<Product> {
+    try {
+      const res = await api.post<Product>('/products', payload)
+      return res.data
+    } catch (err) {
+      throw err
+    }
   },
 
-  async updateProduct(id: string, payload: Partial<Product>) {
-    const res = await api.put(`/products/${id}`, payload)
-    return res.data
+  async updateProduct(id: string, payload: Partial<Product>): Promise<Product> {
+    try {
+      const res = await api.put<Product>(`/products/${id}`, payload)
+      return res.data
+    } catch (err) {
+      throw err
+    }
   },
 
-  async adjustStock(payload: { productId: string; qtyChange: number; reason: string }) {
-    const res = await api.post('/inventory/adjust', payload)
-    return res.data
+  async adjustStock(payload: { productId: string; qtyChange: number; reason: string }): Promise<any> {
+    try {
+      const res = await api.post('/inventory/adjust', payload)
+      return res.data
+    } catch (err) {
+      throw err
+    }
   },
 
-  async getRestockSuggestions() {
-    const res = await api.get<RestockAlert[]>('/inventory/restock-suggestions')
-    return res.data
+  async getRestockSuggestions(): Promise<RestockAlert[]> {
+    try {
+      const res = await api.get<RestockAlert[]>('/inventory/restock-suggestions')
+      return res.data
+    } catch (err) {
+      throw err
+    }
   }
 }

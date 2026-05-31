@@ -12,11 +12,12 @@ type SectionHeaderProps = {
   title: string
   subtitle?: string
   actions?: React.ReactNode
+  className?: string
 }
 
 export default function SectionHeader({ title, subtitle, actions }: SectionHeaderProps) {
   return (
-    <div className="flex items-start justify-between gap-4">
+    <div className={`flex items-start justify-between gap-4 ${''}`}>
       <div>
         <h1 className="text-2xl font-bold text-on-surface">{title}</h1>
         {subtitle && <p className="text-sm text-outline mt-1">{subtitle}</p>}

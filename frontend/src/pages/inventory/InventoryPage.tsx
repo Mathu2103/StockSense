@@ -1,588 +1,390 @@
-import { useState, useEffect } from 'react';
-import Sidebar from './Components/Sidebar';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import Sidebar from './Components/Sidebar';
 import InventoryHeader from './Components/InventoryHeader';
-import { inventoryOperationsService, ProductItem, LedgerEntry } from './Components/operations/inventoryOperationsService';
+import ModuleCard from './Components/inventory/ModuleCard';
+import SnapshotCard from './Components/inventory/SnapshotCard';
+import QuickActionItem from './Components/inventory/QuickActionItem';
+import RecentActivityItem from './Components/inventory/RecentActivityItem';
+import {
+  inventoryOperationsService,
+  ProductItem,
+  LedgerEntry,
+  GRNRecord,
+} from './Components/operations/inventoryOperationsService';
+
+const moduleCards = [
+  {
+    title: 'Product Management',
+    description: 'Manage catalog, categories, brands, variants, and supplier mappings.',
+    icon: 'inventory_2',
+    to: '/manage-products?tab=products',
+    accent: 'from-emerald-50 to-emerald-100/60',
+    iconColor: 'text-emerald-700',
+  },
+  {
+    title: 'Procurement',
+    description: 'Work with GRNs, suppliers, and purchase records without leaving the module.',
+    icon: 'local_shipping',
+    to: '/procurement',
+    accent: 'from-indigo-50 to-indigo-100/60',
+    iconColor: 'text-indigo-700',
+  },
+  {
+    title: 'Stock Operations',
+    description: 'Handle stock movements and adjustments from a single operational view.',
+    icon: 'swap_horiz',
+    to: '/inventory-operations?tab=movements',
+    accent: 'from-sky-50 to-sky-100/60',
+    iconColor: 'text-sky-700',
+  },
+  {
+    title: 'Inventory Analytics',
+    description: 'Review the highest-value inventory insights and stock behavior trends.',
+    icon: 'trending_up',
+    to: '/inventory-analytics',
+    accent: 'from-amber-50 to-amber-100/60',
+    iconColor: 'text-amber-700',
+  },
+  {
+    title: 'Alerts & Monitoring',
+    description: 'Track low stock, out-of-stock items, and exception-driven monitoring.',
+    icon: 'notifications_active',
+    to: '/alerts',
+    accent: 'from-rose-50 to-rose-100/60',
+    iconColor: 'text-rose-700',
+  },
+  {
+    title: 'Reports Center',
+    description: 'Open operational reports for purchase, inventory, supplier, and activity views.',
+    icon: 'summarize',
+    to: '/reports',
+    accent: 'from-violet-50 to-violet-100/60',
+    iconColor: 'text-violet-700',
+  },
+  {
+    title: 'Settings',
+    description: 'Adjust rules, account preferences, and inventory configuration in one place.',
+    icon: 'settings',
+    to: '/settings',
+    accent: 'from-slate-50 to-slate-100/80',
+    iconColor: 'text-slate-700',
+  },
+];
+
+const quickActions = [
+  { label: 'Add Product', icon: 'add_box', to: '/manage-products?tab=new-product' },
+  { label: 'Create GRN', icon: 'assignment_add', to: '/procurement?tab=records&action=record-purchase' },
+  { label: 'Stock Adjustment', icon: 'sync_alt', to: '/inventory-operations?tab=adjustments' },
+  { label: 'View Alerts', icon: 'notification_important', to: '/alerts' },
+];
+
+function formatCurrency(value: number) {
+  return `Rs. ${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+
 
 export default function InventoryPage() {
   const [products, setProducts] = useState<ProductItem[]>([]);
+  const [grns, setGrns] = useState<GRNRecord[]>([]);
   const [recentLedger, setRecentLedger] = useState<LedgerEntry[]>([]);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string>('Syncing...');
+  const [marqueePaused, setMarqueePaused] = useState(false);
 
   useEffect(() => {
+    let active = true;
+
     async function loadDashboardData() {
-      const prods = await inventoryOperationsService.getProducts();
-      setProducts(prods);
-      const ledgerData = await inventoryOperationsService.getLedger();
-      setRecentLedger(ledgerData.slice(0, 5)); // show top 5 latest
+      try {
+        const [loadedProducts, loadedLedger, loadedGrns] = await Promise.all([
+          inventoryOperationsService.getProducts(),
+          inventoryOperationsService.getLedger(),
+          inventoryOperationsService.getGRNHistory(),
+        ]);
+
+        if (!active) return;
+
+        setProducts(loadedProducts);
+        setRecentLedger(loadedLedger.slice(0, 8));
+        setGrns(loadedGrns);
+        setLastSyncedAt(new Date().toLocaleString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        }));
+      } catch {
+        if (!active) return;
+        setProducts([]);
+        setRecentLedger([]);
+        setGrns([]);
+        setLastSyncedAt('Unavailable');
+      }
     }
+
     loadDashboardData();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  // Calculate live statistics
   const totalProducts = products.length;
-  const lowStockCount = products.filter(p => p.stock > 0 && p.stock <= p.reorderLevel).length;
-  const outOfStockCount = products.filter(p => p.stock === 0).length;
-  const inventoryValue = products.reduce((acc, p) => acc + p.stock * p.costPrice, 0);
-  const activeSectorsCount = new Set(products.map(p => p.category)).size;
+  const totalStockValue = products.reduce((acc, product) => acc + product.stock * product.costPrice, 0);
+  const activeSuppliersCount = new Set(products.map((product) => product.supplier)).size;
+  const pendingGrns = grns.filter((grn) => grn.status !== 'Completed').length;
+  const criticalAlerts = products.filter((product) => product.stock === 0 || product.stock <= product.reorderLevel).length;
+  const lowStockCount = products.filter((product) => product.stock > 0 && product.stock <= product.reorderLevel).length;
+  const outOfStockCount = products.filter((product) => product.stock === 0).length;
+
+  const snapshotCards = [
+    {
+      label: 'Total Products',
+      value: totalProducts.toString(),
+      helper: 'Catalog items currently tracked',
+      icon: 'inventory_2',
+      tone: 'text-emerald-700 bg-emerald-50',
+    },
+    {
+      label: 'Total Stock Value',
+      value: formatCurrency(totalStockValue),
+      helper: 'Based on live cost prices',
+      icon: 'payments',
+      tone: 'text-indigo-700 bg-indigo-50',
+    },
+    {
+      label: 'Active Suppliers',
+      value: activeSuppliersCount.toString(),
+      helper: 'Suppliers represented in stock',
+      icon: 'storefront',
+      tone: 'text-sky-700 bg-sky-50',
+    },
+    {
+      label: 'Pending GRNs',
+      value: pendingGrns.toString(),
+      helper: 'Receipts needing review',
+      icon: 'receipt_long',
+      tone: 'text-amber-700 bg-amber-50',
+    },
+    {
+      label: 'Critical Alerts',
+      value: criticalAlerts.toString(),
+      helper: 'Low or out-of-stock items',
+      icon: 'notification_important',
+      tone: 'text-rose-700 bg-rose-50',
+    },
+  ];
 
   return (
-    <div className="flex h-screen bg-[#f8f9fa] text-slate-800 font-sans overflow-hidden">
-      {/* Sidebar */}
+    <div className="flex h-screen bg-[radial-gradient(circle_at_top_right,_rgba(11,130,82,0.10),_transparent_30%),linear-gradient(180deg,_#f8fafc_0%,_#f5f7fb_100%)] text-slate-800 font-sans overflow-hidden">
       <Sidebar />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <InventoryHeader />
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-6 bg-[#f8f9fa]">
-          <div className="max-w-[1400px] mx-auto space-y-6">
+        <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto space-y-6">
+            <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
+              <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(11,130,82,0.08),transparent_30%,rgba(15,118,110,0.03))]" />
+              <div className="relative p-6 sm:p-8 lg:p-10">
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                  <div className="max-w-3xl space-y-4">
+                    <div>
+                      <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-slate-900">Inventory Control Center</h1>
+                      <p className="mt-3 max-w-2xl text-sm sm:text-base text-slate-600 leading-6">Manage products, stock, procurement, and analytics in one place.</p>
+                    </div>
 
-            {/* Title & Actions Row */}
-            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
+                      <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                        <span className="material-symbols-outlined text-[18px] text-emerald-600">schedule</span>
+                        Last updated {lastSyncedAt}
+                      </div>
+                      <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                        <span className="material-symbols-outlined text-[18px] text-slate-500">category</span>
+                        {activeSuppliersCount} suppliers across {totalProducts} products
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[460px]">
+                    <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Live Products</p>
+                      <p className="mt-2 text-2xl font-black text-slate-900">{totalProducts}</p>
+                      <p className="mt-1 text-xs text-slate-500">Catalog ready</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Low Stock</p>
+                      <p className="mt-2 text-2xl font-black text-amber-600">{lowStockCount}</p>
+                      <p className="mt-1 text-xs text-slate-500">Needs attention</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Out of Stock</p>
+                      <p className="mt-2 text-2xl font-black text-rose-600">{outOfStockCount}</p>
+                      <p className="mt-1 text-xs text-slate-500">Critical items</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Ledger</p>
+                      <p className="mt-2 text-2xl font-black text-slate-900">{recentLedger.length}</p>
+                      <p className="mt-1 text-xs text-slate-500">Recent entries</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-black tracking-tight text-slate-900">Module Navigation</h2>
+                  <p className="mt-1 text-sm text-slate-500">Jump straight to the area you need.</p>
+                </div>
+              </div>
+
+              <div className="relative w-full overflow-hidden fade-edges rounded-[1.75rem] border border-slate-200 bg-white px-4 py-4 sm:px-5 shadow-sm">
+                <style>{`
+                  @keyframes module-scroll {
+                    0% { transform: translateX(0); }
+                    100% { transform: translateX(-50%); }
+                  }
+                  .module-marquee {
+                    animation: module-scroll 34s linear infinite;
+                    width: max-content;
+                  }
+                  .module-marquee:hover {
+                    animation-play-state: paused;
+                  }
+                  /* Mobile / small screens: stack cards and disable animation for accessibility */
+                  @media (max-width: 768px) {
+                    .module-marquee {
+                      animation: none;
+                      width: 100%;
+                      display: grid;
+                      grid-template-columns: 1fr;
+                      gap: 1rem;
+                    }
+                    .module-marquee > a {
+                      width: 100% !important;
+                    }
+                    .fade-edges {
+                      mask-image: none;
+                      -webkit-mask-image: none;
+                    }
+                  }
+                  .fade-edges {
+                    mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+                    -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+                  }
+                `}</style>
+
+                <div
+                  className="module-marquee flex gap-4 py-2"
+                  tabIndex={0}
+                  role="region"
+                  aria-label="Module navigation carousel"
+                  onMouseEnter={() => setMarqueePaused(true)}
+                  onMouseLeave={() => setMarqueePaused(false)}
+                  onFocusCapture={() => setMarqueePaused(true)}
+                  onBlurCapture={() => setMarqueePaused(false)}
+                  onKeyDown={(e: any) => {
+                    if (e.key === ' ' || e.code === 'Space') {
+                      e.preventDefault();
+                      setMarqueePaused((p) => !p);
+                    }
+                    if (e.key === 'Enter') {
+                      setMarqueePaused(true);
+                    }
+                  }}
+                  style={{ animationPlayState: marqueePaused ? 'paused' : 'running' }}
+                >
+                  {[...moduleCards, ...moduleCards].map((card, index) => {
+                    let stat = 'System ready';
+                    if (card.title === 'Product Management') stat = `${totalProducts} products`;
+                    else if (card.title === 'Procurement') stat = `${pendingGrns} GRNs to review`;
+                    else if (card.title === 'Stock Operations') stat = `${recentLedger.length} ledger entries`;
+                    else if (card.title === 'Inventory Analytics') stat = `${formatCurrency(totalStockValue)} stock value`;
+                    else if (card.title === 'Alerts & Monitoring') stat = `${criticalAlerts} active alerts`;
+                    else if (card.title === 'Reports Center') stat = `${grns.length} procurement records`;
+
+                    return (
+                      <ModuleCard
+                        key={`${card.title}-${index}`}
+                        title={card.title}
+                        description={card.description}
+                        icon={card.icon}
+                        to={card.to}
+                        accent={card.accent}
+                        iconColor={card.iconColor}
+                        stat={stat}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-4">
               <div>
-                <h1 className="text-2xl font-bold text-slate-800">Inventory Overview</h1>
-                <p className="text-slate-500 text-sm mt-1">Real-time status of your supermarket stock levels.</p>
-              </div>
-              <button className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 shadow-sm">
-                Custom Duration
-              </button>
-            </div>
-
-            {/* KPI Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {/* Total Products */}
-              <Link to="/manage-products?tab=products" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-[#0b8252]/40 hover:shadow-md transition-all cursor-pointer group">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#eef8f2] text-[#0b8252] flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <span className="material-symbols-outlined">inventory_2</span>
-                  </div>
-                  <span className="text-[11px] font-bold px-2 py-0.5 bg-[#eef8f2] text-[#0b8252] rounded-full">Live</span>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Total Products</p>
-                  <p className="text-2xl font-bold text-slate-800 leading-none">{totalProducts}</p>
-                </div>
-              </Link>
-
-              {/* Low Stock */}
-              <Link to="/alerts" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-[#0b8252]/40 hover:shadow-md transition-all cursor-pointer group">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#fff4ed] text-[#d97706] flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <span className="material-symbols-outlined">warning</span>
-                  </div>
-                  <span className="text-[11px] font-bold px-2 py-0.5 bg-[#fff4ed] text-[#d97706] rounded-full">Alert</span>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Low Stock</p>
-                  <p className="text-2xl font-bold text-slate-800 leading-none">{lowStockCount} Items</p>
-                </div>
-              </Link>
-
-              {/* Out of Stock */}
-              <Link to="/alerts" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-[#0b8252]/40 hover:shadow-md transition-all cursor-pointer group">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#fef2f2] text-[#dc2626] flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <span className="material-symbols-outlined">block</span>
-                  </div>
-                  <span className="text-[11px] font-bold px-2 py-0.5 bg-[#fef2f2] text-[#dc2626] rounded-full">Critical</span>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Out of Stock</p>
-                  <p className="text-2xl font-bold text-slate-800 leading-none">{outOfStockCount} Items</p>
-                </div>
-              </Link>
-
-              {/* Inventory Value */}
-              <Link to="/inventory-analytics" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-[#0b8252]/40 hover:shadow-md transition-all cursor-pointer group">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#eef8f2] text-[#0b8252] flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <span className="material-symbols-outlined">monetization_on</span>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Inventory Value</p>
-                  <p className="text-2xl font-bold text-slate-800 leading-none">Rs. {(inventoryValue / 1000).toFixed(1)}k</p>
-                </div>
-              </Link>
-
-              {/* Active Sectors */}
-              <Link to="/manage-products?tab=categories" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-[#0b8252]/40 hover:shadow-md transition-all cursor-pointer group">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#eef8f2] text-[#0b8252] flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <span className="material-symbols-outlined">category</span>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Active Sectors</p>
-                  <p className="text-2xl font-bold text-slate-800 leading-none">{activeSectorsCount} <span className="text-base font-semibold">Sectors</span></p>
-                </div>
-              </Link>
-
-              {/* Restock Orders */}
-              <Link to="/procurement" className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:border-[#0b8252]/40 hover:shadow-md transition-all cursor-pointer group">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-[#eef8f2] text-[#0b8252] flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <span className="material-symbols-outlined">local_shipping</span>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Restock Orders</p>
-                  <p className="text-2xl font-bold text-slate-800 leading-none">5 <span className="text-base font-semibold">Pending</span></p>
-                </div>
-              </Link>
-            </div>
-
-            {/* Charts Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Stock Movement Analytics */}
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm lg:col-span-2 flex flex-col relative overflow-hidden">
-                <div className="flex justify-between items-center mb-6 relative z-10">
-                  <div className="flex items-center gap-4">
-                    <h3 className="font-bold text-lg text-slate-800">Stock Movement Analytics</h3>
-                    <div className="flex bg-[#f1f5f9] rounded-md p-0.5 text-xs font-semibold border border-slate-200">
-                      <span className="px-3 py-1 bg-white text-[#0b8252] rounded shadow-sm">Stock-In</span>
-                      <span className="px-3 py-1 text-slate-500">Stock-Out</span>
-                    </div>
-                  </div>
-                  <button className="text-sm font-semibold text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-slate-50 shadow-sm">
-                    This Week <span className="material-symbols-outlined text-[16px]">expand_more</span>
-                  </button>
-                </div>
-
-                <div className="flex-1 relative w-full h-64 mt-2">
-                  <svg className="w-full h-full absolute inset-0" preserveAspectRatio="none" viewBox="0 0 100 100">
-                    <defs>
-                      <linearGradient id="chart-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#0b8252" stopOpacity="0.15" />
-                        <stop offset="100%" stopColor="#0b8252" stopOpacity="0" />
-                      </linearGradient>
-                    </defs>
-                    {/* Horizontal Grid lines */}
-                    <line x1="0" y1="25" x2="100" y2="25" stroke="#f1f5f9" strokeWidth="0.5" strokeDasharray="2,2" />
-                    <line x1="0" y1="50" x2="100" y2="50" stroke="#f1f5f9" strokeWidth="0.5" strokeDasharray="2,2" />
-                    <line x1="0" y1="75" x2="100" y2="75" stroke="#f1f5f9" strokeWidth="0.5" strokeDasharray="2,2" />
-
-                    {/* Filled Area */}
-                    <path d="M0,80 Q10,60 25,75 T50,45 T75,95 T100,40 L100,100 L0,100 Z" fill="url(#chart-gradient)" />
-                    {/* Line Path */}
-                    <path d="M0,80 Q10,60 25,75 T50,45 T75,95 T100,40" fill="none" stroke="#0b8252" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <div className="absolute inset-x-0 bottom-0 flex justify-between text-xs font-medium text-slate-400 px-1 pt-2 border-t border-slate-100">
-                    <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-                  </div>
-                </div>
+                <h2 className="text-lg sm:text-xl font-black tracking-tight text-slate-900">System Snapshot</h2>
+                <p className="mt-1 text-sm text-slate-500">Lightweight KPIs for quick operational awareness.</p>
               </div>
 
-              {/* Top Selling */}
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="font-bold text-lg text-slate-800">Top Selling</h3>
-                  <button className="text-sm font-semibold text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-slate-50 shadow-sm">
-                    This Week <span className="material-symbols-outlined text-[16px]">expand_more</span>
-                  </button>
-                </div>
-
-                <div className="space-y-6 flex-1">
-                  {/* Item 1 */}
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-[#eef8f2] text-[#0b8252] flex items-center justify-center font-bold text-sm">1</div>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-slate-800 leading-tight">Organic Avocados</p>
-                      <p className="text-[10px] text-slate-500">Produce • SKU-102</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-[#0b8252] mb-1">2.4k units</p>
-                      <div className="w-16 h-1 bg-[#0b8252] rounded-full ml-auto"></div>
-                    </div>
-                  </div>
-
-                  {/* Item 2 */}
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-[#eef8f2] text-[#0b8252] flex items-center justify-center font-bold text-sm">2</div>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-slate-800 leading-tight">Whole Milk 1L</p>
-                      <p className="text-[10px] text-slate-500">Dairy • SKU-495</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-[#0b8252] mb-1">1.8k units</p>
-                      <div className="w-12 h-1 bg-[#0b8252] rounded-full ml-auto"></div>
-                    </div>
-                  </div>
-
-                  {/* Item 3 */}
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-[#eef8f2] text-[#0b8252] flex items-center justify-center font-bold text-sm">3</div>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-slate-800 leading-tight">Artisan Bread</p>
-                      <p className="text-[10px] text-slate-500">Bakery • SKU-882</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-[#0b8252] mb-1">1.2k units</p>
-                      <div className="w-10 h-1 bg-[#0b8252] rounded-full ml-auto"></div>
-                    </div>
-                  </div>
-
-                  {/* Item 4 */}
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-[#eef8f2] text-[#0b8252] flex items-center justify-center font-bold text-sm">4</div>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-slate-800 leading-tight">Sparkling Water</p>
-                      <p className="text-[10px] text-slate-500">Beverages • SKU-219</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-[#0b8252] mb-1">950 units</p>
-                      <div className="w-8 h-1 bg-[#0b8252] rounded-full ml-auto"></div>
-                    </div>
-                  </div>
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+                {snapshotCards.map((card) => (
+                  <SnapshotCard key={card.label} label={card.label} value={card.value} helper={card.helper} icon={card.icon} tone={card.tone} />
+                ))}
               </div>
-            </div>
+            </section>
 
-            {/* Middle Row 2 */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-              {/* Sales by Channel */}
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center">
-                <div className="w-full flex justify-between items-start mb-6">
-                  <h3 className="font-bold text-lg text-slate-400 leading-tight">Sales by<br /><span className="text-slate-800">Channel</span></h3>
-                  <button className="text-sm font-semibold text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-slate-50 shadow-sm">
-                    This Week <span className="material-symbols-outlined text-[16px]">expand_more</span>
-                  </button>
-                </div>
-
-                <div className="relative w-48 h-48 my-auto">
-                  {/* Donut Chart Mock */}
-                  <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                    <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#f8fafc" strokeWidth="4" />
-                    {/* Orange 15% */}
-                    <path className="text-[#f59e0b]" strokeDasharray="15, 100" strokeDashoffset="0" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4" />
-                    {/* Teal 20% */}
-                    <path className="text-[#0ea5e9]" strokeDasharray="20, 100" strokeDashoffset="-15" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4" />
-                    {/* Green 65% */}
-                    <path className="text-[#0b8252]" strokeDasharray="65, 100" strokeDashoffset="-35" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4" />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <p className="text-2xl font-bold text-slate-800">$124k</p>
-                    <p className="text-[10px] font-medium text-slate-500">Total</p>
-                  </div>
-                </div>
-
-                <div className="w-full flex justify-between mt-8 px-4">
-                  <div className="text-center">
-                    <div className="flex items-center gap-1.5 justify-center mb-1">
-                      <span className="w-2 h-2 rounded-full bg-[#0b8252]"></span>
-                      <p className="text-[10px] font-bold text-[#0b8252] uppercase tracking-wide">POS</p>
-                    </div>
-                    <p className="text-slate-800 font-bold text-lg">65%</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex items-center gap-1.5 justify-center mb-1">
-                      <span className="w-2 h-2 rounded-full bg-[#0ea5e9]"></span>
-                      <p className="text-[10px] font-bold text-[#0ea5e9] uppercase tracking-wide">ONLINE</p>
-                    </div>
-                    <p className="text-slate-800 font-bold text-lg">20%</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex items-center gap-1.5 justify-center mb-1">
-                      <span className="w-2 h-2 rounded-full bg-[#f59e0b]"></span>
-                      <p className="text-[10px] font-bold text-[#f59e0b] uppercase tracking-wide">WHOLESALE</p>
-                    </div>
-                    <p className="text-slate-800 font-bold text-lg">15%</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Top Suppliers */}
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="font-bold text-lg text-slate-800">Top Suppliers</h3>
-                  <Link to="/suppliers" className="text-sm text-[#0b8252] font-bold hover:underline flex items-center gap-1">
-                    Manage <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-                  </Link>
-                </div>
-
-                <div className="space-y-4 flex-1">
-                  {/* Supplier 1 */}
-                  <div className="border border-[#eef8f2] bg-[#f8fcf9] p-4 rounded-xl flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#0b8252] shadow-sm">
-                      <span className="material-symbols-outlined text-[20px]">local_shipping</span>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-slate-800 leading-tight">Global Foods<br />Inc.</p>
-                      <p className="text-[11px] text-slate-500 mt-1">124 orders • 99%</p>
-                    </div>
-                    <span className="px-2 py-1 bg-[#eef8f2] text-[#0b8252] text-[10px] font-bold rounded-md">Premier</span>
-                  </div>
-
-                  {/* Supplier 2 */}
-                  <div className="border border-slate-100 bg-[#f8fafc] p-4 rounded-xl flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#0b8252] shadow-sm">
-                      <span className="material-symbols-outlined text-[20px]">local_shipping</span>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-slate-800 leading-tight">FreshProduce<br />Co.</p>
-                      <p className="text-[11px] text-slate-500 mt-1">86 orders • 92%</p>
-                    </div>
-                    <span className="px-2 py-1 bg-[#e2e8f0] text-slate-600 text-[10px] font-bold rounded-md">Standard</span>
-                  </div>
-
-                  {/* Supplier 3 */}
-                  <div className="border border-[#eef8f2] bg-[#f8fcf9] p-4 rounded-xl flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-[#0b8252] shadow-sm">
-                      <span className="material-symbols-outlined text-[20px]">local_shipping</span>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-slate-800 leading-tight">Bakery Master<br />Ltd.</p>
-                      <p className="text-[11px] text-slate-500 mt-1">54 orders • 96%</p>
-                    </div>
-                    <span className="px-2 py-1 bg-[#eef8f2] text-[#0b8252] text-[10px] font-bold rounded-md">Premier</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Inventory Health */}
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
-                <div className="flex justify-between items-start mb-8">
-                  <h3 className="font-bold text-lg text-slate-400 leading-tight">Inventory<br /><span className="text-slate-800">Health</span></h3>
-                  <button className="text-sm font-semibold text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-slate-50 shadow-sm">
-                    This Week <span className="material-symbols-outlined text-[16px]">expand_more</span>
-                  </button>
-                </div>
-
-                <div className="space-y-6 flex-1">
+            <section className="grid grid-cols-1 xl:grid-cols-[1.65fr_0.95fr] gap-4 lg:gap-6">
+              <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                   <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="font-bold text-slate-800">Healthy Stock</span>
-                      <span className="text-[#0b8252] font-bold">88%</span>
-                    </div>
-                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-[#0b8252] w-[88%]"></div>
-                    </div>
+                    <h2 className="text-lg sm:text-xl font-black tracking-tight text-slate-900">Recent Activity</h2>
+                    <p className="mt-1 text-sm text-slate-500">Last {Math.min(8, recentLedger.length || 8)} ledger entries for fast review.</p>
                   </div>
-
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="font-bold text-slate-800">Low Stock</span>
-                      <span className="text-[#d97706] font-bold">9%</span>
-                    </div>
-                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-[#d97706] w-[9%]"></div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="font-bold text-slate-800">Critical</span>
-                      <span className="text-[#dc2626] font-bold">2%</span>
-                    </div>
-                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-[#dc2626] w-[2%]"></div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-8 border border-[#eef8f2] bg-[#f8fcf9] p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="material-symbols-outlined text-[#0b8252] text-[18px]">auto_awesome</span>
-                    <h4 className="font-bold text-[#0b8252] text-sm">Health Score: Optimal</h4>
-                  </div>
-                  <p className="text-[11px] text-slate-600 mt-1">Turnover 15% higher than prev. month.</p>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Bottom Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-              {/* Priority Alerts */}
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                  <h3 className="font-bold text-lg text-slate-800">Priority Alerts</h3>
-                  <Link
-                    to="/alerts"
-                    className="inline-flex items-center gap-1 text-sm text-[#0b8252] font-bold hover:underline whitespace-nowrap"
-                    aria-label="Open alerts center"
-                  >
-                    View All
+                  <Link to="/inventory-operations?tab=movements" className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-700 hover:text-emerald-800 transition-colors">
+                    View full ledger
                     <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                   </Link>
                 </div>
-                <div className="p-6 flex flex-col gap-6">
-                  {/* Alert Item 1 */}
-                  <div className="flex gap-3 items-start relative">
-                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#dc2626] rounded-full"></div>
-                    <div className="pl-4">
-                      <p className="text-sm font-bold text-slate-800 leading-tight">Milk 1L (SKU-4829) Out of Stock</p>
-                      <p className="text-xs text-slate-600 mt-1">Immediate restock required for aisle 4.</p>
-                      <p className="text-[11px] font-bold text-[#dc2626] mt-2">2 mins ago</p>
+
+                <div className="mt-5 space-y-3">
+                  {recentLedger.length > 0 ? (
+                    recentLedger.map((entry) => (
+                      <RecentActivityItem key={entry.id} entry={entry} />
+                    ))
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+                      <span className="material-symbols-outlined text-4xl text-slate-400">history</span>
+                      <p className="mt-3 font-semibold text-slate-700">No recent activity yet</p>
+                      <p className="mt-1 text-sm text-slate-500">New GRNs, adjustments, and stock movements will appear here.</p>
                     </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
+                <h2 className="text-lg sm:text-xl font-black tracking-tight text-slate-900">Quick Actions</h2>
+                <p className="mt-1 text-sm text-slate-500">Fast entry points for the most common inventory tasks.</p>
+
+                <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3">
+                  {quickActions.map((action) => (
+                    <QuickActionItem key={action.label} action={action} />
+                  ))}
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-slate-500">Inventory signals</span>
+                    <span className="font-semibold text-slate-900">{criticalAlerts} critical / {lowStockCount} low stock</span>
                   </div>
-                  <hr className="border-slate-100" />
-
-                  {/* Alert Item 2 */}
-                  <div className="flex gap-3 items-start relative">
-                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#d97706] rounded-full"></div>
-                    <div className="pl-4">
-                      <p className="text-sm font-bold text-slate-800 leading-tight">Expiry Warning: Greek Yogurt</p>
-                      <p className="text-xs text-slate-600 mt-1">42 units expire in 48 hours.</p>
-                      <p className="text-[11px] font-bold text-[#d97706] mt-2">1 hour ago</p>
-                    </div>
-                  </div>
-                  <hr className="border-slate-100" />
-
-                  {/* Alert Item 3 */}
-                  <div className="flex gap-3 items-start relative">
-                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#0b8252] rounded-full"></div>
-                    <div className="pl-4">
-                      <p className="text-sm font-bold text-slate-800 leading-tight">Inventory Audit Scheduled</p>
-                      <p className="text-xs text-slate-600 mt-1">Monthly audit starts tomorrow 8 AM.</p>
-                      <p className="text-[11px] font-bold text-[#0b8252] mt-2">4 hours ago</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-6 pt-0 mt-auto">
-                  <Link
-                    to="/alerts"
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-[#0b8252] bg-[#eef8f2] px-4 py-2.5 text-sm font-bold text-[#0b8252] transition-colors hover:bg-[#dcfce7]"
-                  >
-                    Open Alerts Center
-                    <span className="material-symbols-outlined text-[18px]">notifications</span>
-                  </Link>
-                </div>
-              </div>
-
-              {/* Recent Activity */}
-              <div className="bg-white rounded-xl border border-slate-200 shadow-sm lg:col-span-2 flex flex-col overflow-hidden">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                  <h3 className="font-bold text-lg text-slate-800">Recent Activity</h3>
-                  <div className="flex items-center gap-4">
-                    <button className="text-sm font-semibold text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-slate-50 shadow-sm">
-                      This Week <span className="material-symbols-outlined text-[16px]">expand_more</span>
-                    </button>
-                    <Link to="/stock-movements" className="text-sm text-[#0b8252] font-bold hover:underline flex items-center gap-1">
-                      View Log <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-                    </Link>
-                  </div>
-                </div>
-                <div className="overflow-x-auto flex-1">
-                  <table className="w-full text-left whitespace-nowrap">
-                    <thead className="bg-[#f8fafc] text-slate-500 font-bold text-[10px] uppercase tracking-wider border-b border-slate-200">
-                      <tr>
-                        <th className="px-6 py-4">TIME</th>
-                        <th className="px-6 py-4">PRODUCT</th>
-                        <th className="px-6 py-4">ACTION</th>
-                        <th className="px-6 py-4">QTY</th>
-                        <th className="px-6 py-4">USER</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-600 text-sm">
-                      {recentLedger.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="px-6 py-8 text-center text-slate-400 font-medium">
-                            No recent transaction logs in auditor ledger.
-                          </td>
-                        </tr>
-                      ) : (
-                        recentLedger.map(item => {
-                          const isPositive = item.quantityChange > 0;
-                          const actionLabel = item.movementType === 'GRN' ? 'Stock Added' : 
-                                              item.movementType === 'Sale' ? 'POS Checkout' : 
-                                              item.movementType === 'Expiry Removal' ? 'Waste Removed' : 'Adjustment';
-                          
-                          const badgeBg = item.movementType === 'GRN' ? 'bg-[#eef8f2] text-[#0b8252]' : 
-                                          item.movementType === 'Sale' ? 'bg-[#e0f2fe] text-[#0284c7]' : 
-                                          item.movementType === 'Expiry Removal' ? 'bg-[#fef2f2] text-[#dc2626]' : 'bg-[#fff4ed] text-[#d97706]';
-                          
-                          const qtyColor = isPositive ? 'text-[#0b8252]' : (item.quantityChange < 0 ? 'text-[#dc2626]' : 'text-slate-800');
-                          
-                          // Format timestamp beautifully
-                          const timeStr = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                          return (
-                            <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                              <td className="px-6 py-4 font-medium text-slate-500">{timeStr}</td>
-                              <td className="px-6 py-4 font-bold text-slate-800 leading-snug max-w-[200px] truncate" title={item.productName}>
-                                {item.productName}
-                              </td>
-                              <td className="px-6 py-4">
-                                <span className={`px-2 py-1 text-[10px] font-bold rounded uppercase tracking-wide ${badgeBg}`}>
-                                  {actionLabel}
-                                </span>
-                              </td>
-                              <td className={`px-6 py-4 font-bold ${qtyColor}`}>
-                                {isPositive ? `+${item.quantityChange}` : item.quantityChange}
-                              </td>
-                              <td className="px-6 py-4 text-slate-500">{item.user}</td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-
-            {/* AI Insights & Info Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pb-10">
-
-              {/* Fast Moving */}
-              <div className="bg-gradient-to-br from-[#f0fdf4] to-[#ecfdf5] border border-[#d1fae5] p-6 rounded-xl flex flex-col justify-between min-h-[160px] shadow-sm">
-                <div className="flex items-center gap-2 text-[#059669] font-bold text-[11px] uppercase tracking-wider">
-                  <span className="material-symbols-outlined text-[18px]">trending_up</span>
-                  FAST MOVING
-                </div>
-                <div className="mt-8">
-                  <h4 className="font-bold text-slate-800 text-sm mb-1">Avocados (Hass)</h4>
-                  <p className="text-xs text-slate-500 leading-tight">Selling 30% faster than<br />avg.</p>
-                </div>
-              </div>
-
-              {/* Slow Moving */}
-              <div className="bg-gradient-to-br from-[#fffbeb] to-[#fef3c7] border border-[#fde68a] p-6 rounded-xl flex flex-col justify-between min-h-[160px] shadow-sm">
-                <div className="flex items-center gap-2 text-[#b45309] font-bold text-[11px] uppercase tracking-wider">
-                  <span className="material-symbols-outlined text-[18px]">trending_down</span>
-                  SLOW MOVING
-                </div>
-                <div className="mt-8">
-                  <h4 className="font-bold text-slate-800 text-sm mb-1">Canned Artichokes</h4>
-                  <p className="text-xs text-slate-500 leading-tight">Zero sales in 14 days.</p>
-                </div>
-              </div>
-
-              {/* AI Insight */}
-              <div className="bg-gradient-to-br from-[#f0fdf4] to-[#ecfdf5] border border-[#d1fae5] p-6 rounded-xl flex flex-col justify-between min-h-[160px] shadow-sm">
-                <div className="flex items-center gap-2 text-[#059669] font-bold text-[11px] uppercase tracking-wider">
-                  <span className="material-symbols-outlined text-[18px]">psychology</span>
-                  AI INSIGHT
-                </div>
-                <div className="mt-8">
-                  <h4 className="font-bold text-slate-800 text-sm mb-1">Seasonal Peak</h4>
-                  <p className="text-xs text-slate-500 leading-tight">High demand expected<br />next week.</p>
-                </div>
-              </div>
-
-              {/* Category Share */}
-              <div className="bg-white border border-slate-200 p-6 rounded-xl flex flex-col items-center justify-between min-h-[160px] shadow-sm">
-                <h4 className="font-bold text-slate-600 text-[11px] uppercase tracking-wider w-full text-center">CATEGORY SHARE</h4>
-                <div className="relative w-24 h-24 mt-2">
-                  {/* Donut chart */}
-                  <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                    <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#6ee7b7" strokeWidth="4" />
-                    <path className="text-[#0b8252]" strokeDasharray="45, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4" />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <p className="text-[10px] font-bold text-[#0b8252]">45% Dairy</p>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
+                    <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500" style={{ width: `${Math.min(100, Math.max(10, criticalAlerts * 8 + lowStockCount * 4))}%` }} />
                   </div>
                 </div>
               </div>
-
-            </div>
-
+            </section>
           </div>
         </main>
       </div>

@@ -25,7 +25,7 @@ export default function EmptyState({ icon, title, description, actionLabel, onAc
       <h3 className="text-lg font-bold text-on-surface mt-4">{title}</h3>
       {description && <p className="text-sm text-outline mt-2">{description}</p>}
       {actionLabel && (
-        <button onClick={onAction} className="mt-4 text-sm font-bold text-primary hover:underline">
+        <button type="button" onClick={onAction} className="mt-4 text-sm font-bold text-primary hover:underline">
           {actionLabel}
         </button>
       )}
