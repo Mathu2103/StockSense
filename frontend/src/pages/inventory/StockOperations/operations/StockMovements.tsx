@@ -1,0 +1,476 @@
+import { useEffect, useState, useMemo } from 'react';
+import { inventoryOperationsService, LedgerEntry, ProductItem } from './inventoryOperationsService';
+
+export default function StockMovements() {
+  const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedType, setSelectedType] = useState('All');
+  const [timeFilter, setTimeFilter] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [toast, setToast] = useState<string | null>(null);
+
+  // Selected ledger entry for Slide-out Drawer
+  const [selectedEntry, setSelectedEntry] = useState<LedgerEntry | null>(null);
+
+  useEffect(() => {
+    loadLedgerData();
+  }, []);
+
+  const loadLedgerData = async () => {
+    const log = await inventoryOperationsService.getLedger();
+    setLedger(log);
+    const prods = await inventoryOperationsService.getProducts();
+    setProducts(prods);
+  };
+
+  const triggerToast = (message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // 1. LEDGER ANALYTICS SUMMARIES & EXPIRY LOSS
+  const ledgerAnalytics = useMemo(() => {
+    let totalAdded = 0;
+    let totalSubtracted = 0;
+    let totalExpiryLoss = 0;
+
+    ledger.forEach(entry => {
+      const change = entry.quantityChange;
+      if (change > 0) {
+        totalAdded += change;
+      } else {
+        totalSubtracted += Math.abs(change);
+      }
+
+      // If item was expired, lookup product price to compute loss
+      if (entry.movementType === 'Expiry Removal') {
+        const prod = products.find(p => p.sku === entry.sku);
+        const cost = prod ? prod.costPrice : 150; // fallback if missing
+        totalExpiryLoss += Math.abs(change) * cost;
+      }
+    });
+
+    return {
+      totalAdded,
+      totalSubtracted,
+      totalExpiryLoss,
+      totalCount: ledger.length
+    };
+  }, [ledger, products]);
+
+  // 2. FIRE / DEAD STOCK INTELLIGENCE ALGORITHMS
+  const intelligenceBadges = useMemo(() => {
+    const saleCounts: Record<string, number> = {};
+    const touchedSkus = new Set<string>();
+
+    ledger.forEach(entry => {
+      touchedSkus.add(entry.sku);
+      if (entry.movementType === 'Sale') {
+        saleCounts[entry.sku] = (saleCounts[entry.sku] || 0) + Math.abs(entry.quantityChange);
+      }
+    });
+
+    // Fast-moving check: Sold more than 10 units in the log
+    const fastMovingSkus = new Set<string>();
+    Object.entries(saleCounts).forEach(([sku, count]) => {
+      if (count >= 10) {
+        fastMovingSkus.add(sku);
+      }
+    });
+
+    // Dead stock check: Catalog products with NO touchpoints in the ledger
+    const deadStockSkus = new Set<string>();
+    products.forEach(p => {
+      if (!touchedSkus.has(p.sku)) {
+        deadStockSkus.add(p.sku);
+      }
+    });
+
+    return {
+      fastMovingSkus,
+      deadStockSkus
+    };
+  }, [ledger, products]);
+
+  // 3. TIME FILTER CHECKER
+  const isWithinTimeRange = (entryDateStr: string) => {
+    const entryDate = new Date(entryDateStr);
+    const now = new Date();
+    
+    if (timeFilter === 'all') return true;
+    
+    if (timeFilter === 'today') {
+      return entryDate.toDateString() === now.toDateString();
+    }
+    
+    if (timeFilter === 'week') {
+      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return entryDate >= oneWeekAgo;
+    }
+    
+    if (timeFilter === 'month') {
+      const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return entryDate >= oneMonthAgo;
+    }
+    
+    if (timeFilter === 'custom') {
+      if (!startDate && !endDate) return true;
+      let startMatch = true;
+      let endMatch = true;
+      if (startDate) startMatch = entryDate >= new Date(startDate);
+      if (endDate) endMatch = entryDate <= new Date(endDate + 'T23:59:59');
+      return startMatch && endMatch;
+    }
+    
+    return true;
+  };
+
+  // 4. REAL-TIME FILTERING ENGINE
+  const filteredLedger = useMemo(() => {
+    return ledger.filter(entry => {
+      const matchesSearch = entry.productName.toLowerCase().includes(searchTerm.toLowerCase()) || entry.sku.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = selectedType === 'All' || entry.movementType === selectedType;
+      const matchesTime = isWithinTimeRange(entry.timestamp);
+      return matchesSearch && matchesType && matchesTime;
+    });
+  }, [ledger, searchTerm, selectedType, timeFilter, startDate, endDate]);
+
+  return (
+    <div className="space-y-6 relative">
+      {/* Toast popup */}
+      {toast && (
+        <div className="fixed top-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl shadow-lg">
+          <span className="material-symbols-outlined text-emerald-400">info</span>
+          <span className="text-xs font-extrabold text-white">{toast}</span>
+        </div>
+      )}
+
+      {/* DOCK SUMMARY LEDGER METRICS */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">
+          <span className="text-xs font-black text-slate-400 uppercase tracking-widest block">Total Receipts (Stock In)</span>
+          <span className="text-2xl font-black text-emerald-600">+{ledgerAnalytics.totalAdded} units</span>
+          <span className="text-[10px] text-slate-400 font-extrabold block">Added via supplier Goods Receiving</span>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">
+          <span className="text-xs font-black text-slate-400 uppercase tracking-widest block">Total Checkout (Stock Out)</span>
+          <span className="text-2xl font-black text-rose-600">-{ledgerAnalytics.totalSubtracted} units</span>
+          <span className="text-[10px] text-slate-400 font-extrabold block">Checked out via Sales / Returns</span>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">
+          <span className="text-xs font-black text-slate-400 uppercase tracking-widest block">Expiry Cost Losses</span>
+          <span className="text-2xl font-black text-amber-600">Rs. {ledgerAnalytics.totalExpiryLoss.toLocaleString()}</span>
+          <span className="text-[10px] text-slate-400 font-extrabold block">Total value lost to expired products</span>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">
+          <span className="text-xs font-black text-slate-400 uppercase tracking-widest block">Total Audited Events</span>
+          <span className="text-2xl font-black text-slate-800">{ledgerAnalytics.totalCount} entries</span>
+          <span className="text-[10px] text-slate-400 font-extrabold block">Logs persisted in Unified Ledger</span>
+        </div>
+      </div>
+
+      {/* FILTER & REGISTRY GRID */}
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-4">
+        {/* Advanced Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 border-b border-slate-100 pb-4">
+          {/* Search SKU/Product */}
+          <div>
+            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Search product</label>
+            <div className="relative">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by SKU, product..."
+                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0b8252]"
+              />
+              <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-[16px]">search</span>
+            </div>
+          </div>
+
+          {/* Movement Type Filter */}
+          <div>
+            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Movement Type</label>
+            <select
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0b8252]"
+            >
+              <option value="All">All Types</option>
+              <option value="GRN">Goods Received (GRN)</option>
+              <option value="Sale">Stock Out (Sales)</option>
+              <option value="Adjustment">Manual Adjustments</option>
+              <option value="Expiry Removal">Expiry Removal</option>
+              <option value="Supplier Return">Supplier Returns</option>
+            </select>
+          </div>
+
+          {/* Time Filter Dropdown */}
+          <div>
+            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Time Frame</label>
+            <select
+              value={timeFilter}
+              onChange={(e) => setTimeFilter(e.target.value as any)}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0b8252]"
+            >
+              <option value="all">Complete Archive</option>
+              <option value="today">Today Only</option>
+              <option value="week">Past 7 Days</option>
+              <option value="month">Past 30 Days</option>
+              <option value="custom">Custom Date Range</option>
+            </select>
+          </div>
+
+          {/* Custom Date Ranges */}
+          {timeFilter === 'custom' && (
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs font-bold"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">End Date</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs font-bold"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* HIGH-DENSITY AUDIT LEDGER TABLE */}
+        <div className="overflow-x-auto rounded-xl border border-slate-100 max-h-[500px]">
+          <table className="w-full text-left text-xs border-collapse relative">
+            <thead>
+              <tr className="bg-slate-50 text-slate-500 font-black uppercase text-[10px] border-b border-slate-200 sticky top-0 z-10 bg-opacity-95 backdrop-blur-sm">
+                <th className="px-4 py-3">Timestamp</th>
+                <th className="px-4 py-3">Product Profile</th>
+                <th className="px-4 py-3">SKU ID</th>
+                <th className="px-4 py-3 text-center">Movement Type</th>
+                <th className="px-4 py-3 text-center">Qty Delta</th>
+                <th className="px-4 py-3 text-center">Stock Transitions</th>
+                <th className="px-4 py-3">Description Reason</th>
+                <th className="px-4 py-3">Authorized By</th>
+                <th className="px-4 py-3 text-center">Audit Check</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {filteredLedger.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="px-4 py-12 text-center text-slate-400 font-bold">
+                    No transactions reported in the selected frame.
+                  </td>
+                </tr>
+              ) : (
+                filteredLedger.map((entry) => {
+                  const isFast = intelligenceBadges.fastMovingSkus.has(entry.sku);
+                  const isDead = intelligenceBadges.deadStockSkus.has(entry.sku);
+                  
+                  return (
+                    <tr
+                      key={entry.id}
+                      onClick={() => setSelectedEntry(entry)}
+                      className="hover:bg-slate-50 cursor-pointer select-none transition-colors"
+                    >
+                      {/* Timestamp */}
+                      <td className="px-4 py-3 text-slate-500 font-mono font-bold">
+                        {new Date(entry.timestamp).toLocaleString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </td>
+
+                      {/* Product Name profile */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-black text-slate-800 text-xs">{entry.productName}</span>
+                          {isFast && (
+                            <span
+                              title="Fast Moving High-Velocity SKU"
+                              className="text-amber-500 font-bold flex items-center bg-amber-50 rounded px-1 text-[9px] border border-amber-100 shrink-0"
+                            >
+                              <span className="material-symbols-outlined text-[12px] mr-0.5">local_fire_department</span>
+                              Fast
+                            </span>
+                          )}
+                          {isDead && (
+                            <span
+                              title="Zero transaction SKU (Needs Restructure)"
+                              className="text-slate-500 font-bold bg-slate-100 rounded px-1 text-[9px] border border-slate-200 shrink-0"
+                            >
+                              Idle Stock
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* SKU */}
+                      <td className="px-4 py-3 font-mono text-slate-600 font-bold">{entry.sku}</td>
+
+                      {/* Movement Type */}
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-block px-2.5 py-0.5 font-extrabold text-[10px] rounded-full border ${
+                          entry.movementType === 'GRN'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                            : entry.movementType === 'Sale'
+                            ? 'bg-blue-50 text-blue-700 border-blue-100'
+                            : 'bg-amber-50 text-amber-700 border-amber-100'
+                        }`}>
+                          {entry.movementType}
+                        </span>
+                      </td>
+
+                      {/* Delta change */}
+                      <td className={`px-4 py-3 text-center font-black ${entry.quantityChange > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {entry.quantityChange > 0 ? `+${entry.quantityChange}` : entry.quantityChange}
+                      </td>
+
+                      {/* Before / After transitions */}
+                      <td className="px-4 py-3 text-center text-slate-500 font-mono font-bold">
+                        {entry.beforeStock} <span className="text-slate-300 mx-1">→</span> <span className="text-slate-800 font-black">{entry.afterStock}</span>
+                      </td>
+
+                      {/* Description Reason */}
+                      <td className="px-4 py-3 text-slate-500 font-medium truncate max-w-xs">{entry.reason}</td>
+
+                      {/* Operator user */}
+                      <td className="px-4 py-3 text-slate-700 font-bold">{entry.user}</td>
+
+                      {/* Status */}
+                      <td className="px-4 py-3 text-center">
+                        {entry.status === 'Success' ? (
+                          <span className="material-symbols-outlined text-emerald-500 text-[18px]">check_circle</span>
+                        ) : entry.status === 'Warning' ? (
+                          <span className="material-symbols-outlined text-amber-500 text-[18px]">warning</span>
+                        ) : (
+                          <span className="material-symbols-outlined text-rose-500 text-[18px]">cancel</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* RIGHT-SIDE TRANSACTION AUDIT DRAWER (SLIDE-OUT) */}
+      {selectedEntry && (
+        <>
+          {/* Backdrop blur clickoff */}
+          <div onClick={() => setSelectedEntry(null)} className="fixed inset-0 bg-slate-900/30 backdrop-blur-xs z-40 transition-opacity" />
+
+          {/* Slide-out drawer element */}
+          <div className="fixed top-0 right-0 h-full w-96 bg-white border-l border-slate-200 shadow-2xl z-50 transform translate-x-0 transition-transform duration-300 flex flex-col p-6 space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Auditing Log entry</span>
+                <h3 className="text-sm font-black text-slate-800">Unified Transaction Log</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedEntry(null)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <span className="material-symbols-outlined text-md">close</span>
+              </button>
+            </div>
+
+            <div className="flex-1 space-y-5 overflow-y-auto pr-1">
+              {/* Product Profile info card */}
+              <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-2">
+                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Product Node</span>
+                <h4 className="text-xs font-black text-slate-800">{selectedEntry.productName}</h4>
+                <div className="flex justify-between text-[11px] font-bold text-slate-500">
+                  <span>SKU Reference:</span>
+                  <span className="font-mono">{selectedEntry.sku}</span>
+                </div>
+              </div>
+
+              {/* Transition flow */}
+              <div className="space-y-2.5">
+                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Inventory Stock Transition</span>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="bg-slate-50 p-2.5 border border-slate-100 rounded-lg">
+                    <span className="block text-[9px] font-bold text-slate-400 uppercase">Pre-Stock</span>
+                    <span className="text-sm font-bold text-slate-600 font-mono">{selectedEntry.beforeStock}</span>
+                  </div>
+                  <div className="bg-slate-50 p-2.5 border border-slate-100 rounded-lg flex flex-col items-center justify-center">
+                    <span className="block text-[8px] font-black text-slate-400 uppercase">Change</span>
+                    <span className={`text-xs font-black font-mono ${selectedEntry.quantityChange > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {selectedEntry.quantityChange > 0 ? `+${selectedEntry.quantityChange}` : selectedEntry.quantityChange}
+                    </span>
+                  </div>
+                  <div className="bg-[#0b8252]/5 p-2.5 border border-[#0b8252]/10 rounded-lg">
+                    <span className="block text-[9px] font-black text-[#0b8252] uppercase">Post-Stock</span>
+                    <span className="text-sm font-black text-slate-800 font-mono">{selectedEntry.afterStock}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Event details list */}
+              <div className="divide-y divide-slate-100 text-xs">
+                <div className="flex justify-between py-2.5">
+                  <span className="font-bold text-slate-500">Event Action Type:</span>
+                  <span className="font-black text-slate-800">{selectedEntry.movementType}</span>
+                </div>
+                <div className="flex justify-between py-2.5">
+                  <span className="font-bold text-slate-500">Timestamp:</span>
+                  <span className="font-bold text-slate-800 font-mono">{new Date(selectedEntry.timestamp).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between py-2.5">
+                  <span className="font-bold text-slate-500">Authorized Operator:</span>
+                  <span className="font-black text-slate-800">{selectedEntry.user}</span>
+                </div>
+                <div className="flex justify-between py-2.5">
+                  <span className="font-bold text-slate-500">System Integrity:</span>
+                  <span className={`font-black flex items-center gap-1 ${selectedEntry.status === 'Success' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    <span className="material-symbols-outlined text-[14px]">
+                      {selectedEntry.status === 'Success' ? 'verified' : 'warning'}
+                    </span>
+                    {selectedEntry.status}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Description */}
+              <div className="space-y-1.5">
+                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Transaction Context Notes</span>
+                <p className="text-xs text-slate-600 font-bold bg-slate-50 p-3 rounded-lg border border-slate-100 leading-relaxed">
+                  {selectedEntry.reason}
+                </p>
+              </div>
+            </div>
+
+            {/* Close controls */}
+            <div className="pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setSelectedEntry(null)}
+                className="w-full py-2 bg-slate-100 text-slate-700 font-black rounded-lg text-xs hover:bg-slate-200 transition-colors text-center"
+              >
+                Close Audit Inspection
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
