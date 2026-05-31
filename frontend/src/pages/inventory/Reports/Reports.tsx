@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { ViewState } from './Components/reports/reportUtils';
-import Sidebar from './Components/Sidebar';
-import InventoryHeader from './Components/InventoryHeader';
-import ReportsOverview from './Components/reports/ReportsOverview';
-import SalesReports from './Components/reports/SalesReports';
-import InventoryReports from './Components/reports/InventoryReports';
-import SupplierReports from './Components/reports/SupplierReports';
-import ActivityReports from './Components/reports/ActivityReports';
-import PurchaseReports from './Components/reports/PurchaseReports';
-import AlertReports from './Components/reports/AlertReports';
+import { ViewState } from './reports/reportUtils';
+import Sidebar from '../Shared/Sidebar';
+import InventoryHeader from '../Shared/InventoryHeader';
+import ReportsOverview from './reports/ReportsOverview';
+import SalesReports from './reports/SalesReports';
+import InventoryReports from './reports/InventoryReports';
+import SupplierReports from './reports/SupplierReports';
+import ActivityReports from './reports/ActivityReports';
+import PurchaseReports from './reports/PurchaseReports';
+import AlertReports from './reports/AlertReports';
 
 export default function Reports() {
   const [activeView, setActiveView] = useState<ViewState>('overview');

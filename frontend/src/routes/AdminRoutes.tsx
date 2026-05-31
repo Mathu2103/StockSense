@@ -1,6 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
 import DashboardPage from '../pages/admin/DashboardPage'
-import InventoryPage from '../pages/inventory/InventoryPage'
+import InventoryPage from '../pages/inventory/Dashboard/InventoryPage'
 
 export default function AdminRoutes() {
   return (

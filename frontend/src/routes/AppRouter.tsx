@@ -16,14 +16,14 @@ import LoginPage from '../pages/auth/LoginPage'
 import UnauthorizedPage from '../pages/auth/UnauthorizedPage'
 
 // Inventory Pages (ADMIN + INVENTORY_MANAGER)
-import InventoryPage from '../pages/inventory/InventoryPage'
-import InventoryAnalytics from '../pages/inventory/InventoryAnalytics'
-import ProductManagement from '../pages/inventory/ProductManagement'
-import ProcurementManagement from '../pages/inventory/ProcurementManagement'
-import InventoryOperations from '../pages/inventory/StockOperations'
-import Alerts from '../pages/inventory/Alerts'
-import Reports from '../pages/inventory/Reports'
-import Settings from '../pages/inventory/Settings'
+import InventoryPage from '../pages/inventory/Dashboard/InventoryPage'
+import InventoryAnalytics from '../pages/inventory/InventoryAnalytics/InventoryAnalytics'
+import ProductManagement from '../pages/inventory/ProductManagement/ProductManagement'
+import ProcurementManagement from '../pages/inventory/ProcurementManagement/ProcurementManagement'
+import InventoryOperations from '../pages/inventory/StockOperations/StockOperations'
+import Alerts from '../pages/inventory/Alerts/Alerts'
+import Reports from '../pages/inventory/Reports/Reports'
+import Settings from '../pages/inventory/settings/Settings'
 
 // Protected Route Groups
 import AdminRoutes from './AdminRoutes'

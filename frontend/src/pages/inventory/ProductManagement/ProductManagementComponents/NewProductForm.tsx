@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import ProductImageUploader from './ProductImageUploader';
+import ProductImageUploader from './SubComponents/ProductImageUploader';
 
 type SupplierOption = {
   id: string;
@@ -340,9 +340,9 @@ export default function NewProductForm({
       variantSettings:
         structure === 'variant'
           ? {
-              imageMode: variantImageMode,
-              autoGenerateBarcode: autoVariantBarcode
-            }
+            imageMode: variantImageMode,
+            autoGenerateBarcode: autoVariantBarcode
+          }
           : null,
 
       mfgDate,
@@ -406,9 +406,8 @@ export default function NewProductForm({
                 <button
                   type="button"
                   onClick={() => setIsCategoryPickerOpen((prev) => !prev)}
-                  className={`w-full flex items-center justify-between gap-3 px-4 py-3 bg-background border rounded-xl text-left shadow-sm transition-all ${
-                    isCategoryPickerOpen ? 'border-primary ring-2 ring-primary/15' : 'border-outline-variant hover:border-primary/60'
-                  }`}
+                  className={`w-full flex items-center justify-between gap-3 px-4 py-3 bg-background border rounded-xl text-left shadow-sm transition-all ${isCategoryPickerOpen ? 'border-primary ring-2 ring-primary/15' : 'border-outline-variant hover:border-primary/60'
+                    }`}
                 >
                   <div className="min-w-0">
                     <span className="block text-[10px] font-bold uppercase tracking-wider text-outline mb-0.5">Selected Category</span>
@@ -427,11 +426,10 @@ export default function NewProductForm({
                           <button
                             type="button"
                             onClick={() => handleCategorySelect(parentCategory.name)}
-                            className={`w-full flex items-center justify-between rounded-xl px-3 py-2.5 text-left transition-all ${
-                              category === parentCategory.name && !subcategory
-                                ? 'bg-primary text-white shadow-sm'
-                                : 'hover:bg-slate-50 text-on-surface'
-                            }`}
+                            className={`w-full flex items-center justify-between rounded-xl px-3 py-2.5 text-left transition-all ${category === parentCategory.name && !subcategory
+                              ? 'bg-primary text-white shadow-sm'
+                              : 'hover:bg-slate-50 text-on-surface'
+                              }`}
                           >
                             <span className="flex items-center gap-2 font-semibold text-sm">
                               <span className={`material-symbols-outlined text-[17px] ${category === parentCategory.name && !subcategory ? 'text-white' : 'text-primary'}`}>
@@ -453,9 +451,8 @@ export default function NewProductForm({
                                     key={childCategory.id}
                                     type="button"
                                     onClick={() => handleCategorySelect(parentCategory.name, childCategory.name)}
-                                    className={`w-full flex items-center justify-between rounded-xl px-3 py-2.5 text-left transition-all ${
-                                      isSelected ? 'bg-primary/10 text-primary shadow-sm' : 'hover:bg-slate-50 text-on-surface-variant'
-                                    }`}
+                                    className={`w-full flex items-center justify-between rounded-xl px-3 py-2.5 text-left transition-all ${isSelected ? 'bg-primary/10 text-primary shadow-sm' : 'hover:bg-slate-50 text-on-surface-variant'
+                                      }`}
                                   >
                                     <span className="flex items-center gap-2 text-sm">
                                       <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-primary' : 'bg-outline-variant'}`} />

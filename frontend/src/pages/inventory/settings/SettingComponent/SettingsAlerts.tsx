@@ -1,14 +1,7 @@
 import React from 'react';
 import { Toggle } from './Toggle';
 
-interface StockRulesConfig {
-  enableLowStockAlerts: boolean;
-  enableOutOfStockAlerts: boolean;
-  enableDeadStockAlerts: boolean;
-  notifyInApp: boolean;
-  notifyEmail: boolean;
-  notifySMS: boolean;
-}
+import { StockRulesConfig } from "./types";
 
 interface Props {
   rules: StockRulesConfig;

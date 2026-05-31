@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
-import Sidebar from "./Components/Sidebar";
-import InventoryHeader from './Components/InventoryHeader';
+import Sidebar from "../Shared/Sidebar";
+import InventoryHeader from '../Shared/InventoryHeader';
 
 // Comprehensive mock data for Suppliers
 const initialSuppliers = [
@@ -295,7 +295,7 @@ export default function ProcurementManagement() {
     return `Rs. ${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }, [purchasesList]);
 
-  
+
 
   // Real-time automatic calculations for Record Purchase Form
   const recordPurchaseCalculations = useMemo(() => {
@@ -412,12 +412,12 @@ export default function ProcurementManagement() {
       name: '', contact: '', phone: '', email: '', companyName: '', brn: '', taxNumber: '', street: '', city: '', province: '', categories: '',
     };
 
-    if (!formData.name.trim()) { 
-      errors.name = 'Supplier name is required'; 
-      isValid = false; 
+    if (!formData.name.trim()) {
+      errors.name = 'Supplier name is required';
+      isValid = false;
     } else {
-      const isDuplicate = suppliersList.some(s => 
-        s.name.toLowerCase() === formData.name.trim().toLowerCase() && 
+      const isDuplicate = suppliersList.some(s =>
+        s.name.toLowerCase() === formData.name.trim().toLowerCase() &&
         s.id !== ignoreId
       );
       if (isDuplicate) {
@@ -1176,8 +1176,8 @@ export default function ProcurementManagement() {
                   <button
                     onClick={() => handleTabChange('suppliers')}
                     className={`py-3 px-6 text-sm font-bold border-b-2 flex items-center gap-2 transition-all duration-200 ${activeTab === 'suppliers'
-                        ? 'border-primary text-primary bg-primary/5 rounded-t-lg'
-                        : 'border-transparent text-outline hover:text-on-surface hover:border-outline-variant'
+                      ? 'border-primary text-primary bg-primary/5 rounded-t-lg'
+                      : 'border-transparent text-outline hover:text-on-surface hover:border-outline-variant'
                       }`}
                   >
                     <span className="material-symbols-outlined text-[18px]">group</span>
@@ -1186,8 +1186,8 @@ export default function ProcurementManagement() {
                   <button
                     onClick={() => handleTabChange('records')}
                     className={`py-3 px-6 text-sm font-bold border-b-2 flex items-center gap-2 transition-all duration-200 ${activeTab === 'records'
-                        ? 'border-primary text-primary bg-primary/5 rounded-t-lg'
-                        : 'border-transparent text-outline hover:text-on-surface hover:border-outline-variant'
+                      ? 'border-primary text-primary bg-primary/5 rounded-t-lg'
+                      : 'border-transparent text-outline hover:text-on-surface hover:border-outline-variant'
                       }`}
                   >
                     <span className="material-symbols-outlined text-[18px]">receipt_long</span>
@@ -1196,8 +1196,8 @@ export default function ProcurementManagement() {
                   <button
                     onClick={() => handleTabChange('analytics')}
                     className={`py-3 px-6 text-sm font-bold border-b-2 flex items-center gap-2 transition-all duration-200 ${activeTab === 'analytics'
-                        ? 'border-primary text-primary bg-primary/5 rounded-t-lg'
-                        : 'border-transparent text-outline hover:text-on-surface hover:border-outline-variant'
+                      ? 'border-primary text-primary bg-primary/5 rounded-t-lg'
+                      : 'border-transparent text-outline hover:text-on-surface hover:border-outline-variant'
                       }`}
                   >
                     <span className="material-symbols-outlined text-[18px]">insights</span>
@@ -1305,8 +1305,8 @@ export default function ProcurementManagement() {
                                     <td className="px-6 py-4 text-center text-slate-500">{s.lastPurchaseDate}</td>
                                     <td className="px-6 py-4 text-center">
                                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${s.status === 'Active'
-                                          ? 'bg-emerald-100 text-emerald-800'
-                                          : 'bg-slate-100 text-slate-800'
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : 'bg-slate-100 text-slate-800'
                                         }`}>
                                         {s.status}
                                       </span>
@@ -1478,20 +1478,20 @@ export default function ProcurementManagement() {
                                     <td className="px-6 py-4 text-right font-black text-slate-800">{p.totalCost}</td>
                                     <td className="px-6 py-4 text-center">
                                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${p.paymentStatus === 'Paid'
-                                          ? 'bg-emerald-100 text-emerald-800'
-                                          : p.paymentStatus === 'Partially Paid'
-                                            ? 'bg-amber-100 text-amber-800'
-                                            : 'bg-red-100 text-red-800'
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : p.paymentStatus === 'Partially Paid'
+                                          ? 'bg-amber-100 text-amber-800'
+                                          : 'bg-red-100 text-red-800'
                                         }`}>
                                         {p.paymentStatus}
                                       </span>
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${p.deliveryStatus === 'Received'
-                                          ? 'bg-emerald-100 text-emerald-800'
-                                          : p.deliveryStatus === 'Pending'
-                                            ? 'bg-amber-100 text-amber-800'
-                                            : 'bg-slate-100 text-slate-800'
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : p.deliveryStatus === 'Pending'
+                                          ? 'bg-amber-100 text-amber-800'
+                                          : 'bg-slate-100 text-slate-800'
                                         }`}>
                                         {p.deliveryStatus}
                                       </span>

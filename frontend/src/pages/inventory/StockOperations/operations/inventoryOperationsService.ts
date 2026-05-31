@@ -327,7 +327,7 @@ export const inventoryOperationsService = {
     const after = Math.max(0, before + qtyToAddOrSubtract);
     p.stock = after;
     p.lastUpdated = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    
+
     save(PRODUCT_KEY, products);
     return p;
   },
@@ -340,7 +340,7 @@ export const inventoryOperationsService = {
   createGRN: async (grn: Omit<GRNRecord, 'id' | 'grnNumber' | 'accuracyScore' | 'status'>): Promise<GRNRecord> => {
     const grns = load<GRNRecord>(GRN_KEY, initialGRNs);
     const grnNumber = `GRN-2026-${String(grns.length + 1).padStart(3, '0')}`;
-    
+
     // Calculate total quantity & cost & shortage/over accuracy
     let totalQuantity = 0;
     let totalCost = 0;

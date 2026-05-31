@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import CategoryTree from './CategoryTree';
-import ProductImageUploader from './ProductImageUploader';
+import CategoryTree from './SubComponents/CategoryTree';
+import ProductImageUploader from './SubComponents/ProductImageUploader';
 
 type SubCategoryNode = {
   id: string;
@@ -154,10 +154,10 @@ export default function CategoryRegistry({
 
   return (
     <div className="space-y-6">
-      
+
       {/* 1. Category KPI Cards Panel */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        
+
         {/* KPI: Total Categories */}
         <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm">
           <p className="text-[11px] font-bold text-outline uppercase tracking-wider mb-2">Total Categories</p>
@@ -202,7 +202,7 @@ export default function CategoryRegistry({
 
       {/* 2. Unified Grid Layout with CategoryTree on side */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        
+
         {/* Left Column: Category Hierarchy tree panel */}
         <div className="lg:col-span-1">
           <CategoryTree
@@ -216,7 +216,7 @@ export default function CategoryRegistry({
 
         {/* Right Column: Dynamic Category Cards Directory */}
         <div className="lg:col-span-3 space-y-4">
-          
+
           {/* Section Breadcrumbs / Header bar */}
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2 text-xs font-bold">
@@ -343,7 +343,7 @@ export default function CategoryRegistry({
           ) : (
             /* Sub-category Children views */
             <div className="space-y-4 animate-in fade-in duration-100">
-              
+
               {/* Back navigation header button */}
               <button
                 type="button"
@@ -429,7 +429,7 @@ export default function CategoryRegistry({
 
             {/* Body */}
             <div className="p-6 space-y-6">
-              
+
               {/* Category Name input */}
               <div>
                 <label className="block text-[11px] font-bold text-outline uppercase tracking-wider mb-2">
@@ -443,11 +443,10 @@ export default function CategoryRegistry({
                     if (duplicateError) setDuplicateError(null);
                   }}
                   placeholder="e.g. Soft Drinks, Fresh Pastas, Laundry"
-                  className={`w-full px-4 py-2.5 bg-background border rounded-lg text-sm text-on-surface outline-none focus:ring-2 transition-colors ${
-                    duplicateError 
-                      ? 'border-red-500 focus:ring-red-500 focus:border-red-500' 
-                      : 'border-outline-variant focus:ring-primary'
-                  }`}
+                  className={`w-full px-4 py-2.5 bg-background border rounded-lg text-sm text-on-surface outline-none focus:ring-2 transition-colors ${duplicateError
+                    ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+                    : 'border-outline-variant focus:ring-primary'
+                    }`}
                 />
                 {duplicateError && (
                   <p className="text-[10px] font-bold text-red-500 mt-1.5 flex items-center gap-1 animate-in fade-in slide-in-from-top-1">
@@ -494,13 +493,11 @@ export default function CategoryRegistry({
                       <button
                         type="button"
                         onClick={() => setHierarchy('parent')}
-                        className={`flex items-start gap-2.5 p-3 rounded-xl border-2 text-left transition-colors ${
-                          hierarchy === 'parent' ? 'border-primary bg-primary/5' : 'border-outline-variant hover:border-outline'
-                        }`}
+                        className={`flex items-start gap-2.5 p-3 rounded-xl border-2 text-left transition-colors ${hierarchy === 'parent' ? 'border-primary bg-primary/5' : 'border-outline-variant hover:border-outline'
+                          }`}
                       >
-                        <div className={`w-4 h-4 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
-                          hierarchy === 'parent' ? 'border-primary' : 'border-outline'
-                        }`}>
+                        <div className={`w-4 h-4 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${hierarchy === 'parent' ? 'border-primary' : 'border-outline'
+                          }`}>
                           {hierarchy === 'parent' && <div className="w-2 h-2 bg-primary rounded-full"></div>}
                         </div>
                         <div>
@@ -513,13 +510,11 @@ export default function CategoryRegistry({
                       <button
                         type="button"
                         onClick={() => setHierarchy('sub')}
-                        className={`flex items-start gap-2.5 p-3 rounded-xl border-2 text-left transition-colors ${
-                          hierarchy === 'sub' ? 'border-primary bg-primary/5' : 'border-outline-variant hover:border-outline'
-                        }`}
+                        className={`flex items-start gap-2.5 p-3 rounded-xl border-2 text-left transition-colors ${hierarchy === 'sub' ? 'border-primary bg-primary/5' : 'border-outline-variant hover:border-outline'
+                          }`}
                       >
-                        <div className={`w-4 h-4 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
-                          hierarchy === 'sub' ? 'border-primary' : 'border-outline'
-                        }`}>
+                        <div className={`w-4 h-4 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${hierarchy === 'sub' ? 'border-primary' : 'border-outline'
+                          }`}>
                           {hierarchy === 'sub' && <div className="w-2 h-2 bg-primary rounded-full"></div>}
                         </div>
                         <div>

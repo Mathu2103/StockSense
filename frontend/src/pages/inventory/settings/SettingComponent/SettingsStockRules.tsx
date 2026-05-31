@@ -1,14 +1,8 @@
 import React from 'react';
+import { StockRulesConfig } from "./types";
 import { Toggle } from './Toggle';
 
-interface StockRulesConfig {
-  defaultReorderLevel: string;
-  minimumStockThreshold: string;
-  maximumStockLimit: string;
-  stockUpdateMode: string;
-  allowNegativeStock: boolean;
-  autoDeductStock: boolean;
-}
+
 
 interface Props {
   rules: StockRulesConfig;

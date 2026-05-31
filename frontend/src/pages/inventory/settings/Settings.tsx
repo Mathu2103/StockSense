@@ -1,27 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import Sidebar from "./Components/Sidebar";
-import InventoryHeader from "./Components/InventoryHeader";
-import SettingsProfile from "./Components/SettingComponent/SettingsProfile";
-import SettingsAccount from "./Components/SettingComponent/SettingsAccount";
-import SettingsStockRules from "./Components/SettingComponent/SettingsStockRules";
-import SettingsAlerts from "./Components/SettingComponent/SettingsAlerts";
+import Sidebar from "../Shared/Sidebar";
+import InventoryHeader from "../Shared/InventoryHeader";
+import SettingsProfile from "./SettingComponent/SettingsProfile";
+import SettingsAccount from "./SettingComponent/SettingsAccount";
+import SettingsStockRules from "./SettingComponent/SettingsStockRules";
+import SettingsAlerts from "./SettingComponent/SettingsAlerts";
+import { StockRulesConfig } from "./SettingComponent/types";
 
-interface StockRulesConfig {
-  defaultReorderLevel: string;
-  minimumStockThreshold: string;
-  maximumStockLimit: string;
-  stockUpdateMode: string;
-  allowNegativeStock: boolean;
-  autoDeductStock: boolean;
-  // Alert settings
-  enableLowStockAlerts: boolean;
-  enableOutOfStockAlerts: boolean;
-  enableDeadStockAlerts: boolean;
-  notifyInApp: boolean;
-  notifyEmail: boolean;
-  notifySMS: boolean;
-}
 
 const DEFAULT_RULES: StockRulesConfig = {
   defaultReorderLevel: '50',
@@ -139,13 +125,13 @@ export default function Settings() {
                 <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between flex-shrink-0">
                   <p className="text-sm text-slate-500 italic">Unsaved changes will be lost.</p>
                   <div className="flex items-center gap-3">
-                    <button 
+                    <button
                       onClick={resetSettings}
                       className="px-6 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold text-sm rounded-lg shadow-sm hover:bg-slate-50 transition-colors"
                     >
                       Reset
                     </button>
-                    <button 
+                    <button
                       onClick={saveSettings}
                       className="px-6 py-2.5 bg-[#0b8252] text-white font-bold text-sm rounded-lg shadow-sm hover:bg-[#096b43] transition-colors"
                     >

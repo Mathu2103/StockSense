@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import Sidebar from './Components/Sidebar';
-import InventoryHeader from './Components/InventoryHeader';
-import GRNPage from './Components/operations/GRNPage';
-import InventoryMonitoring from './Components/operations/InventoryMonitoring';
-import StockMovements from './Components/operations/StockMovements';
-import StockAdjustments from './Components/operations/StockAdjustments';
+import Sidebar from '../Shared/Sidebar';
+import InventoryHeader from '../Shared/InventoryHeader';
+import GRNPage from './operations/GRNPage';
+import InventoryMonitoring from './operations/InventoryMonitoring';
+import StockMovements from './operations/StockMovements';
+import StockAdjustments from './operations/StockAdjustments';
 
 export default function InventoryOperations() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -57,11 +57,10 @@ export default function InventoryOperations() {
                       key={t.id}
                       type="button"
                       onClick={() => handleTabChange(t.id)}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all whitespace-nowrap ${
-                        activeTab === t.id
-                          ? 'bg-white text-primary shadow-sm font-black'
-                          : 'text-on-surface-variant hover:text-on-surface hover:bg-slate-50'
-                      }`}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all whitespace-nowrap ${activeTab === t.id
+                        ? 'bg-white text-primary shadow-sm font-black'
+                        : 'text-on-surface-variant hover:text-on-surface hover:bg-slate-50'
+                        }`}
                     >
                       <span className="material-symbols-outlined text-[16px]">{t.icon}</span>
                       {t.label}

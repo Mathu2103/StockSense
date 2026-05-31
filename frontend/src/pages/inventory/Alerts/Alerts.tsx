@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import Sidebar from "./Components/Sidebar";
-import InventoryHeader from "./Components/InventoryHeader";
+import Sidebar from "../Shared/Sidebar";
+import InventoryHeader from "../Shared/InventoryHeader";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type AlertCategory = 'Low Stock' | 'Out of Stock' | 'Expiring Soon' | 'Overstock' | 'Reorder Recommendation';
@@ -70,12 +70,12 @@ const TABS: Tab[] = ['All Alerts', 'Low Stock', 'Out of Stock', 'Expiring Soon',
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function Alerts() {
-  const [activeTab, setActiveTab]       = useState<Tab>('All Alerts');
-  const [alerts, setAlerts]             = useState<AlertItem[]>([]);
-  const [toasts, setToasts]             = useState<Toast[]>([]);
-  const [showFilters, setShowFilters]   = useState(false);
-  const [sevFilter, setSevFilter]       = useState<AlertSeverity | 'All'>('All');
-  const [readFilter, setReadFilter]     = useState<'All' | 'Unread' | 'Read'>('All');
+  const [activeTab, setActiveTab] = useState<Tab>('All Alerts');
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
+  const [sevFilter, setSevFilter] = useState<AlertSeverity | 'All'>('All');
+  const [readFilter, setReadFilter] = useState<'All' | 'Unread' | 'Read'>('All');
 
   // ── Toast ──────────────────────────────────────────────────────────────────
   const toast = useCallback((message: string, type: Toast['type'] = 'success') => {
@@ -148,7 +148,7 @@ export default function Alerts() {
     if (savedStatesStr) {
       try {
         savedStates = JSON.parse(savedStatesStr);
-      } catch {}
+      } catch { }
     }
 
     const combined = [...dynamicAlerts, ...BULLETINS].map(item => {
@@ -205,12 +205,12 @@ export default function Alerts() {
   const handlePrimary = (a: AlertItem) => {
     markRead(a.id);
     const name = a.title.split('—')[0].trim();
-    
+
     // Check if it is a dynamic stock alert SKU reorder
     if (typeof a.id === 'string' && a.id.startsWith('dyn_')) {
       const parts = a.id.split('_');
       const sku = parts[parts.length - 1]; // extract SKU
-      
+
       const storedProds = localStorage.getItem('stocksense_product_catalog_products');
       if (storedProds) {
         try {
@@ -248,7 +248,7 @@ export default function Alerts() {
             loadDynamicAlerts(); // reload
             return;
           }
-        } catch (e) {}
+        } catch (e) { }
       }
     }
 
@@ -267,8 +267,8 @@ export default function Alerts() {
   // Note: secondary actions are not wired to a dedicated button in the UI yet.
 
   // ── Derived ────────────────────────────────────────────────────────────────
-  const visible    = alerts.filter(a => !a.dismissed);
-  const unread     = visible.filter(a => !a.read).length;
+  const visible = alerts.filter(a => !a.dismissed);
+  const unread = visible.filter(a => !a.read).length;
   const criticalAlerts = visible.filter(a => a.severity === 'Critical').length;
   const lowStockAlerts = visible.filter(a => a.category === 'Low Stock' || a.category === 'Out of Stock').length;
   const expiryAlerts = visible.filter(a => a.category === 'Expiring Soon').length;
@@ -278,11 +278,11 @@ export default function Alerts() {
     tab === 'All Alerts' ? visible.length : visible.filter(a => a.category === tab).length;
 
   const filtered = visible.filter(a => {
-    const byTab  = activeTab === 'All Alerts' || a.category === activeTab;
-    const bySev  = sevFilter  === 'All' || a.severity === sevFilter;
+    const byTab = activeTab === 'All Alerts' || a.category === activeTab;
+    const bySev = sevFilter === 'All' || a.severity === sevFilter;
     const byRead = readFilter === 'All'
       || (readFilter === 'Unread' && !a.read)
-      || (readFilter === 'Read'   &&  a.read);
+      || (readFilter === 'Read' && a.read);
     return byTab && bySev && byRead;
   });
 
@@ -315,9 +315,8 @@ export default function Alerts() {
           {toasts.map(t => (
             <div
               key={t.id}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-bold text-white pointer-events-auto ${
-                t.type === 'success' ? 'bg-[#0b8252]' : 'bg-slate-700'
-              }`}
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-bold text-white pointer-events-auto ${t.type === 'success' ? 'bg-[#0b8252]' : 'bg-slate-700'
+                }`}
             >
               <span className="material-symbols-outlined text-[18px]">
                 {t.type === 'success' ? 'check_circle' : 'info'}
@@ -403,11 +402,10 @@ export default function Alerts() {
                 {/* STEP 6: Filters button */}
                 <button
                   onClick={() => setShowFilters(true)}
-                  className={`flex items-center gap-2 px-4 py-2.5 border font-bold text-sm rounded-lg shadow-sm transition-colors ${
-                    filtersActive
-                      ? 'bg-[#eef8f2] border-[#0b8252] text-[#0b8252]'
-                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-2.5 border font-bold text-sm rounded-lg shadow-sm transition-colors ${filtersActive
+                    ? 'bg-[#eef8f2] border-[#0b8252] text-[#0b8252]'
+                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
                 >
                   <span className="material-symbols-outlined text-[18px]">filter_list</span>
                   Filters
@@ -471,16 +469,14 @@ export default function Alerts() {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`py-3 text-sm font-bold border-b-2 transition-colors duration-200 whitespace-nowrap flex items-center gap-1.5 ${
-                    activeTab === tab
-                      ? 'border-[#0b8252] text-[#0b8252]'
-                      : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
-                  }`}
+                  className={`py-3 text-sm font-bold border-b-2 transition-colors duration-200 whitespace-nowrap flex items-center gap-1.5 ${activeTab === tab
+                    ? 'border-[#0b8252] text-[#0b8252]'
+                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+                    }`}
                 >
                   {tab}
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                    activeTab === tab ? 'bg-[#eef8f2] text-[#0b8252]' : 'bg-slate-100 text-slate-500'
-                  }`}>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === tab ? 'bg-[#eef8f2] text-[#0b8252]' : 'bg-slate-100 text-slate-500'
+                    }`}>
                     {tabCount(tab)}
                   </span>
                 </button>
@@ -504,9 +500,8 @@ export default function Alerts() {
                 filtered.map(alert => (
                   <div
                     key={alert.id}
-                    className={`bg-white rounded-xl border border-slate-200 shadow-sm flex overflow-hidden transition-opacity ${
-                      alert.read ? 'opacity-75' : ''
-                    }`}
+                    className={`bg-white rounded-xl border border-slate-200 shadow-sm flex overflow-hidden transition-opacity ${alert.read ? 'opacity-75' : ''
+                      }`}
                   >
                     <div className={`w-1.5 flex-shrink-0 ${alert.accentColor}`} />
                     <div className="p-5 flex flex-col sm:flex-row gap-5 flex-1">

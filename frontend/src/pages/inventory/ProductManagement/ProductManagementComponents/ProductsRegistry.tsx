@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import ProductFilters from './ProductFilters';
+import ProductFilters from './SubComponents/ProductFilters';
 
 export type ProductStatus = 'Active' | 'Inactive' | 'Discontinued';
 export type StockStatus = 'In Stock' | 'Low Stock' | 'Out of Stock';
@@ -122,7 +122,7 @@ export default function ProductsRegistry({
   const kpis = useMemo(() => {
     const total = products.length;
     const active = products.filter((p) => p.status === 'Active').length;
-    
+
     // Low stock indicator check: stock <= reorderLevel but > 0
     const lowStock = products.filter((p) => p.stock > 0 && p.stock <= p.reorderLevel).length;
     const outOfStock = products.filter((p) => p.stock === 0).length;
@@ -143,10 +143,10 @@ export default function ProductsRegistry({
 
   return (
     <div className="space-y-6">
-      
+
       {/* 1. Dashboard KPI Cards Panel */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        
+
         {/* KPI: Total Products */}
         <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm">
           <p className="text-[11px] font-bold text-outline uppercase tracking-wider mb-2">Total Products</p>
@@ -229,7 +229,7 @@ export default function ProductsRegistry({
 
       {/* 3. Products Registry Grid & Table list */}
       <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm">
-        
+
         {loading ? (
           /* Skeleton Loader layout */
           <div className="p-6 space-y-4">
@@ -312,12 +312,11 @@ export default function ProductsRegistry({
                               className="w-9 h-9 rounded-lg object-cover border border-slate-200/80 shadow-sm shrink-0 bg-white"
                             />
                           ) : (
-                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white font-black text-xs uppercase shrink-0 shadow-sm ${
-                              p.category.includes('Beverage') ? 'bg-indigo-600' :
+                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white font-black text-xs uppercase shrink-0 shadow-sm ${p.category.includes('Beverage') ? 'bg-indigo-600' :
                               p.category.includes('Dairy') ? 'bg-teal-600' :
-                              p.category.includes('Grocery') ? 'bg-emerald-600' :
-                              p.category.includes('Snacks') ? 'bg-amber-600' : 'bg-slate-600'
-                            }`}>
+                                p.category.includes('Grocery') ? 'bg-emerald-600' :
+                                  p.category.includes('Snacks') ? 'bg-amber-600' : 'bg-slate-600'
+                              }`}>
                               {p.name.charAt(0)}
                             </div>
                           )}
@@ -356,16 +355,14 @@ export default function ProductsRegistry({
                       {/* Current Stock */}
                       <td className="px-4 py-4.5 text-right whitespace-nowrap">
                         <div className="inline-flex flex-col items-end">
-                          <span className={`text-sm font-black ${
-                            isOutOfStock ? 'text-red-600' : isLowStock ? 'text-[#d97706]' : 'text-on-surface'
-                          }`}>
+                          <span className={`text-sm font-black ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-[#d97706]' : 'text-on-surface'
+                            }`}>
                             {p.stock.toLocaleString()}
                           </span>
-                          <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded mt-1 ${
-                            isOutOfStock ? 'bg-red-50 text-red-600' :
+                          <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded mt-1 ${isOutOfStock ? 'bg-red-50 text-red-600' :
                             isLowStock ? 'bg-[#fffbeb] text-[#d97706]' :
-                            'bg-emerald-50 text-emerald-600'
-                          }`}>
+                              'bg-emerald-50 text-emerald-600'
+                            }`}>
                             {isOutOfStock ? 'Out of Stock' : isLowStock ? 'Low Stock' : 'In Stock'}
                           </span>
                         </div>
@@ -388,11 +385,10 @@ export default function ProductsRegistry({
 
                       {/* Status */}
                       <td className="px-4 py-4.5 text-center whitespace-nowrap">
-                        <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                          p.status === 'Active' ? 'bg-emerald-100 text-emerald-800' :
+                        <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold ${p.status === 'Active' ? 'bg-emerald-100 text-emerald-800' :
                           p.status === 'Inactive' ? 'bg-slate-100 text-slate-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
+                            'bg-red-100 text-red-800'
+                          }`}>
                           {p.status}
                         </span>
                       </td>
@@ -466,7 +462,7 @@ export default function ProductsRegistry({
 
             {/* Modal Body */}
             <div className="p-6 space-y-6 max-h-[calc(90vh-140px)] overflow-y-auto">
-              
+
               {/* Product Header Row */}
               <div className="flex items-center gap-4 border-b border-slate-100 pb-4">
                 {selectedProduct.imageUrl ? (
@@ -476,12 +472,11 @@ export default function ProductsRegistry({
                     className="w-14 h-14 rounded-xl object-cover border border-slate-200/80 shadow-sm shrink-0 bg-white"
                   />
                 ) : (
-                  <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-white font-black text-lg uppercase shrink-0 shadow-sm ${
-                    selectedProduct.category.includes('Beverage') ? 'bg-indigo-600' :
+                  <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-white font-black text-lg uppercase shrink-0 shadow-sm ${selectedProduct.category.includes('Beverage') ? 'bg-indigo-600' :
                     selectedProduct.category.includes('Dairy') ? 'bg-teal-600' :
-                    selectedProduct.category.includes('Grocery') ? 'bg-emerald-600' :
-                    selectedProduct.category.includes('Snacks') ? 'bg-amber-600' : 'bg-slate-600'
-                  }`}>
+                      selectedProduct.category.includes('Grocery') ? 'bg-emerald-600' :
+                        selectedProduct.category.includes('Snacks') ? 'bg-amber-600' : 'bg-slate-600'
+                    }`}>
                     {selectedProduct.name.charAt(0)}
                   </div>
                 )}
@@ -490,11 +485,10 @@ export default function ProductsRegistry({
                   <p className="text-xs text-outline mt-1 font-medium">SKU: {selectedProduct.sku} | Barcode: {selectedProduct.barcode}</p>
                 </div>
                 <div className="shrink-0">
-                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
-                    selectedProduct.status === 'Active' ? 'bg-emerald-100 text-emerald-800' :
+                  <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${selectedProduct.status === 'Active' ? 'bg-emerald-100 text-emerald-800' :
                     selectedProduct.status === 'Inactive' ? 'bg-slate-100 text-slate-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
+                      'bg-red-100 text-red-800'
+                    }`}>
                     {selectedProduct.status}
                   </span>
                 </div>
@@ -527,19 +521,18 @@ export default function ProductsRegistry({
 
               {/* Pricing & Stock Details */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                
+
                 {/* Stock Widget */}
                 <div className="border border-outline-variant rounded-xl p-4 flex flex-col justify-between">
                   <span className="text-[10px] font-bold text-outline uppercase tracking-wider block mb-2">Current Stock</span>
                   <div className="flex items-end justify-between mt-auto">
                     <span className="text-2xl font-black text-on-surface">{selectedProduct.stock}</span>
-                    <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
-                      selectedProduct.stock === 0 ? 'bg-red-50 text-red-600' :
+                    <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${selectedProduct.stock === 0 ? 'bg-red-50 text-red-600' :
                       selectedProduct.stock <= selectedProduct.reorderLevel ? 'bg-[#fffbeb] text-[#d97706]' :
-                      'bg-emerald-50 text-emerald-600'
-                    }`}>
+                        'bg-emerald-50 text-emerald-600'
+                      }`}>
                       {selectedProduct.stock === 0 ? 'Out of Stock' :
-                       selectedProduct.stock <= selectedProduct.reorderLevel ? 'Low Stock' : 'In Stock'}
+                        selectedProduct.stock <= selectedProduct.reorderLevel ? 'Low Stock' : 'In Stock'}
                     </span>
                   </div>
                 </div>

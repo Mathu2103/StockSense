@@ -24,7 +24,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { FastMovingProps, ReorderProps, FastMovingItem, ReorderItem } from './analyticsTypes';
-import { ProductItem } from '../operations/inventoryOperationsService';
+import { ProductItem } from '../../StockOperations/operations/inventoryOperationsService';
 
 // ─── Combined props for the Product Velocity tab ─────────────────────────────
 interface VelocityTabProps {
@@ -170,11 +170,10 @@ function SmartReorderSuggestionsSection({ dynamicReorderSuggestions, triggerToas
           const isCrit = item.urgency === 'Critical';
           const isWarn = item.urgency === 'Warning';
           return (
-            <div key={idx} className={`border rounded-xl p-4 flex flex-col justify-between h-[155px] transition-all hover:-translate-y-0.5 hover:shadow-sm ${
-              isCrit ? 'bg-rose-50/20 border-rose-200' :
-              isWarn ? 'bg-amber-50/20 border-amber-200' :
-                       'bg-[#f8fcf9] border-[#d1fae5]'
-            }`}>
+            <div key={idx} className={`border rounded-xl p-4 flex flex-col justify-between h-[155px] transition-all hover:-translate-y-0.5 hover:shadow-sm ${isCrit ? 'bg-rose-50/20 border-rose-200' :
+                isWarn ? 'bg-amber-50/20 border-amber-200' :
+                  'bg-[#f8fcf9] border-[#d1fae5]'
+              }`}>
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-xs font-black text-slate-800 leading-tight truncate max-w-[170px]" title={item.name}>
@@ -197,11 +196,10 @@ function SmartReorderSuggestionsSection({ dynamicReorderSuggestions, triggerToas
                   <p className="text-sm font-black text-[#0b8252]">+{item.suggestedQty} Units</p>
                 </div>
                 <span
-                  className={`px-2 py-1 text-[9px] font-black rounded uppercase tracking-wider cursor-pointer transition-colors shadow-sm ${
-                    isCrit ? 'bg-rose-600 text-white hover:bg-rose-700' :
-                    isWarn ? 'bg-amber-500 text-white hover:bg-amber-600' :
-                             'bg-[#0b8252] text-white hover:bg-[#096e45]'
-                  }`}
+                  className={`px-2 py-1 text-[9px] font-black rounded uppercase tracking-wider cursor-pointer transition-colors shadow-sm ${isCrit ? 'bg-rose-600 text-white hover:bg-rose-700' :
+                      isWarn ? 'bg-amber-500 text-white hover:bg-amber-600' :
+                        'bg-[#0b8252] text-white hover:bg-[#096e45]'
+                    }`}
                   onClick={() => triggerToast(`Reorder form compiled for: "${item.name}"!`)}
                 >
                   Reorder Now

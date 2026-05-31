@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import Sidebar from './Components/Sidebar';
-import InventoryHeader from './Components/InventoryHeader';
+import Sidebar from '../Shared/Sidebar';
+import InventoryHeader from '../Shared/InventoryHeader';
 
 // Import our modular subcomponents
-import ProductsRegistry, { ProductItem } from './Components/product-catalog/ProductsRegistry';
-import CategoryRegistry from './Components/product-catalog/CategoryRegistry';
-import NewProductForm from './Components/product-catalog/NewProductForm';
-import BrandRegistry, { BrandItem } from './Components/product-catalog/BrandRegistry';
-import { SupplierItem } from './Components/product-catalog/SupplierRegistry';
+import ProductsRegistry, { ProductItem } from './ProductManagementComponents/ProductsRegistry';
+import CategoryRegistry from './ProductManagementComponents/CategoryRegistry';
+import NewProductForm from './ProductManagementComponents/NewProductForm';
+import BrandRegistry, { BrandItem } from './ProductManagementComponents/BrandRegistry';
+import { SupplierItem } from './ProductManagementComponents/SupplierRegistry';
 
 // Initial preloaded mock supermarket categories matching specifications
 const initialCategories = [
@@ -430,9 +430,9 @@ export default function ProductManagement() {
         sku: existingProduct?.sku || String(formData.sku || buildSku(formData.name || existingProduct?.name || 'Untitled Product', formData.category || existingProduct?.category || 'Uncategorized')),
         barcode: String(
           formData.barcode ||
-            representativeVariant?.barcode ||
-            existingProduct?.barcode ||
-            `479${Math.floor(1000000000 + Math.random() * 9000000000)}`
+          representativeVariant?.barcode ||
+          existingProduct?.barcode ||
+          `479${Math.floor(1000000000 + Math.random() * 9000000000)}`
         ),
         category: String(formData.category || existingProduct?.category || 'Uncategorized'),
         subcategory: String(formData.subcategory || existingProduct?.subcategory || ''),
@@ -440,9 +440,9 @@ export default function ProductManagement() {
         brand: String(formData.brand || existingProduct?.brand || 'Unbranded'),
         unitType: String(
           formData.unitType ||
-            representativeVariant?.unit ||
-            existingProduct?.unitType ||
-            'Piece'
+          representativeVariant?.unit ||
+          existingProduct?.unitType ||
+          'Piece'
         ),
         stock: formData.productStructure === 'variant' ? variantStock : Number(formData.stock ?? existingProduct?.stock ?? 0),
         reorderLevel: formData.productStructure === 'variant'
@@ -596,27 +596,24 @@ export default function ProductManagement() {
                   <button
                     type="button"
                     onClick={() => handleTabChange('products')}
-                    className={`px-4 py-1.5 rounded-md transition-all whitespace-nowrap ${
-                      activeTab === 'products' ? 'bg-white text-primary shadow-sm font-black' : 'text-on-surface-variant hover:text-on-surface'
-                    }`}
+                    className={`px-4 py-1.5 rounded-md transition-all whitespace-nowrap ${activeTab === 'products' ? 'bg-white text-primary shadow-sm font-black' : 'text-on-surface-variant hover:text-on-surface'
+                      }`}
                   >
                     Products Registry
                   </button>
                   <button
                     type="button"
                     onClick={() => handleTabChange('categories')}
-                    className={`px-4 py-1.5 rounded-md transition-all whitespace-nowrap ${
-                      activeTab === 'categories' ? 'bg-white text-primary shadow-sm font-black' : 'text-on-surface-variant hover:text-on-surface'
-                    }`}
+                    className={`px-4 py-1.5 rounded-md transition-all whitespace-nowrap ${activeTab === 'categories' ? 'bg-white text-primary shadow-sm font-black' : 'text-on-surface-variant hover:text-on-surface'
+                      }`}
                   >
                     Category Registry
                   </button>
                   <button
                     type="button"
                     onClick={() => handleTabChange('brands')}
-                    className={`px-4 py-1.5 rounded-md transition-all whitespace-nowrap ${
-                      activeTab === 'brands' ? 'bg-white text-primary shadow-sm font-black' : 'text-on-surface-variant hover:text-on-surface'
-                    }`}
+                    className={`px-4 py-1.5 rounded-md transition-all whitespace-nowrap ${activeTab === 'brands' ? 'bg-white text-primary shadow-sm font-black' : 'text-on-surface-variant hover:text-on-surface'
+                      }`}
                   >
                     Brands
                   </button>
@@ -631,9 +628,8 @@ export default function ProductManagement() {
                   <button
                     type="button"
                     onClick={() => handleTabChange('new-product')}
-                    className={`px-4 py-1.5 rounded-md transition-all whitespace-nowrap ${
-                      activeTab === 'new-product' ? 'bg-white text-primary shadow-sm font-black' : 'text-on-surface-variant hover:text-on-surface'
-                    }`}
+                    className={`px-4 py-1.5 rounded-md transition-all whitespace-nowrap ${activeTab === 'new-product' ? 'bg-white text-primary shadow-sm font-black' : 'text-on-surface-variant hover:text-on-surface'
+                      }`}
                   >
                     {editingProduct ? 'Edit Product' : 'Add New Product'}
                   </button>
@@ -662,7 +658,7 @@ export default function ProductManagement() {
                 onViewProducts={handleViewCategoryProducts}
                 onAddCategory={handleAddCategoryNode}
                 onEditCategory={handleEditCategoryNode}
-                onAddSubcategory={() => {}}
+                onAddSubcategory={() => { }}
                 onArchiveCategory={handleArchiveCategory}
               />
             )}

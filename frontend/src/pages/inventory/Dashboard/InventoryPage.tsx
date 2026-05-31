@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import Sidebar from './Components/Sidebar';
-import InventoryHeader from './Components/InventoryHeader';
-import ModuleCard from './Components/inventory/ModuleCard';
-import SnapshotCard from './Components/inventory/SnapshotCard';
-import QuickActionItem from './Components/inventory/QuickActionItem';
-import RecentActivityItem from './Components/inventory/RecentActivityItem';
+import Sidebar from '../Shared/Sidebar';
+import InventoryHeader from '../Shared/InventoryHeader';
+import ModuleCard from './DashboardComponents/ModuleCard';
+import SnapshotCard from './DashboardComponents/SnapshotCard';
+import QuickActionItem from './DashboardComponents/QuickActionItem';
+import RecentActivityItem from './DashboardComponents/RecentActivityItem';
 import {
   inventoryOperationsService,
   ProductItem,
   LedgerEntry,
   GRNRecord,
-} from './Components/operations/inventoryOperationsService';
+} from '../StockOperations/operations/inventoryOperationsService';
 
 const moduleCards = [
   {

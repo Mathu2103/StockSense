@@ -558,8 +558,8 @@ export default function InventoryHeader({ children }: InventoryHeaderProps) {
 
     return (
       <div className="flex items-center gap-1.5 text-[14.5px] font-semibold text-slate-500">
-        <Link 
-          to="/inventory" 
+        <Link
+          to="/inventory"
           className="hover:text-[#0b8252] transition-colors cursor-pointer"
         >
           Inventory

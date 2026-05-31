@@ -1,5 +1,5 @@
 import React from 'react';
-import { LedgerEntry } from '../operations/inventoryOperationsService';
+import { LedgerEntry } from '../../StockOperations/operations/inventoryOperationsService';
 
 function getMovementTone(entry: LedgerEntry) {
   switch (entry.movementType) {
