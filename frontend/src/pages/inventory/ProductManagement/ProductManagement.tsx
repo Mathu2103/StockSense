@@ -251,6 +251,7 @@ const normalizeProduct = (product: Partial<ProductItem> & Record<string, any>, f
     unitType: String(product.unitType || 'Piece'),
     stock: Number(product.stock ?? 0),
     reorderLevel: Number(product.reorderLevel ?? 0),
+    targetCapacity: Number(product.targetCapacity ?? (product.reorderLevel ? (product.reorderLevel * 4) : 100)),
     costPrice: Number(product.costPrice ?? 0),
     sellingPrice: Number(product.sellingPrice ?? 0),
     status: product.status === 'Inactive' || product.status === 'Discontinued' ? product.status : 'Active',
@@ -448,6 +449,9 @@ export default function ProductManagement() {
         reorderLevel: formData.productStructure === 'variant'
           ? variantReorderLevel
           : Number(formData.reorderLevel ?? existingProduct?.reorderLevel ?? 0),
+        targetCapacity: formData.productStructure === 'variant'
+          ? (representativeVariant?.targetCapacity || 100)
+          : Number(formData.targetCapacity ?? existingProduct?.targetCapacity ?? 100),
         costPrice: formData.productStructure === 'variant'
           ? Number(representativeVariant?.costPrice ?? existingProduct?.costPrice ?? 0)
           : Number(formData.costPrice ?? existingProduct?.costPrice ?? 0),

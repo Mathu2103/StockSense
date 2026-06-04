@@ -16,6 +16,7 @@ export type ProductItem = {
   unitType: string;
   stock: number;
   reorderLevel: number;
+  targetCapacity?: number;
   costPrice: number;
   sellingPrice: number;
   status: ProductStatus;
@@ -58,6 +59,23 @@ export default function ProductsRegistry({
 
   // Selected view detail product modal
   const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(null);
+
+  const [reorderPercent, setReorderPercent] = useState<number>(25);
+  React.useEffect(() => {
+    const configStr = localStorage.getItem('stocksense_settings_config');
+    if (configStr) {
+      try {
+        const config = JSON.parse(configStr);
+        if (config.defaultReorderLevel) {
+          setReorderPercent(parseInt(config.defaultReorderLevel, 10) || 25);
+        }
+      } catch (e) {}
+    }
+  }, [products]);
+
+  const getReorderLimit = (p: ProductItem) => {
+    return Math.round((reorderPercent / 100) * (p.targetCapacity || 100));
+  };
 
   const handleArchive = (product: ProductItem) => {
     const confirmed = window.confirm(
@@ -109,14 +127,14 @@ export default function ProductsRegistry({
       if (quickFilter === 'Active') {
         matchesQuick = p.status === 'Active';
       } else if (quickFilter === 'Low Stock') {
-        matchesQuick = p.stock > 0 && p.stock <= p.reorderLevel;
+        matchesQuick = p.stock > 0 && p.stock <= getReorderLimit(p);
       } else if (quickFilter === 'Out of Stock') {
         matchesQuick = p.stock === 0;
       }
 
       return matchesSearch && matchesCategory && matchesSupplier && matchesStatus && matchesQuick;
     });
-  }, [products, search, categoryFilter, supplierFilter, statusFilter, quickFilter]);
+  }, [products, search, categoryFilter, supplierFilter, statusFilter, quickFilter, reorderPercent]);
 
   // Reactive KPI Calculations
   const kpis = useMemo(() => {
@@ -124,14 +142,14 @@ export default function ProductsRegistry({
     const active = products.filter((p) => p.status === 'Active').length;
 
     // Low stock indicator check: stock <= reorderLevel but > 0
-    const lowStock = products.filter((p) => p.stock > 0 && p.stock <= p.reorderLevel).length;
+    const lowStock = products.filter((p) => p.stock > 0 && p.stock <= getReorderLimit(p)).length;
     const outOfStock = products.filter((p) => p.stock === 0).length;
 
     // Total Inventory Value sum (cost price * current stock)
     const totalValue = products.reduce((sum, p) => sum + p.costPrice * p.stock, 0);
 
     return { total, active, lowStock, outOfStock, totalValue };
-  }, [products]);
+  }, [products, reorderPercent]);
 
   // Formatting Currency
   const formatCurrency = (val: number) => {
@@ -285,8 +303,8 @@ export default function ProductsRegistry({
                   <th className="px-4 py-4">Category</th>
                   <th className="px-4 py-4">Supplier</th>
                   <th className="px-4 py-4">Unit Type</th>
-                  <th className="px-4 py-4 text-right">Current Stock</th>
-                  <th className="px-4 py-4 text-right">Reorder Level</th>
+                  <th className="px-4 py-4 text-right">Stock / Capacity</th>
+                  <th className="px-4 py-4 text-right">Reorder Limit</th>
                   <th className="px-4 py-4 text-right">Cost Price</th>
                   <th className="px-4 py-4 text-right">Selling Price</th>
                   <th className="px-4 py-4 text-center">Status</th>
@@ -298,7 +316,7 @@ export default function ProductsRegistry({
                 {filteredProducts.map((p) => {
                   // Determine stock alert styles
                   const isOutOfStock = p.stock === 0;
-                  const isLowStock = p.stock > 0 && p.stock <= p.reorderLevel;
+                  const isLowStock = p.stock > 0 && p.stock <= getReorderLimit(p);
 
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/60 transition-colors">
@@ -357,7 +375,7 @@ export default function ProductsRegistry({
                         <div className="inline-flex flex-col items-end">
                           <span className={`text-sm font-black ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-[#d97706]' : 'text-on-surface'
                             }`}>
-                            {p.stock.toLocaleString()}
+                            {p.stock.toLocaleString()} / {(p.targetCapacity || 100).toLocaleString()}
                           </span>
                           <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded mt-1 ${isOutOfStock ? 'bg-red-50 text-red-600' :
                             isLowStock ? 'bg-[#fffbeb] text-[#d97706]' :
@@ -370,7 +388,7 @@ export default function ProductsRegistry({
 
                       {/* Reorder Level */}
                       <td className="px-4 py-4.5 text-right whitespace-nowrap font-bold">
-                        {p.reorderLevel.toLocaleString()}
+                        {getReorderLimit(p).toLocaleString()} ({reorderPercent}%)
                       </td>
 
                       {/* Cost Price */}
@@ -514,8 +532,8 @@ export default function ProductsRegistry({
                   <p className="text-xs font-bold text-on-surface mt-1">{selectedProduct.unitType}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-outline uppercase tracking-wider">Reorder Level</p>
-                  <p className="text-xs font-bold text-on-surface mt-1">{selectedProduct.reorderLevel}</p>
+                  <p className="text-[10px] font-bold text-outline uppercase tracking-wider">Target Capacity</p>
+                  <p className="text-xs font-bold text-on-surface mt-1">{selectedProduct.targetCapacity || 100}</p>
                 </div>
               </div>
 
@@ -524,15 +542,15 @@ export default function ProductsRegistry({
 
                 {/* Stock Widget */}
                 <div className="border border-outline-variant rounded-xl p-4 flex flex-col justify-between">
-                  <span className="text-[10px] font-bold text-outline uppercase tracking-wider block mb-2">Current Stock</span>
+                  <span className="text-[10px] font-bold text-outline uppercase tracking-wider block mb-2">Current Stock / Capacity</span>
                   <div className="flex items-end justify-between mt-auto">
-                    <span className="text-2xl font-black text-on-surface">{selectedProduct.stock}</span>
+                    <span className="text-2xl font-black text-on-surface">{selectedProduct.stock} / {selectedProduct.targetCapacity || 100}</span>
                     <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${selectedProduct.stock === 0 ? 'bg-red-50 text-red-600' :
-                      selectedProduct.stock <= selectedProduct.reorderLevel ? 'bg-[#fffbeb] text-[#d97706]' :
+                      selectedProduct.stock <= Math.round((reorderPercent / 100) * (selectedProduct.targetCapacity || 100)) ? 'bg-[#fffbeb] text-[#d97706]' :
                         'bg-emerald-50 text-emerald-600'
                       }`}>
                       {selectedProduct.stock === 0 ? 'Out of Stock' :
-                        selectedProduct.stock <= selectedProduct.reorderLevel ? 'Low Stock' : 'In Stock'}
+                        selectedProduct.stock <= Math.round((reorderPercent / 100) * (selectedProduct.targetCapacity || 100)) ? 'Low Stock' : 'In Stock'}
                     </span>
                   </div>
                 </div>

@@ -42,6 +42,7 @@ type VariantItem = {
   sellingPrice: number;
   stock: number;
   reorderLevel: number;
+  targetCapacity?: number;
   imageUrl: string | null;
 };
 
@@ -72,6 +73,7 @@ const createVariantDraft = (barcode: string): Omit<VariantItem, 'id'> => ({
   sellingPrice: 0,
   stock: 0,
   reorderLevel: 0,
+  targetCapacity: 100,
   imageUrl: null
 });
 
@@ -105,9 +107,28 @@ export default function NewProductForm({
   const [singleSellingPrice, setSingleSellingPrice] = useState<number>(initialProduct?.sellingPrice || 0);
   const [singleDiscountPrice, setSingleDiscountPrice] = useState<number>(initialProduct?.discountPrice || 0);
   const [singleStock, setSingleStock] = useState<number>(initialProduct?.stock || 0);
-  const [singleReorderLevel, setSingleReorderLevel] = useState<number>(initialProduct?.reorderLevel || 0);
+  const [singleTargetCapacity, setSingleTargetCapacity] = useState<number>(
+    initialProduct?.targetCapacity || 100
+  );
   const [singleUnit, setSingleUnit] = useState(initialProduct?.unitType || UNIT_OPTIONS[0]);
   const [singleBarcode, setSingleBarcode] = useState<string>(initialProduct?.barcode || createBarcode());
+
+  const [reorderPercent, setReorderPercent] = useState<number>(25);
+  useEffect(() => {
+    const configStr = localStorage.getItem('stocksense_settings_config');
+    if (configStr) {
+      try {
+        const config = JSON.parse(configStr);
+        if (config.defaultReorderLevel) {
+          setReorderPercent(parseInt(config.defaultReorderLevel, 10) || 25);
+        }
+      } catch (e) {
+        // keep 25
+      }
+    }
+  }, []);
+
+  const calculatedReorderPoint = Math.round((reorderPercent / 100) * singleTargetCapacity);
 
   const [variantImageMode, setVariantImageMode] = useState<VariantImageMode>('different');
   const [autoVariantBarcode, setAutoVariantBarcode] = useState(true);
@@ -331,7 +352,8 @@ export default function NewProductForm({
       barcode: structure === 'single' ? singleBarcode.trim() : null,
       unitType: structure === 'single' ? singleUnit : null,
       stock: structure === 'single' ? singleStock : null,
-      reorderLevel: structure === 'single' ? singleReorderLevel : null,
+      reorderLevel: structure === 'single' ? calculatedReorderPoint : null,
+      targetCapacity: structure === 'single' ? singleTargetCapacity : null,
       costPrice: structure === 'single' ? singleCostPrice : null,
       sellingPrice: structure === 'single' ? singleSellingPrice : null,
       discountPrice: structure === 'single' ? singleDiscountPrice : null,
@@ -701,7 +723,18 @@ export default function NewProductForm({
                   <span className="material-symbols-outlined text-primary text-[20px]">store</span>
                   Inventory, Unit & Barcode (Single Product)
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">Target Stock Capacity *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={singleTargetCapacity}
+                      onChange={(e) => setSingleTargetCapacity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                      className="w-full px-4 py-2.5 bg-background border border-outline-variant rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <p className="text-[9px] text-outline mt-1 font-medium">100% capacity limit of the product.</p>
+                  </div>
                   <div>
                     <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">Current Stock *</label>
                     <input
@@ -711,16 +744,20 @@ export default function NewProductForm({
                       onChange={(e) => setSingleStock(Math.max(0, parseInt(e.target.value, 10) || 0))}
                       className="w-full px-4 py-2.5 bg-background border border-outline-variant rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary"
                     />
+                    <p className="text-[9px] text-outline mt-1 font-medium">Current physical stock quantity.</p>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">Reorder Level *</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={singleReorderLevel}
-                      onChange={(e) => setSingleReorderLevel(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                      className="w-full px-4 py-2.5 bg-background border border-outline-variant rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary"
-                    />
+                    <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">Calculated Reorder Point (Preview)</label>
+                    <div className="relative flex items-center">
+                      <input
+                        type="text"
+                        disabled
+                        value={`${calculatedReorderPoint} units (${reorderPercent}%)`}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-outline-variant rounded-lg text-sm text-on-surface-variant font-bold outline-none"
+                      />
+                      <span className="absolute right-3 text-xs font-bold text-[#0b8252] bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100/60 select-none">Auto</span>
+                    </div>
+                    <p className="text-[9px] text-outline mt-1 font-medium">Triggers alert at {reorderPercent}% of Target Capacity.</p>
                   </div>
                   <div className="relative">
                     <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">Unit of Measurement *</label>
@@ -836,8 +873,8 @@ export default function NewProductForm({
                         <th className="px-3 py-2">Barcode</th>
                         <th className="px-3 py-2">Cost</th>
                         <th className="px-3 py-2">Selling</th>
-                        <th className="px-3 py-2">Stock</th>
-                        <th className="px-3 py-2">Reorder</th>
+                        <th className="px-3 py-2">Stock / Capacity</th>
+                        <th className="px-3 py-2">Reorder Point</th>
                         <th className="px-3 py-2">Actions</th>
                       </tr>
                     </thead>
@@ -858,8 +895,8 @@ export default function NewProductForm({
                           <td className="px-3 py-2">{item.barcode}</td>
                           <td className="px-3 py-2">{item.costPrice.toFixed(2)}</td>
                           <td className="px-3 py-2">{item.sellingPrice.toFixed(2)}</td>
-                          <td className="px-3 py-2">{item.stock}</td>
-                          <td className="px-3 py-2">{item.reorderLevel}</td>
+                          <td className="px-3 py-2">{item.stock} / {item.targetCapacity || 100}</td>
+                          <td className="px-3 py-2">{item.reorderLevel} units ({reorderPercent}%)</td>
                           <td className="px-3 py-2">
                             <div className="flex items-center gap-2">
                               <button
@@ -1152,6 +1189,24 @@ export default function NewProductForm({
                   />
                 </div>
                 <div>
+                  <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">Target Stock Capacity *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={variantDraft.targetCapacity || 100}
+                    onChange={(e) => {
+                      const capacity = Math.max(1, parseInt(e.target.value, 10) || 1);
+                      const reorderVal = Math.round((reorderPercent / 100) * capacity);
+                      setVariantDraft((prev) => ({
+                        ...prev,
+                        targetCapacity: capacity,
+                        reorderLevel: reorderVal
+                      }));
+                    }}
+                    className="w-full px-4 py-2.5 bg-background border border-outline-variant rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div>
                   <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">Stock Quantity *</label>
                   <input
                     type="number"
@@ -1165,19 +1220,16 @@ export default function NewProductForm({
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">Reorder Level *</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={variantDraft.reorderLevel}
-                    onChange={(e) =>
-                      setVariantDraft((prev) => ({
-                        ...prev,
-                        reorderLevel: Math.max(0, parseInt(e.target.value, 10) || 0)
-                      }))
-                    }
-                    className="w-full px-4 py-2.5 bg-background border border-outline-variant rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary"
-                  />
+                  <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">Calculated Reorder Point (Preview)</label>
+                  <div className="relative flex items-center">
+                    <input
+                      type="text"
+                      disabled
+                      value={`${Math.round((reorderPercent / 100) * (variantDraft.targetCapacity || 100))} units (${reorderPercent}%)`}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-outline-variant rounded-lg text-sm text-on-surface-variant font-bold outline-none"
+                    />
+                    <span className="absolute right-3 text-xs font-bold text-[#0b8252] bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100/60 select-none">Auto</span>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">Cost Price *</label>
