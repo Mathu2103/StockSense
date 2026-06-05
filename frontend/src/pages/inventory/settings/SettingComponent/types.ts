@@ -8,7 +8,9 @@ export interface StockRulesConfig {
   // Alert settings
   enableLowStockAlerts: boolean;
   enableOutOfStockAlerts: boolean;
+  enableExpiryAlerts: boolean;
   enableDeadStockAlerts: boolean;
+  enableOverstockAlerts: boolean;
   notifyInApp: boolean;
   notifyEmail: boolean;
   notifySMS: boolean;

@@ -57,14 +57,6 @@ export default function InventoryReports({ onViewChange }: { onViewChange: (view
   const reportRows = filteredItems.map(p => [p.name, p.cat, p.qty, p.sold, p.status]);
   const reportData = { headers: reportHeaders, rows: reportRows };
 
-  // Dynamic calculations for Stock Status pie chart
-  const totalProductsCount = parseInt(activeData.prod.replace(/,/g, '')) || 1900;
-  const lowStockCount = parseInt(activeData.low.replace(/,/g, '')) || 0;
-  const expiredCount = parseInt(activeData.exp.replace(/,/g, '')) || 0;
-  const inStockCount = Math.max(0, totalProductsCount - lowStockCount - expiredCount);
-  
-  const inStockPct = (inStockCount / totalProductsCount) * 100;
-  const lowPct = (lowStockCount / totalProductsCount) * 100;
 
   return (
     <div className="animate-in fade-in duration-300 space-y-6 pb-12">
@@ -263,99 +255,6 @@ export default function InventoryReports({ onViewChange }: { onViewChange: (view
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 5. LIGHT ANALYTICS SECTION */}
-        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Inventory Trend Chart Placeholder */}
-          <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-white/40 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] p-6 hover:-translate-y-1 transition-transform">
-            <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2"><span className="material-symbols-outlined text-[#0b8252]">bar_chart</span> Inventory by Category</h3>
-            <div className="h-[180px] flex items-end justify-between gap-2 border-b border-slate-100 pb-2 relative">
-              <div className="absolute top-1/4 w-full border-t border-dashed border-slate-200"></div>
-              <div className="absolute top-2/4 w-full border-t border-dashed border-slate-200"></div>
-              <div className="absolute top-3/4 w-full border-t border-dashed border-slate-200"></div>
-              {[...(activeData.chart || [40, 65, 45, 80, 55, 90, 70])].map((h, i) => {
-                const categories = ['Dairy', 'Pantry', 'Produce', 'Bakery', 'Snacks', 'Meat', 'Frozen'];
-                return (
-                  <div key={i} className="w-full relative group h-full flex items-end justify-center">
-                    <div className="w-3/4 bg-gradient-to-t from-[#0b8252]/20 to-[#0b8252] rounded-t-sm relative z-10 transition-all duration-300 group-hover:opacity-80" style={{ height: `${h}%` }}></div>
-                    <span className="absolute -top-8 bg-slate-800 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 whitespace-nowrap">{categories[i]}</span>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex justify-between items-center mt-2 px-1 text-[10px] font-bold text-slate-400">
-              <span>Dairy</span><span>Pantry</span><span>Produce</span><span>Bakery</span><span>Snacks</span><span>Meat</span><span>Frozen</span>
-            </div>
-          </div>
-
-          {/* Stock Status Pie Placeholder */}
-          <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-white/40 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] p-6 hover:-translate-y-1 transition-transform">
-            <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2"><span className="material-symbols-outlined text-[#0b8252]">pie_chart</span> Stock Status</h3>
-            <div className="flex flex-col items-center justify-center h-[180px]">
-              <div className="relative w-32 h-32 rounded-full flex items-center justify-center shadow-inner transition-all duration-500" style={{ background: `conic-gradient(#10b981 0% ${inStockPct}%, #f59e0b ${inStockPct}% ${inStockPct + lowPct}%, #ef4444 ${inStockPct + lowPct}% 100%)` }}>
-                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center flex-col shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]">
-                  <span className="text-2xl font-bold text-slate-800">{activeData.prod}</span>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Total</span>
-                </div>
-              </div>
-              <div className="flex gap-4 mt-6">
-                <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-[#10b981]"></span><span className="text-xs font-medium text-slate-600">In Stock</span></div>
-                <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-[#f59e0b]"></span><span className="text-xs font-medium text-slate-600">Low</span></div>
-                <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-[#ef4444]"></span><span className="text-xs font-medium text-slate-600">Expired</span></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-6">
-          {/* 6. QUICK INSIGHTS PANEL */}
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700 shadow-lg p-6 flex-1 text-white relative overflow-hidden">
-            <div className="absolute -right-10 -top-10 w-32 h-32 bg-[#0b8252] rounded-full blur-3xl opacity-30 pointer-events-none"></div>
-            <h3 className="font-bold text-lg mb-5 flex items-center gap-2 relative z-10"><span className="material-symbols-outlined text-[#10b981]">lightbulb</span> Quick Insights</h3>
-            <ul className="space-y-4 relative z-10">
-              <li className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-full bg-[#fef3c7]/10 flex items-center justify-center flex-shrink-0 mt-0.5"><span className="w-2 h-2 rounded-full bg-[#f59e0b]"></span></div>
-                <p className="text-sm text-slate-300 leading-snug">Low stock detected in <strong className="text-white">Dairy</strong> category</p>
-              </li>
-              <li className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-full bg-[#fee2e2]/10 flex items-center justify-center flex-shrink-0 mt-0.5"><span className="w-2 h-2 rounded-full bg-[#ef4444]"></span></div>
-                <p className="text-sm text-slate-300 leading-snug"><strong className="text-white">{activeData.exp} products</strong> need immediate restocking</p>
-              </li>
-              <li className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-full bg-[#dcfce7]/10 flex items-center justify-center flex-shrink-0 mt-0.5"><span className="w-2 h-2 rounded-full bg-[#10b981]"></span></div>
-                <p className="text-sm text-slate-300 leading-snug"><strong className="text-white">Beverages</strong> are the fastest moving category</p>
-              </li>
-              <li className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-full bg-blue-500/10 flex items-center justify-center flex-shrink-0 mt-0.5"><span className="w-2 h-2 rounded-full bg-blue-400"></span></div>
-                <p className="text-sm text-slate-300 leading-snug">Inventory is <strong className="text-white">stable</strong> compared to {period === 'Today' ? 'yesterday' : 'last period'}</p>
-              </li>
-            </ul>
-          </div>
-
-          {/* 7. QUICK ACCESS PANEL */}
-          <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-white/40 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] p-5">
-            <h3 className="font-bold text-slate-800 mb-4 text-sm uppercase tracking-wider">Quick Access</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => onViewChange('activity')} className="flex flex-col items-center justify-center gap-2 bg-[#f8f9fa] border border-slate-200 p-3 rounded-xl hover:bg-[#eef8f2] hover:border-[#bbf7d0] hover:text-[#0b8252] hover:shadow-md text-slate-600 transition-all duration-300 group">
-                <span className="material-symbols-outlined text-[24px] group-hover:scale-110 group-hover:-translate-y-1 transition-transform">add_box</span>
-                <span className="text-xs font-bold">Add Stock</span>
-              </button>
-              <button onClick={() => onViewChange('purchase')} className="flex flex-col items-center justify-center gap-2 bg-[#f8f9fa] border border-slate-200 p-3 rounded-xl hover:bg-[#eef8f2] hover:border-[#bbf7d0] hover:text-[#0b8252] hover:shadow-md text-slate-600 transition-all duration-300 group">
-                <span className="material-symbols-outlined text-[24px] group-hover:scale-110 group-hover:-translate-y-1 transition-transform">receipt_long</span>
-                <span className="text-xs font-bold">Create PO</span>
-              </button>
-              <button onClick={() => onViewChange('alert')} className="flex flex-col items-center justify-center gap-2 bg-[#f8f9fa] border border-slate-200 p-3 rounded-xl hover:bg-[#fef3c7] hover:border-[#fde68a] hover:text-[#d97706] hover:shadow-md text-slate-600 transition-all duration-300 group">
-                <span className="material-symbols-outlined text-[24px] group-hover:scale-110 group-hover:-translate-y-1 transition-transform">warning</span>
-                <span className="text-xs font-bold text-center">View Low</span>
-              </button>
-              <button onClick={() => onViewChange('alert')} className="flex flex-col items-center justify-center gap-2 bg-[#f8f9fa] border border-slate-200 p-3 rounded-xl hover:bg-[#fee2e2] hover:border-[#fecaca] hover:text-[#ef4444] hover:shadow-md text-slate-600 transition-all duration-300 group">
-                <span className="material-symbols-outlined text-[24px] group-hover:scale-110 group-hover:-translate-y-1 transition-transform">event_busy</span>
-                <span className="text-xs font-bold text-center">Mark Expired</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* 8. INVENTORY REPORT TABLE */}

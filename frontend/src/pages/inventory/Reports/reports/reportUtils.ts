@@ -3,7 +3,7 @@ import brandLogo from '../../assets/logo.png';
 export type ViewState = 'overview' | 'sales' | 'inventory' | 'supplier' | 'activity' | 'purchase' | 'alert';
 
 export const downloadReport = (
-  reportName: string, 
+  reportName: string,
   format: 'pdf' | 'excel' | 'csv' = 'csv',
   reportData?: { headers: string[], rows: (string | number)[][] }
 ) => {
@@ -19,7 +19,7 @@ export const downloadReport = (
   if (format === 'pdf') {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-    
+
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -116,7 +116,7 @@ export const downloadReport = (
     ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
   ].join('\n');
   let content = csvContent;
-  
+
   let filename = `${reportName.replace(/\s+/g, '_').toLowerCase()}_${new Date().getTime()}.csv`;
   let type = 'text/csv;charset=utf-8;';
 

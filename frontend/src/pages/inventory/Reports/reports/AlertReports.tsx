@@ -211,63 +211,6 @@ export default function AlertReports({ onViewChange }: { onViewChange: (view: Vi
         )}
       </div>
 
-      {/* Priority Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* Low Stock Priority */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-5">
-            <span className="material-symbols-outlined text-amber-500">warning</span> Low Stock Action Items
-          </h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50/50 hover:bg-slate-50 transition-colors cursor-pointer">
-              <div>
-                <p className="font-bold text-sm text-slate-800">Organic Avocados</p>
-                <p className="text-xs text-slate-500 mt-0.5">3 units left. Min 50.</p>
-              </div>
-              <button className="px-3 py-1 bg-[#0b8252] text-white text-xs font-bold rounded hover:bg-[#096b43] transition-all">Restock</button>
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50/50 hover:bg-slate-50 transition-colors cursor-pointer">
-              <div>
-                <p className="font-bold text-sm text-slate-800">Whole Wheat Bread</p>
-                <p className="text-xs text-slate-500 mt-0.5">5 units left. Min 10.</p>
-              </div>
-              <button className="px-3 py-1 bg-[#0b8252] text-white text-xs font-bold rounded hover:bg-[#096b43] transition-all">Restock</button>
-            </div>
-          </div>
-        </div>
-
-        {/* Expiry Priority */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-5">
-            <span className="material-symbols-outlined text-red-500">event_busy</span> Expiry Action Items
-          </h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50/50 hover:bg-slate-50 transition-colors cursor-pointer">
-              <div>
-                <p className="font-bold text-sm text-slate-800">Fresh Strawberries</p>
-                <p className="text-xs text-slate-500 mt-0.5">12 boxes expired today</p>
-              </div>
-              <button className="px-3 py-1 bg-red-500 text-white text-xs font-bold rounded hover:bg-red-600 transition-all">Dispose</button>
-            </div>
-          </div>
-        </div>
-
-        {/* Resolution Guide */}
-        <div className="bg-slate-800 rounded-xl shadow-lg p-6 text-white flex flex-col justify-between">
-          <div>
-            <div className="w-8 h-8 rounded bg-white/10 flex items-center justify-center mb-4 text-[#10b981]">
-              <span className="material-symbols-outlined text-[20px]">psychology</span>
-            </div>
-            <h3 className="font-bold text-lg mb-2">Resolution Guide</h3>
-            <p className="text-xs text-slate-300 leading-relaxed mb-6">
-              Critical issues should be resolved within 4 hours. Low stock reorders are processed daily at 09:00 AM.
-            </p>
-          </div>
-          <button className="w-full py-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-bold text-white transition-all">View SLA Policies</button>
-        </div>
-
-      </div>
     </div>
   );
 }

@@ -41,7 +41,7 @@ export default function ReportsOverview({ onViewChange }: { onViewChange: (view:
                   <p className="text-xs text-slate-500">Configure parameters for instant operational printouts</p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => setShowModal(false)}
                 className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
               >
@@ -53,9 +53,9 @@ export default function ReportsOverview({ onViewChange }: { onViewChange: (view:
               {/* Report Title */}
               <div>
                 <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Report Name</label>
-                <input 
-                  type="text" 
-                  value={reportTitle} 
+                <input
+                  type="text"
+                  value={reportTitle}
                   onChange={(e) => setReportTitle(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#0b8252] focus:border-[#0b8252] text-sm text-slate-800"
                   placeholder="e.g. Monthly Produce Wastage Summary"
@@ -66,7 +66,7 @@ export default function ReportsOverview({ onViewChange }: { onViewChange: (view:
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Report Stream</label>
-                  <select 
+                  <select
                     value={reportCategory}
                     onChange={(e) => setReportCategory(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0b8252]"
@@ -80,7 +80,7 @@ export default function ReportsOverview({ onViewChange }: { onViewChange: (view:
 
                 <div>
                   <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Department</label>
-                  <select 
+                  <select
                     value={reportDepartment}
                     onChange={(e) => setReportDepartment(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#0b8252]"
@@ -99,37 +99,37 @@ export default function ReportsOverview({ onViewChange }: { onViewChange: (view:
                 <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Operational Metrics</label>
                 <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
                   <label className="flex items-center gap-2.5 text-xs text-slate-700 font-medium cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      checked={metrics.revenue} 
-                      onChange={(e) => setMetrics({...metrics, revenue: e.target.checked})}
+                    <input
+                      type="checkbox"
+                      checked={metrics.revenue}
+                      onChange={(e) => setMetrics({ ...metrics, revenue: e.target.checked })}
                       className="rounded text-[#0b8252] focus:ring-[#0b8252] w-4 h-4"
                     />
                     Revenue Totals
                   </label>
                   <label className="flex items-center gap-2.5 text-xs text-slate-700 font-medium cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      checked={metrics.margins} 
-                      onChange={(e) => setMetrics({...metrics, margins: e.target.checked})}
+                    <input
+                      type="checkbox"
+                      checked={metrics.margins}
+                      onChange={(e) => setMetrics({ ...metrics, margins: e.target.checked })}
                       className="rounded text-[#0b8252] focus:ring-[#0b8252] w-4 h-4"
                     />
                     Financial Margins
                   </label>
                   <label className="flex items-center gap-2.5 text-xs text-slate-700 font-medium cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      checked={metrics.shrinkage} 
-                      onChange={(e) => setMetrics({...metrics, shrinkage: e.target.checked})}
+                    <input
+                      type="checkbox"
+                      checked={metrics.shrinkage}
+                      onChange={(e) => setMetrics({ ...metrics, shrinkage: e.target.checked })}
                       className="rounded text-[#0b8252] focus:ring-[#0b8252] w-4 h-4"
                     />
                     Shrinkage Audit
                   </label>
                   <label className="flex items-center gap-2.5 text-xs text-slate-700 font-medium cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      checked={metrics.turnover} 
-                      onChange={(e) => setMetrics({...metrics, turnover: e.target.checked})}
+                    <input
+                      type="checkbox"
+                      checked={metrics.turnover}
+                      onChange={(e) => setMetrics({ ...metrics, turnover: e.target.checked })}
                       className="rounded text-[#0b8252] focus:ring-[#0b8252] w-4 h-4"
                     />
                     Stock Turnover
@@ -144,8 +144,8 @@ export default function ReportsOverview({ onViewChange }: { onViewChange: (view:
                   {(['pdf', 'excel', 'csv'] as const).map((format) => (
                     <label key={format} className="flex-1 flex items-center justify-between p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 hover:border-slate-300 transition-all select-none">
                       <span className="text-xs font-bold uppercase text-slate-600">{format}</span>
-                      <input 
-                        type="radio" 
+                      <input
+                        type="radio"
                         name="exportFormat"
                         checked={reportFormat === format}
                         onChange={() => setReportFormat(format)}
@@ -158,13 +158,13 @@ export default function ReportsOverview({ onViewChange }: { onViewChange: (view:
             </div>
 
             <div className="p-6 bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3">
-              <button 
+              <button
                 onClick={() => setShowModal(false)}
                 className="px-5 py-2.5 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-500 hover:bg-slate-100 transition-colors"
               >
                 Cancel
               </button>
-              <button 
+              <button
                 onClick={handleGenerate}
                 className="px-5 py-2.5 rounded-lg bg-[#0b8252] hover:bg-[#096b43] text-xs font-bold text-white shadow-md transition-all flex items-center gap-1.5"
               >
@@ -184,7 +184,7 @@ export default function ReportsOverview({ onViewChange }: { onViewChange: (view:
             <p className="text-slate-500 text-sm mt-0.5">Detailed insights into Chamson Multi Shop's daily operations and performance.</p>
           </div>
         </div>
-        <button 
+        <button
           onClick={() => setShowModal(true)}
           className="flex items-center gap-2 bg-[#0b8252] text-white px-5 py-2.5 rounded-lg font-bold text-sm shadow-sm hover:bg-[#096b43] transition-colors shrink-0 self-start sm:self-auto"
         >

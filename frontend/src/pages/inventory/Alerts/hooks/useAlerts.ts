@@ -64,15 +64,27 @@ export const useAlerts = () => {
       inventoryOperationsService.getSalesVelocity(30),
     ]);
 
-    // Read the global reorder % from settings
+    // Read all settings from localStorage (stock rules + alert toggles)
     let reorderPercent = 25;
     let minStockPercent = 10;
+    let maxStockPercent = 100;
+    let enableLowStockAlerts = true;
+    let enableOutOfStockAlerts = true;
+    let enableExpiryAlerts = true;
+    let enableDeadStockAlerts = false;
+    let enableOverstockAlerts = true;
     try {
       const configStr = localStorage.getItem('stocksense_settings_config');
       if (configStr) {
         const config = JSON.parse(configStr);
         if (config.defaultReorderLevel) reorderPercent = parseInt(config.defaultReorderLevel, 10) || 25;
         if (config.minimumStockThreshold) minStockPercent = parseInt(config.minimumStockThreshold, 10) || 10;
+        if (config.maximumStockLimit) maxStockPercent = parseInt(config.maximumStockLimit, 10) || 100;
+        if (typeof config.enableLowStockAlerts === 'boolean') enableLowStockAlerts = config.enableLowStockAlerts;
+        if (typeof config.enableOutOfStockAlerts === 'boolean') enableOutOfStockAlerts = config.enableOutOfStockAlerts;
+        if (typeof config.enableExpiryAlerts === 'boolean') enableExpiryAlerts = config.enableExpiryAlerts;
+        if (typeof config.enableDeadStockAlerts === 'boolean') enableDeadStockAlerts = config.enableDeadStockAlerts;
+        if (typeof config.enableOverstockAlerts === 'boolean') enableOverstockAlerts = config.enableOverstockAlerts;
       }
     } catch { }
 
@@ -82,10 +94,35 @@ export const useAlerts = () => {
       const capacity = p.targetCapacity || 100;
       const reorderLimit = Math.round((reorderPercent / 100) * capacity);
       const criticalLimit = Math.round((minStockPercent / 100) * capacity);
+      const overstockLimit = Math.round((maxStockPercent / 100) * capacity);
       const stockPct = Math.round((p.stock / capacity) * 100);
 
+      // ── Overstock (above maximum stock limit %) ────────────────────────────
+      if (enableOverstockAlerts && p.stock > overstockLimit && p.status === 'Active') {
+        dynamicAlerts.push({
+          id: `dyn_over_${p.sku}`,
+          category: 'Overstock',
+          severity: 'Warning',
+          issueType: 'Overstock',
+          currentStock: p.stock,
+          stockPercentage: stockPct,
+          suggestedAction: 'Promote / Discount',
+          icon: 'trending_down',
+          iconBg: 'bg-blue-50',
+          iconColor: 'text-blue-400',
+          accentColor: 'bg-blue-600',
+          title: `${p.name} — Overstock Alert`,
+          description: `Stock is at ${p.stock} units (${stockPct}% of ${capacity} unit capacity), exceeding the ${maxStockPercent}% ceiling of ${overstockLimit} units. Excess stock ties up capital and risks warehouse overflow. Consider a bundle offer, markdown, or coordinating a supplier return.`,
+          time: 'Real-time alert',
+          read: false, dismissed: false,
+          primaryAction: 'Create Promotion',
+          secondaryAction: 'Dismiss Alert',
+          primaryBtnClass: 'bg-blue-600 hover:bg-blue-700',
+        });
+      }
+
       // ── Out of Stock ────────────────────────────────────────────────────────
-      if (p.stock === 0) {
+      if (enableOutOfStockAlerts && p.stock === 0) {
         dynamicAlerts.push({
           id: `dyn_out_${p.sku}`,
           category: 'Out of Stock',
@@ -108,7 +145,7 @@ export const useAlerts = () => {
         });
       }
       // ── Critical Low Stock (below minimum threshold %) ─────────────────────
-      else if (p.stock > 0 && p.stock <= criticalLimit) {
+      else if (enableLowStockAlerts && p.stock > 0 && p.stock <= criticalLimit) {
         dynamicAlerts.push({
           id: `dyn_critical_${p.sku}`,
           category: 'Low Stock',
@@ -131,7 +168,7 @@ export const useAlerts = () => {
         });
       }
       // ── Low Stock (below reorder threshold %) ──────────────────────────────
-      else if (p.stock > 0 && p.stock <= reorderLimit) {
+      else if (enableLowStockAlerts && p.stock > 0 && p.stock <= reorderLimit) {
         dynamicAlerts.push({
           id: `dyn_low_${p.sku}`,
           category: 'Low Stock',
@@ -156,7 +193,7 @@ export const useAlerts = () => {
 
       // ── Dead Stock & Slow Moving (Ledger-based velocity analysis) ─────────
       const vel = velocity[p.sku];
-      if (vel && p.stock > 0 && p.status === 'Active') {
+      if (enableDeadStockAlerts && vel && p.stock > 0 && p.status === 'Active') {
         if (vel.velocityLabel === 'Never Sold') {
           dynamicAlerts.push({
             id: `dyn_dead_${p.sku}`,
@@ -227,7 +264,7 @@ export const useAlerts = () => {
       }
 
       // ── Expiry Alerts (from real expiryDate data) ──────────────────────────
-      if (p.expiryDate) {
+      if (enableExpiryAlerts && p.expiryDate) {
         const days = getDaysUntilExpiry(p.expiryDate);
         if (days <= 90) { // Alert if expiring within 90 days
           const isExpired = days < 0;
@@ -269,7 +306,13 @@ export const useAlerts = () => {
       try { savedStates = JSON.parse(savedStatesStr); } catch { }
     }
 
-    const combined = [...dynamicAlerts, ...BULLETINS].map(item => {
+    // ── Filter bulletin overstock alerts based on toggle ──────────────────────
+    const filteredBulletins = BULLETINS.filter(b => {
+      if (b.category === 'Overstock') return enableOverstockAlerts;
+      return true;
+    });
+
+    const combined = [...dynamicAlerts, ...filteredBulletins].map(item => {
       const saved = savedStates[String(item.id)];
       return saved ? { ...item, read: saved.read, dismissed: saved.dismissed } : item;
     });

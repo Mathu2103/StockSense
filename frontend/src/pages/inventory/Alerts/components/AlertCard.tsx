@@ -9,6 +9,15 @@ interface AlertCardProps {
   markRead: (id: number | string) => void;
 }
 
+// Derive SKU from dynamic alert IDs like dyn_out_SKU-001 or dyn_exp_SKU-001
+const extractSku = (id: string | number): string | null => {
+  if (typeof id !== 'string') return null;
+  const parts = id.split('_');
+  // dynamic IDs: dyn_TYPE_SKU  → last segment is the SKU
+  if (id.startsWith('dyn_') && parts.length >= 3) return parts.slice(2).join('_');
+  return null;
+};
+
 const getSeverityBadgeClass = (severity: AlertSeverity) => {
   if (severity === 'Critical') return 'bg-red-100 text-red-700 border border-red-200';
   if (severity === 'Warning') return 'bg-amber-100 text-amber-700 border border-amber-200';
@@ -45,6 +54,18 @@ const getExpiryBadge = (days: number | undefined) => {
 export default function AlertCard({ alert, handlePrimary, dismiss, markRead }: AlertCardProps) {
   const expiryBadge = getExpiryBadge(alert.daysUntilExpiry);
   const stockPct = alert.stockPercentage ?? null;
+  const sku = extractSku(alert.id);
+
+  // Decide where "View" button links based on alert category
+  const viewLink = alert.category === 'Overstock' || alert.primaryAction === 'View Procurement'
+    ? '/procurement'
+    : sku
+      ? `/manage-products?tab=products&sku=${sku}`
+      : '/manage-products?tab=products';
+
+  const viewLabel = alert.category === 'Overstock' || alert.primaryAction === 'View Procurement'
+    ? 'View Procurement'
+    : 'View Product';
 
   return (
     <div
@@ -126,10 +147,10 @@ export default function AlertCard({ alert, handlePrimary, dismiss, markRead }: A
             {alert.primaryAction}
           </button>
           <Link
-            to="/manage-products?tab=products"
+            to={viewLink}
             className="w-full flex items-center justify-center px-3 py-2 rounded-lg text-xs font-bold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"
           >
-            View Product
+            {viewLabel}
           </Link>
           <div className="grid grid-cols-2 gap-2">
             <button

@@ -179,166 +179,53 @@ export default function PurchaseReports({ onViewChange }: { onViewChange: (view:
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* Left Area: Table & Charts */}
-        <div className="lg:col-span-2 space-y-6">
-
-          {/* Main Table */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[800px]">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/50">
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Ref #</th>
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Supplier</th>
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Product</th>
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Qty</th>
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Unit Price</th>
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Total</th>
-                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-sm">
-                  {filteredPurchases.map((item, i) => (
-                    <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="p-4 font-bold text-[#0b8252]">{item.ref}</td>
-                      <td className="p-4 text-slate-600 text-xs w-20">{item.date.replace(" ", "\n")}</td>
-                      <td className="p-4 text-slate-700 font-medium">{item.sup}</td>
-                      <td className="p-4 text-slate-800">{item.prod}</td>
-                      <td className="p-4 text-slate-600 text-xs w-16">{item.qty.replace(" ", "\n")}</td>
-                      <td className="p-4 text-slate-600">{item.price}</td>
-                      <td className="p-4 font-bold text-slate-800">{item.total}</td>
-                      <td className="p-4 text-center">
-                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-wider ${item.sClass}`}>{item.status}</span>
-                      </td>
-                    </tr>
-                  ))}
-                  {filteredPurchases.length === 0 && (
-                    <tr>
-                      <td colSpan={8} className="p-8 text-center text-slate-500">No records match your filters.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex justify-between items-center text-sm text-slate-500">
-              <p>Showing <strong>{filteredPurchases.length > 0 ? 1 : 0} - {filteredPurchases.length}</strong> of <strong>{filteredPurchases.length}</strong> results</p>
-              <div className="flex gap-1">
-                <button className="w-8 h-8 flex items-center justify-center rounded border border-slate-200 hover:bg-slate-50"><span className="material-symbols-outlined text-[18px]">chevron_left</span></button>
-                <button className="w-8 h-8 flex items-center justify-center rounded bg-[#0b8252] text-white font-bold">1</button>
-                <button className="w-8 h-8 flex items-center justify-center rounded border border-slate-200 hover:bg-slate-50"><span className="material-symbols-outlined text-[18px]">chevron_right</span></button>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom Charts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-            {/* Monthly Spend Analysis */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col h-[280px]">
-              <h3 className="font-bold text-slate-800 mb-6">Spend Analysis</h3>
-              <div className="flex-1 flex items-end justify-between px-2 gap-4">
-                {[
-                  { h: 30, l: "Jun", a: false },
-                  { h: 45, l: "Jul", a: false },
-                  { h: 35, l: "Aug", a: false },
-                  { h: 65, l: "Sep", a: false },
-                  { h: 90, l: "Oct", a: true },
-                ].map((bar, i) => (
-                  <div key={i} className="flex flex-col items-center gap-3 w-full h-full justify-end">
-                    <div className={`w-full max-w-[40px] rounded-t transition-all ${bar.a ? 'bg-[#0b8252]' : 'bg-[#eef8f2]'} ${period === 'Month' && bar.l === 'Oct' ? 'h-full' : ''}`} style={{ height: `${bar.h}%` }}></div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">{bar.l}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Supplier Reliability */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col h-[280px]">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="font-bold text-slate-800">Supplier Reliability</h3>
-                <span className="material-symbols-outlined text-[#0b8252]">verified</span>
-              </div>
-
-              <div className="space-y-5 flex-1">
-                {[
-                  { n: "Green Harvest Co.", p: 98, c: "bg-[#0b8252]" },
-                  { n: "Fresh Dairy Inc.", p: 92, c: "bg-[#0b8252]" },
-                  { n: "Global Grains Ltd.", p: 85, c: "bg-[#d97706]" },
-                ].map((s, i) => (
-                  <div key={i}>
-                    <div className="flex justify-between text-xs font-bold mb-1.5">
-                      <span className="text-slate-700">{s.n}</span>
-                      <span className="text-slate-800">{s.p}%</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                      <div className={`h-full ${s.c} rounded-full`} style={{ width: `${s.p}%` }}></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <p className="text-[10px] text-slate-400 italic mt-4">Efficiency based on delivery timeliness and order accuracy.</p>
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* Right Area: Log & Contact */}
-        <div className="space-y-6">
-
-          {/* History Log */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-            <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-6">
-              <span className="material-symbols-outlined text-slate-400 text-[20px]">history</span> History Log
-            </h3>
-
-            <div className="space-y-6 relative before:absolute before:inset-0 before:ml-2.5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-slate-100 mb-6">
-              {[
-                { i: "check_circle", c: "text-[#10b981] bg-white", title: "PR-00881 Marked as Received", sub: "By Alex Rivera", time: "10 mins ago" },
-                { i: "add_circle", c: "text-[#0b8252] bg-white", title: "New Record Created: PR-00885", sub: "Beverage Prox Order", time: "1 hour ago" },
-                { i: "edit", c: "text-[#d97706] bg-white", title: "PR-00883 Updated to Partial", sub: "Shortage noted in whole wheat bread", time: "2 hours ago" },
-                { i: "download", c: "text-slate-400 bg-white", title: "Report Exported", sub: "Monthly Purchase Summary (PDF)", time: "Yesterday" },
-              ].map((log, i) => (
-                <div key={i} className="relative flex items-start gap-4">
-                  <div className={`absolute left-0 w-5 h-5 flex items-center justify-center rounded-full z-10 bg-white`}>
-                    <span className={`material-symbols-outlined text-[20px] ${log.c}`}>{log.i}</span>
-                  </div>
-                  <div className="ml-8 pt-0.5">
-                    <p className="font-bold text-sm text-slate-800 leading-tight">{log.title}</p>
-                    <p className="text-xs text-slate-500 mt-1">{log.sub}</p>
-                    <p className="text-[10px] font-bold text-slate-400 mt-1">{log.time}</p>
-                  </div>
-                </div>
+      {/* Main Table */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[800px]">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50/50">
+                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Ref #</th>
+                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date</th>
+                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Supplier</th>
+                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Product</th>
+                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Qty</th>
+                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Unit Price</th>
+                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Total</th>
+                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-sm">
+              {filteredPurchases.map((item, i) => (
+                <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="p-4 font-bold text-[#0b8252]">{item.ref}</td>
+                  <td className="p-4 text-slate-600 text-xs w-20">{item.date.replace(" ", "\n")}</td>
+                  <td className="p-4 text-slate-700 font-medium">{item.sup}</td>
+                  <td className="p-4 text-slate-800">{item.prod}</td>
+                  <td className="p-4 text-slate-600 text-xs w-16">{item.qty.replace(" ", "\n")}</td>
+                  <td className="p-4 text-slate-600">{item.price}</td>
+                  <td className="p-4 font-bold text-slate-800">{item.total}</td>
+                  <td className="p-4 text-center">
+                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-wider ${item.sClass}`}>{item.status}</span>
+                  </td>
+                </tr>
               ))}
-            </div>
-
-            <button className="w-full text-center text-sm font-bold text-slate-600 border border-slate-200 py-2 rounded-lg hover:bg-slate-50 transition-colors">
-              View All Activity
-            </button>
-          </div>
-
-          {/* Contact Box */}
-          <div className="bg-[#0b8252] rounded-xl shadow-md p-6 text-white relative overflow-hidden">
-            <div className="relative z-10">
-              <p className="text-[10px] font-bold text-[#eef8f2] uppercase tracking-wider mb-2">SUPPLIERS</p>
-              <h3 className="text-xl font-bold mb-4 leading-tight">Need to Contact a Supplier?</h3>
-              <p className="text-xs text-[#dcfce7] mb-6 leading-relaxed">
-                Access the full directory of verified partners and logistics providers.
-              </p>
-              <button className="bg-white text-[#0b8252] font-bold text-sm px-6 py-2.5 rounded-lg shadow-sm hover:bg-[#f8f9fa] transition-colors">
-                Open Directory
-              </button>
-            </div>
-            <span className="material-symbols-outlined absolute -bottom-4 -right-4 text-[120px] text-white opacity-10 pointer-events-none">
-              contact_phone
-            </span>
-          </div>
-
+              {filteredPurchases.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center text-slate-500">No records match your filters.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-
+        <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex justify-between items-center text-sm text-slate-500">
+          <p>Showing <strong>{filteredPurchases.length > 0 ? 1 : 0} - {filteredPurchases.length}</strong> of <strong>{filteredPurchases.length}</strong> results</p>
+          <div className="flex gap-1">
+            <button className="w-8 h-8 flex items-center justify-center rounded border border-slate-200 hover:bg-slate-50"><span className="material-symbols-outlined text-[18px]">chevron_left</span></button>
+            <button className="w-8 h-8 flex items-center justify-center rounded bg-[#0b8252] text-white font-bold">1</button>
+            <button className="w-8 h-8 flex items-center justify-center rounded border border-slate-200 hover:bg-slate-50"><span className="material-symbols-outlined text-[18px]">chevron_right</span></button>
+          </div>
+        </div>
       </div>
 
     </div>
