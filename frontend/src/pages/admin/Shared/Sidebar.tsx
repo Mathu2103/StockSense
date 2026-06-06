@@ -8,12 +8,6 @@ export default function Sidebar() {
 
   // Active state utility
   const isLinkActive = (path: string) => {
-    if (path === '/procurement') {
-      return currentPath === '/procurement' || currentPath === '/suppliers' || currentPath === '/purchase-records';
-    }
-    if (path === '/manage-products') {
-      return currentPath === '/manage-products' || currentPath === '/categories';
-    }
     if (path.includes('?tab=')) {
       const [basePath, searchStr] = path.split('?');
       return currentPath === basePath && location.search.includes(searchStr);
@@ -22,14 +16,8 @@ export default function Sidebar() {
   };
 
   const navLinks = [
-    { name: 'Dashboard', path: '/inventory', icon: 'grid_view' },
-    { name: 'Inventory Analytics', path: '/inventory-analytics', icon: 'trending_up' },
-    { name: 'Product Catalog', path: '/manage-products', icon: 'inventory_2' },
-    { name: 'Procurement Management', path: '/procurement', icon: 'local_shipping' },
-    { name: 'Stock Operations', path: '/inventory-operations', icon: 'sync_alt' },
-    { name: 'Alerts', path: '/alerts', icon: 'notifications' },
-    { name: 'Reports', path: '/reports', icon: 'bar_chart' },
-    { name: 'Settings', path: '/settings', icon: 'settings' },
+    { name: 'Dashboard', path: '/admin', icon: 'dashboard' },
+    { name: 'Settings', path: '/admin/settings', icon: 'settings' },
   ];
 
 
