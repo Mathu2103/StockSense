@@ -10,6 +10,8 @@ export interface AuthUser {
   name: string
   email: string
   role: 'ADMIN' | 'CASHIER' | 'INVENTORY_MANAGER'
+  isActive?: boolean
+  createdAt?: string
 }
 
 export interface LoginResponse {
@@ -37,4 +39,20 @@ export const authService = {
     const response = await api.get<{ success: boolean; data: AuthUser }>('/auth/me')
     return response.data.data
   },
+
+  async listUsers(): Promise<AuthUser[]> {
+    const response = await api.get<{ success: boolean; data: AuthUser[] }>('/auth/users')
+    return response.data.data
+  },
+
+  async createUser(userData: any): Promise<AuthUser> {
+    const response = await api.post<{ success: boolean; data: AuthUser }>('/auth/users', userData)
+    return response.data.data
+  },
+
+  async toggleUserStatus(id: string): Promise<AuthUser> {
+    const response = await api.patch<{ success: boolean; data: AuthUser }>(`/auth/users/${id}/toggle`)
+    return response.data.data
+  }
 }
+
