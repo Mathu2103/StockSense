@@ -17,6 +17,7 @@ export default function Sidebar() {
 
   const navLinks = [
     { name: 'Dashboard', path: '/admin', icon: 'dashboard' },
+    { name: 'Reports', path: '/admin/reports', icon: 'analytics' },
     { name: 'Settings', path: '/admin/settings', icon: 'settings' },
   ];
 
