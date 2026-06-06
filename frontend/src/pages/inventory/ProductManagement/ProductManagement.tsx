@@ -590,6 +590,13 @@ export default function ProductManagement() {
                   <span className="material-symbols-outlined text-sm">download</span>
                   Export Catalog
                 </button>
+                <button
+                  onClick={() => handleTabChange('new-product')}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-[#0b8252] text-white rounded-lg text-xs font-bold hover:bg-[#096b43] transition-colors shadow-sm"
+                >
+                  <span className="material-symbols-outlined text-sm">add</span>
+                  {editingProduct ? 'Edit Product' : 'Add New Product'}
+                </button>
               </div>
             </div>
 
@@ -620,22 +627,6 @@ export default function ProductManagement() {
                       }`}
                   >
                     Brands
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/procurement?tab=suppliers')}
-                    className="px-4 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface transition-all whitespace-nowrap flex items-center gap-1 hover:bg-slate-50"
-                  >
-                    <span className="material-symbols-outlined text-[15px] text-outline">open_in_new</span>
-                    Suppliers Directory
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleTabChange('new-product')}
-                    className={`px-4 py-1.5 rounded-md transition-all whitespace-nowrap ${activeTab === 'new-product' ? 'bg-white text-primary shadow-sm font-black' : 'text-on-surface-variant hover:text-on-surface'
-                      }`}
-                  >
-                    {editingProduct ? 'Edit Product' : 'Add New Product'}
                   </button>
                 </div>
               </div>

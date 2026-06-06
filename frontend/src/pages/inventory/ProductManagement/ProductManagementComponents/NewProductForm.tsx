@@ -1002,49 +1002,6 @@ export default function NewProductForm({
             </div>
           </div>
 
-          <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm space-y-4">
-            <h3 className="text-sm font-bold text-on-surface flex items-center gap-1.5 border-b border-slate-100 pb-2">
-              <span className="material-symbols-outlined text-primary text-[20px]">analytics</span>
-              Future Analytics Fields
-            </h3>
-            <div className="space-y-3">
-              <label className="flex items-center gap-2 text-xs font-bold cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={fastMoving}
-                  onChange={(e) => setFastMoving(e.target.checked)}
-                />
-                Fast Moving Product
-              </label>
-
-              <div>
-                <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">Low Stock Alert Threshold</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={lowStockAlertThreshold}
-                  onChange={(e) => setLowStockAlertThreshold(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                  className="w-full px-4 py-2.5 bg-background border border-outline-variant rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-
-              <div className="relative">
-                <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">Demand Forecast Tag</label>
-                <select
-                  value={demandForecastTag}
-                  onChange={(e) => setDemandForecastTag(e.target.value)}
-                  className="w-full appearance-none pl-4 pr-10 py-2.5 bg-background border border-outline-variant rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary"
-                >
-                  {FORECAST_TAG_OPTIONS.map((tag) => (
-                    <option key={tag} value={tag}>
-                      {tag}
-                    </option>
-                  ))}
-                </select>
-                <span className="material-symbols-outlined absolute right-3 top-[34px] text-outline-variant text-[20px] pointer-events-none">expand_more</span>
-              </div>
-            </div>
-          </div>
 
           <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm space-y-2">
             <h4 className="text-[10px] font-bold text-outline uppercase tracking-wider">Live Summary</h4>
