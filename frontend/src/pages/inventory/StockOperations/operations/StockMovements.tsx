@@ -174,200 +174,24 @@ export default function StockMovements() {
         </div>
       </div>
 
-      {/* FILTER & REGISTRY GRID */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-4">
-        {/* Advanced Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 border-b border-slate-100 pb-4">
-          {/* Search SKU/Product */}
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Search product</label>
-            <div className="relative">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by SKU, product..."
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0b8252]"
-              />
-              <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-[16px]">search</span>
-            </div>
-          </div>
-
-          {/* Movement Type Filter */}
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Movement Type</label>
-            <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0b8252]"
-            >
-              <option value="All">All Types</option>
-              <option value="GRN">Goods Received (GRN)</option>
-              <option value="Sale">Stock Out (Sales)</option>
-              <option value="Adjustment">Manual Adjustments</option>
-              <option value="Expiry Removal">Expiry Removal</option>
-              <option value="Supplier Return">Supplier Returns</option>
-            </select>
-          </div>
-
-          {/* Time Filter Dropdown */}
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Time Frame</label>
-            <select
-              value={timeFilter}
-              onChange={(e) => setTimeFilter(e.target.value as any)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0b8252]"
-            >
-              <option value="all">Complete Archive</option>
-              <option value="today">Today Only</option>
-              <option value="week">Past 7 Days</option>
-              <option value="month">Past 30 Days</option>
-              <option value="custom">Custom Date Range</option>
-            </select>
-          </div>
-
-          {/* Custom Date Ranges */}
-          {timeFilter === 'custom' && (
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">Start Date</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs font-bold"
-                />
-              </div>
-              <div className="flex-1">
-                <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">End Date</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs font-bold"
-                />
-              </div>
-            </div>
-          )}
+      {/* LEDGER MOVED NOTICE */}
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-10 flex flex-col items-center justify-center text-center gap-4">
+        <div className="w-16 h-16 rounded-full bg-[#0b8252]/10 flex items-center justify-center">
+          <span className="material-symbols-outlined text-[32px] text-[#0b8252]">analytics</span>
         </div>
-
-        {/* HIGH-DENSITY AUDIT LEDGER TABLE */}
-        <div className="overflow-x-auto rounded-xl border border-slate-100 max-h-[500px]">
-          <table className="w-full text-left text-xs border-collapse relative">
-            <thead>
-              <tr className="bg-slate-50 text-slate-500 font-black uppercase text-[10px] border-b border-slate-200 sticky top-0 z-10 bg-opacity-95 backdrop-blur-sm">
-                <th className="px-4 py-3">Timestamp</th>
-                <th className="px-4 py-3">Product Profile</th>
-                <th className="px-4 py-3">SKU ID</th>
-                <th className="px-4 py-3 text-center">Movement Type</th>
-                <th className="px-4 py-3 text-center">Qty Delta</th>
-                <th className="px-4 py-3 text-center">Stock Transitions</th>
-                <th className="px-4 py-3">Description Reason</th>
-                <th className="px-4 py-3">Authorized By</th>
-                <th className="px-4 py-3 text-center">Audit Check</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {filteredLedger.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-slate-400 font-bold">
-                    No transactions reported in the selected frame.
-                  </td>
-                </tr>
-              ) : (
-                filteredLedger.map((entry) => {
-                  const isFast = intelligenceBadges.fastMovingSkus.has(entry.sku);
-                  const isDead = intelligenceBadges.deadStockSkus.has(entry.sku);
-                  
-                  return (
-                    <tr
-                      key={entry.id}
-                      onClick={() => setSelectedEntry(entry)}
-                      className="hover:bg-slate-50 cursor-pointer select-none transition-colors"
-                    >
-                      {/* Timestamp */}
-                      <td className="px-4 py-3 text-slate-500 font-mono font-bold">
-                        {new Date(entry.timestamp).toLocaleString(undefined, {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </td>
-
-                      {/* Product Name profile */}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-black text-slate-800 text-xs">{entry.productName}</span>
-                          {isFast && (
-                            <span
-                              title="Fast Moving High-Velocity SKU"
-                              className="text-amber-500 font-bold flex items-center bg-amber-50 rounded px-1 text-[9px] border border-amber-100 shrink-0"
-                            >
-                              <span className="material-symbols-outlined text-[12px] mr-0.5">local_fire_department</span>
-                              Fast
-                            </span>
-                          )}
-                          {isDead && (
-                            <span
-                              title="Zero transaction SKU (Needs Restructure)"
-                              className="text-slate-500 font-bold bg-slate-100 rounded px-1 text-[9px] border border-slate-200 shrink-0"
-                            >
-                              Idle Stock
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* SKU */}
-                      <td className="px-4 py-3 font-mono text-slate-600 font-bold">{entry.sku}</td>
-
-                      {/* Movement Type */}
-                      <td className="px-4 py-3 text-center">
-                        <span className={`inline-block px-2.5 py-0.5 font-extrabold text-[10px] rounded-full border ${
-                          entry.movementType === 'GRN'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                            : entry.movementType === 'Sale'
-                            ? 'bg-blue-50 text-blue-700 border-blue-100'
-                            : 'bg-amber-50 text-amber-700 border-amber-100'
-                        }`}>
-                          {entry.movementType}
-                        </span>
-                      </td>
-
-                      {/* Delta change */}
-                      <td className={`px-4 py-3 text-center font-black ${entry.quantityChange > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {entry.quantityChange > 0 ? `+${entry.quantityChange}` : entry.quantityChange}
-                      </td>
-
-                      {/* Before / After transitions */}
-                      <td className="px-4 py-3 text-center text-slate-500 font-mono font-bold">
-                        {entry.beforeStock} <span className="text-slate-300 mx-1">→</span> <span className="text-slate-800 font-black">{entry.afterStock}</span>
-                      </td>
-
-                      {/* Description Reason */}
-                      <td className="px-4 py-3 text-slate-500 font-medium truncate max-w-xs">{entry.reason}</td>
-
-                      {/* Operator user */}
-                      <td className="px-4 py-3 text-slate-700 font-bold">{entry.user}</td>
-
-                      {/* Status */}
-                      <td className="px-4 py-3 text-center">
-                        {entry.status === 'Success' ? (
-                          <span className="material-symbols-outlined text-emerald-500 text-[18px]">check_circle</span>
-                        ) : entry.status === 'Warning' ? (
-                          <span className="material-symbols-outlined text-amber-500 text-[18px]">warning</span>
-                        ) : (
-                          <span className="material-symbols-outlined text-rose-500 text-[18px]">cancel</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+        <div>
+          <h3 className="text-base font-black text-slate-800 mb-1">Unified Ledger Moved to Activity Reports</h3>
+          <p className="text-sm text-slate-500 max-w-sm">
+            The full stock movement audit table has been moved to <strong>Reports → Activity Reports</strong> for a consolidated view alongside export and analytics capabilities.
+          </p>
         </div>
+        <a
+          href="/reports?tab=activity"
+          className="flex items-center gap-2 px-5 py-2.5 bg-[#0b8252] text-white text-xs font-bold rounded-xl hover:bg-[#096b43] transition-colors shadow-sm"
+        >
+          <span className="material-symbols-outlined text-[18px]">open_in_new</span>
+          View in Activity Reports
+        </a>
       </div>
 
       {/* RIGHT-SIDE TRANSACTION AUDIT DRAWER (SLIDE-OUT) */}

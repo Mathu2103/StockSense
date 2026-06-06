@@ -1,58 +1,125 @@
-import { useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { downloadReport, ViewState } from './reportUtils';
+import { inventoryOperationsService, LedgerEntry, ProductItem } from '../../StockOperations/operations/inventoryOperationsService';
 
 export default function ActivityReports({ onViewChange }: { onViewChange: (view: ViewState) => void }) {
   const [period, setPeriod] = useState<'Today' | 'Week' | 'Month' | 'Year' | 'Custom Range'>('Today');
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
-  const [userFilter, setUserFilter] = useState('All Users');
-  const [actionFilter, setActionFilter] = useState('All Actions');
+  // Live ledger data
+  const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedType, setSelectedType] = useState('All');
+  const [timeFilter, setTimeFilter] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [selectedEntry, setSelectedEntry] = useState<LedgerEntry | null>(null);
 
-  const dataMap: Record<string, any> = {
-    Today: { logs: '1,248', waste: '42 kg', over: '15', mgrs: '8', t1: '+12.5%' },
-    Week: { logs: '8,450', waste: '310 kg', over: '95', mgrs: '12', t1: '+5.2%' },
-    Month: { logs: '35,200', waste: '1,400 kg', over: '420', mgrs: '14', t1: '-2.1%' },
-    Year: { logs: '420,000', waste: '15,000 kg', over: '4,500', mgrs: '15', t1: '+1.5%' },
-    'Custom Range': { logs: '4,000', waste: '120 kg', over: '45', mgrs: '10', t1: 'N/A' }
+  useEffect(() => {
+    const load = async () => {
+      const log = await inventoryOperationsService.getLedger();
+      setLedger(log);
+      const prods = await inventoryOperationsService.getProducts();
+      setProducts(prods);
+    };
+    load();
+  }, []);
+
+  // KPI analytics
+  const ledgerAnalytics = useMemo(() => {
+    let totalAdded = 0;
+    let totalSubtracted = 0;
+    let totalExpiryLoss = 0;
+    ledger.forEach(entry => {
+      const change = entry.quantityChange;
+      if (change > 0) totalAdded += change;
+      else totalSubtracted += Math.abs(change);
+      if (entry.movementType === 'Expiry Removal') {
+        const prod = products.find(p => p.sku === entry.sku);
+        const cost = prod ? prod.costPrice : 150;
+        totalExpiryLoss += Math.abs(change) * cost;
+      }
+    });
+    return { totalAdded, totalSubtracted, totalExpiryLoss, totalCount: ledger.length };
+  }, [ledger, products]);
+
+  // Intelligence badges
+  const intelligenceBadges = useMemo(() => {
+    const saleCounts: Record<string, number> = {};
+    const touchedSkus = new Set<string>();
+    ledger.forEach(entry => {
+      touchedSkus.add(entry.sku);
+      if (entry.movementType === 'Sale') {
+        saleCounts[entry.sku] = (saleCounts[entry.sku] || 0) + Math.abs(entry.quantityChange);
+      }
+    });
+    const fastMovingSkus = new Set<string>();
+    Object.entries(saleCounts).forEach(([sku, count]) => { if (count >= 10) fastMovingSkus.add(sku); });
+    const deadStockSkus = new Set<string>();
+    products.forEach(p => { if (!touchedSkus.has(p.sku)) deadStockSkus.add(p.sku); });
+    return { fastMovingSkus, deadStockSkus };
+  }, [ledger, products]);
+
+  // Time range checker
+  const isWithinTimeRange = (entryDateStr: string) => {
+    const entryDate = new Date(entryDateStr);
+    const now = new Date();
+    if (timeFilter === 'all') return true;
+    if (timeFilter === 'today') return entryDate.toDateString() === now.toDateString();
+    if (timeFilter === 'week') return entryDate >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    if (timeFilter === 'month') return entryDate >= new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    if (timeFilter === 'custom') {
+      if (!startDate && !endDate) return true;
+      let startMatch = true;
+      let endMatch = true;
+      if (startDate) startMatch = entryDate >= new Date(startDate);
+      if (endDate) endMatch = entryDate <= new Date(endDate + 'T23:59:59');
+      return startMatch && endMatch;
+    }
+    return true;
   };
 
-  const activeData = dataMap[period] || dataMap['Today'];
+  const filteredLedger = useMemo(() => {
+    return ledger.filter(entry => {
+      const matchesSearch = entry.productName.toLowerCase().includes(searchTerm.toLowerCase()) || entry.sku.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = selectedType === 'All' || entry.movementType === selectedType;
+      const matchesTime = isWithinTimeRange(entry.timestamp);
+      return matchesSearch && matchesType && matchesTime;
+    });
+  }, [ledger, searchTerm, selectedType, timeFilter, startDate, endDate]);
 
   const handlePeriodChange = (tab: any) => {
-    if (tab === 'Custom Range') {
-      setShowCustomModal(true);
-    } else {
-      setPeriod(tab);
-    }
+    if (tab === 'Custom Range') setShowCustomModal(true);
+    else setPeriod(tab);
   };
 
   const applyCustomRange = () => {
     setPeriod('Custom Range');
     setShowCustomModal(false);
+    setTimeFilter('custom');
+    setStartDate(dateRange.start);
+    setEndDate(dateRange.end);
   };
 
   const reportName = period === 'Custom Range' && dateRange.start && dateRange.end
     ? `Activity_Report_${dateRange.start}_to_${dateRange.end}`
     : `Activity_Report_${period}`;
 
-  const allLogs = [
-    { time: "Today, 14:24", date: "Oct 24, 2023", prod: "Organic Eggs (12pk)", sku: "SKU: EG-7721", action: "Stock Added", qty: "+120", user: "Sarah Chen", avatar: "SC", aClass: "bg-[#eef8f2] text-[#0b8252]", qClass: "text-[#10b981]" },
-    { time: "Today, 13:10", date: "Oct 24, 2023", prod: "Sparkling Water 500ml", sku: "SKU: DR-0045", action: "Waste Removed", qty: "-14", user: "Alex Rivera", avatar: "AR", aClass: "bg-[#fee2e2] text-[#ef4444]", qClass: "text-[#ef4444]" },
-    { time: "Today, 11:45", date: "Oct 24, 2023", prod: "Greek Yogurt 500g", sku: "SKU: DA-1120", action: "Manual Adjustment", qty: "+5", user: "Mike Ross", avatar: "MR", aClass: "bg-slate-100 text-slate-600", qClass: "text-slate-600" },
-    { time: "Oct 23, 17:50", date: "Oct 23, 2023", prod: "Aluminum Foil 25m", sku: "SKU: HH-4402", action: "Stock Added", qty: "+50", user: "Sarah Chen", avatar: "SC", aClass: "bg-[#eef8f2] text-[#0b8252]", qClass: "text-[#10b981]" },
-  ];
-
-  const uniqueUsers = Array.from(new Set(allLogs.map(l => l.user)));
-  const uniqueActions = Array.from(new Set(allLogs.map(l => l.action)));
-
-  const filteredLogs = allLogs.filter(l => 
-    (userFilter === 'All Users' || l.user === userFilter) &&
-    (actionFilter === 'All Actions' || l.action === actionFilter)
-  );
-
-  const reportHeaders = ['Date', 'Time', 'Product', 'SKU', 'Action', 'Qty Change', 'Updated By'];
-  const reportRows = filteredLogs.map(p => [p.date, p.time.split(', ')[1] || p.time, p.prod, p.sku, p.action, p.qty, p.user]);
+  const reportHeaders = ['Timestamp', 'Product', 'SKU', 'Movement Type', 'Qty Delta', 'Stock Before', 'Stock After', 'Reason', 'Authorized By', 'Status'];
+  const reportRows = filteredLedger.map(e => [
+    new Date(e.timestamp).toLocaleString(),
+    e.productName,
+    e.sku,
+    e.movementType,
+    e.quantityChange > 0 ? `+${e.quantityChange}` : String(e.quantityChange),
+    String(e.beforeStock),
+    String(e.afterStock),
+    e.reason,
+    e.user,
+    e.status
+  ]);
   const reportData = { headers: reportHeaders, rows: reportRows };
 
   return (
@@ -96,7 +163,7 @@ export default function ActivityReports({ onViewChange }: { onViewChange: (view:
           </button>
           <h2 className="text-2xl font-bold text-slate-800">Activity Reports</h2>
           <p className="text-slate-500 text-sm mt-1">
-            Real-time audit trail of all inventory updates across the supermarket network.
+            Real-time audit trail of all inventory movements across the supermarket network.
             {period === 'Custom Range' && dateRange.start && dateRange.end && (
               <span className="ml-2 font-bold text-[#0b8252]">({dateRange.start} to {dateRange.end})</span>
             )}
@@ -114,129 +181,264 @@ export default function ActivityReports({ onViewChange }: { onViewChange: (view:
         </div>
       </div>
 
-      {/* Filters Row */}
-      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col lg:flex-row gap-3 items-center justify-between">
-        <div className="flex flex-wrap gap-3 w-full lg:w-auto items-center">
-          <div className="flex bg-[#f1f5f9] p-1 rounded-xl border border-slate-200 w-fit">
-            {['Today', 'Week', 'Month', 'Year', 'Custom Range'].map(tab => {
-              let tabLabel = tab;
-              if (tab === 'Custom Range' && period === 'Custom Range' && dateRange.start && dateRange.end) {
-                tabLabel = `${dateRange.start} to ${dateRange.end}`;
-              }
-              return (
-              <button 
-                key={tab}
-                onClick={() => handlePeriodChange(tab)}
-                className={`px-4 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1 transition-all ${period === tab ? 'bg-white text-[#0b8252] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
-              >
-                {tab === 'Custom Range' && <span className="material-symbols-outlined text-[14px]">calendar_today</span>}
-                {tabLabel}
-              </button>
-              );
-            })}
-          </div>
-
-          <div className="relative">
-            <select value={userFilter} onChange={(e) => setUserFilter(e.target.value)} className="appearance-none bg-[#f8f9fa] border border-slate-200 text-slate-700 text-sm font-medium rounded-lg px-4 py-2 pr-10 focus:outline-none focus:border-[#0b8252]">
-              <option>All Users</option>
-              {uniqueUsers.map(u => <option key={u}>{u}</option>)}
-            </select>
-            <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[18px]">expand_more</span>
-          </div>
-          <div className="relative">
-            <select value={actionFilter} onChange={(e) => setActionFilter(e.target.value)} className="appearance-none bg-[#f8f9fa] border border-slate-200 text-slate-700 text-sm font-medium rounded-lg px-4 py-2 pr-10 focus:outline-none focus:border-[#0b8252]">
-              <option>All Actions</option>
-              {uniqueActions.map(a => <option key={a}>{a}</option>)}
-            </select>
-            <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[18px]">expand_more</span>
-          </div>
-        </div>
-        <button onClick={() => {setUserFilter('All Users'); setActionFilter('All Actions'); setPeriod('Today');}} className="text-sm font-bold text-slate-400 hover:text-[#0b8252] transition-colors self-end lg:self-auto">Reset Filters</button>
-      </div>
-
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <p className="text-xs font-bold text-slate-500 mb-2">Total Logs</p>
-          <h3 className="text-2xl font-bold text-slate-800">{activeData.logs}</h3>
-          <p className="text-[10px] font-bold text-[#10b981] mt-1">{activeData.t1} from last {period.toLowerCase()}</p>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">
+          <span className="text-xs font-black text-slate-400 uppercase tracking-widest block">Total Receipts (Stock In)</span>
+          <span className="text-2xl font-black text-emerald-600">+{ledgerAnalytics.totalAdded} units</span>
+          <span className="text-[10px] text-slate-400 font-extrabold block">Added via supplier Goods Receiving</span>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <p className="text-xs font-bold text-slate-500 mb-2">Waste Recorded</p>
-          <h3 className="text-2xl font-bold text-slate-800">{activeData.waste}</h3>
-          <p className="text-[10px] font-bold text-[#ef4444] mt-1">Alert: Fresh Produce high waste</p>
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">
+          <span className="text-xs font-black text-slate-400 uppercase tracking-widest block">Total Checkout (Stock Out)</span>
+          <span className="text-2xl font-black text-rose-600">-{ledgerAnalytics.totalSubtracted} units</span>
+          <span className="text-[10px] text-slate-400 font-extrabold block">Checked out via Sales / Returns</span>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <p className="text-xs font-bold text-slate-500 mb-2">Manual Overrides</p>
-          <h3 className="text-2xl font-bold text-slate-800">{activeData.over}</h3>
-          <p className="text-[10px] font-bold text-[#d97706] mt-1">Requires review by Admin</p>
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">
+          <span className="text-xs font-black text-slate-400 uppercase tracking-widest block">Expiry Cost Losses</span>
+          <span className="text-2xl font-black text-amber-600">Rs. {ledgerAnalytics.totalExpiryLoss.toLocaleString()}</span>
+          <span className="text-[10px] text-slate-400 font-extrabold block">Total value lost to expired products</span>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <p className="text-xs font-bold text-slate-500 mb-2">Active Managers</p>
-          <h3 className="text-2xl font-bold text-slate-800">{activeData.mgrs}</h3>
-          <p className="text-[10px] font-bold text-[#0b8252] mt-1">Peak shift active</p>
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">
+          <span className="text-xs font-black text-slate-400 uppercase tracking-widest block">Total Audited Events</span>
+          <span className="text-2xl font-black text-slate-800">{ledgerAnalytics.totalCount} entries</span>
+          <span className="text-[10px] text-slate-400 font-extrabold block">Logs persisted in Unified Ledger</span>
         </div>
       </div>
 
-      {/* Main Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[900px]">
+      {/* Filters */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Search */}
+          <div>
+            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Search Product</label>
+            <div className="relative">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by SKU, product..."
+                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0b8252]"
+              />
+              <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-[16px]">search</span>
+            </div>
+          </div>
+
+          {/* Movement Type */}
+          <div>
+            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Movement Type</label>
+            <select
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0b8252]"
+            >
+              <option value="All">All Types</option>
+              <option value="GRN">Goods Received (GRN)</option>
+              <option value="Sale">Stock Out (Sales)</option>
+              <option value="Adjustment">Manual Adjustments</option>
+              <option value="Expiry Removal">Expiry Removal</option>
+              <option value="Supplier Return">Supplier Returns</option>
+            </select>
+          </div>
+
+          {/* Time Frame */}
+          <div>
+            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Time Frame</label>
+            <select
+              value={timeFilter}
+              onChange={(e) => setTimeFilter(e.target.value as any)}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0b8252]"
+            >
+              <option value="all">Complete Archive</option>
+              <option value="today">Today Only</option>
+              <option value="week">Past 7 Days</option>
+              <option value="month">Past 30 Days</option>
+              <option value="custom">Custom Date Range</option>
+            </select>
+          </div>
+
+          {/* Custom Date Range */}
+          {timeFilter === 'custom' && (
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">Start Date</label>
+                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs font-bold" />
+              </div>
+              <div className="flex-1">
+                <label className="block text-[8px] font-black text-slate-400 uppercase tracking-wider mb-1">End Date</label>
+                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs font-bold" />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Unified Ledger Table */}
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="overflow-x-auto max-h-[560px]">
+          <table className="w-full text-left text-xs border-collapse relative">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/50">
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date & Time</th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Product</th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Action</th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Qty Change</th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Updated By</th>
+              <tr className="bg-slate-50 text-slate-500 font-black uppercase text-[10px] border-b border-slate-200 sticky top-0 z-10 backdrop-blur-sm">
+                <th className="px-4 py-3">Timestamp</th>
+                <th className="px-4 py-3">Product Profile</th>
+                <th className="px-4 py-3">SKU ID</th>
+                <th className="px-4 py-3 text-center">Movement Type</th>
+                <th className="px-4 py-3 text-center">Qty Delta</th>
+                <th className="px-4 py-3 text-center">Stock Transitions</th>
+                <th className="px-4 py-3">Description Reason</th>
+                <th className="px-4 py-3">Authorized By</th>
+                <th className="px-4 py-3 text-center">Audit Check</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-sm">
-              {filteredLogs.map((item, i) => (
-                <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="p-4">
-                    <p className="font-bold text-slate-800">{item.time}</p>
-                    <p className="text-[10px] text-slate-500">{item.date}</p>
-                  </td>
-                  <td className="p-4 flex items-center gap-3">
-                    <div className="w-8 h-8 rounded bg-slate-100 border border-slate-200"></div>
-                    <div>
-                      <p className="font-bold text-slate-800">{item.prod}</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-wide">{item.sku}</p>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <span className={`px-2 py-1 text-[10px] font-bold rounded-full ${item.aClass}`}>
-                      {item.action}
-                    </span>
-                  </td>
-                  <td className={`p-4 text-center font-bold text-lg ${item.qClass}`}>{item.qty}</td>
-                  <td className="p-4 flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-slate-200 text-[10px] font-bold text-slate-600 flex items-center justify-center">
-                      {item.avatar}
-                    </div>
-                    <span className="text-slate-700 font-medium">{item.user}</span>
-                  </td>
-                </tr>
-              ))}
-              {filteredLogs.length === 0 && (
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {filteredLedger.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-500">No activity matches your filters.</td>
+                  <td colSpan={9} className="px-4 py-12 text-center text-slate-400 font-bold">
+                    No transactions reported in the selected frame.
+                  </td>
                 </tr>
+              ) : (
+                filteredLedger.map((entry) => {
+                  const isFast = intelligenceBadges.fastMovingSkus.has(entry.sku);
+                  const isDead = intelligenceBadges.deadStockSkus.has(entry.sku);
+                  return (
+                    <tr
+                      key={entry.id}
+                      onClick={() => setSelectedEntry(entry)}
+                      className="hover:bg-slate-50 cursor-pointer select-none transition-colors"
+                    >
+                      <td className="px-4 py-3 text-slate-500 font-mono font-bold">
+                        {new Date(entry.timestamp).toLocaleString(undefined, {
+                          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                        })}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-black text-slate-800 text-xs">{entry.productName}</span>
+                          {isFast && (
+                            <span title="Fast Moving High-Velocity SKU" className="text-amber-500 font-bold flex items-center bg-amber-50 rounded px-1 text-[9px] border border-amber-100 shrink-0">
+                              <span className="material-symbols-outlined text-[12px] mr-0.5">local_fire_department</span> Fast
+                            </span>
+                          )}
+                          {isDead && (
+                            <span title="Zero transaction SKU" className="text-slate-500 font-bold bg-slate-100 rounded px-1 text-[9px] border border-slate-200 shrink-0">Idle Stock</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-slate-600 font-bold">{entry.sku}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`inline-block px-2.5 py-0.5 font-extrabold text-[10px] rounded-full border ${
+                          entry.movementType === 'GRN' ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                          : entry.movementType === 'Sale' ? 'bg-blue-50 text-blue-700 border-blue-100'
+                          : 'bg-amber-50 text-amber-700 border-amber-100'
+                        }`}>
+                          {entry.movementType}
+                        </span>
+                      </td>
+                      <td className={`px-4 py-3 text-center font-black ${entry.quantityChange > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {entry.quantityChange > 0 ? `+${entry.quantityChange}` : entry.quantityChange}
+                      </td>
+                      <td className="px-4 py-3 text-center text-slate-500 font-mono font-bold">
+                        {entry.beforeStock} <span className="text-slate-300 mx-1">→</span> <span className="text-slate-800 font-black">{entry.afterStock}</span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 font-medium truncate max-w-xs">{entry.reason}</td>
+                      <td className="px-4 py-3 text-slate-700 font-bold">{entry.user}</td>
+                      <td className="px-4 py-3 text-center">
+                        {entry.status === 'Success' ? (
+                          <span className="material-symbols-outlined text-emerald-500 text-[18px]">check_circle</span>
+                        ) : entry.status === 'Warning' ? (
+                          <span className="material-symbols-outlined text-amber-500 text-[18px]">warning</span>
+                        ) : (
+                          <span className="material-symbols-outlined text-rose-500 text-[18px]">cancel</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
         <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex justify-between items-center text-sm text-slate-500">
-          <p>Showing <strong>{filteredLogs.length > 0 ? 1 : 0} - {filteredLogs.length}</strong> of <strong>{filteredLogs.length}</strong> logs</p>
-          <div className="flex gap-1">
-            <button className="w-6 h-6 flex items-center justify-center rounded border border-slate-200 hover:bg-slate-100"><span className="material-symbols-outlined text-[16px]">chevron_left</span></button>
-            <button className="w-6 h-6 flex items-center justify-center rounded bg-[#0b8252] text-white font-bold text-xs">1</button>
-            <button className="w-6 h-6 flex items-center justify-center rounded border border-slate-200 hover:bg-slate-100"><span className="material-symbols-outlined text-[16px]">chevron_right</span></button>
-          </div>
+          <p>Showing <strong>{filteredLedger.length > 0 ? 1 : 0} - {filteredLedger.length}</strong> of <strong>{filteredLedger.length}</strong> entries</p>
         </div>
       </div>
 
+      {/* Slide-out Drawer */}
+      {selectedEntry && (
+        <>
+          <div onClick={() => setSelectedEntry(null)} className="fixed inset-0 bg-slate-900/30 backdrop-blur-xs z-40 transition-opacity" />
+          <div className="fixed top-0 right-0 h-full w-96 bg-white border-l border-slate-200 shadow-2xl z-50 flex flex-col p-6 space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Auditing Log entry</span>
+                <h3 className="text-sm font-black text-slate-800">Unified Transaction Log</h3>
+              </div>
+              <button type="button" onClick={() => setSelectedEntry(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <span className="material-symbols-outlined text-md">close</span>
+              </button>
+            </div>
+            <div className="flex-1 space-y-5 overflow-y-auto pr-1">
+              <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-2">
+                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Product Node</span>
+                <h4 className="text-xs font-black text-slate-800">{selectedEntry.productName}</h4>
+                <div className="flex justify-between text-[11px] font-bold text-slate-500">
+                  <span>SKU Reference:</span>
+                  <span className="font-mono">{selectedEntry.sku}</span>
+                </div>
+              </div>
+              <div className="space-y-2.5">
+                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Inventory Stock Transition</span>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="bg-slate-50 p-2.5 border border-slate-100 rounded-lg">
+                    <span className="block text-[9px] font-bold text-slate-400 uppercase">Pre-Stock</span>
+                    <span className="text-sm font-bold text-slate-600 font-mono">{selectedEntry.beforeStock}</span>
+                  </div>
+                  <div className="bg-slate-50 p-2.5 border border-slate-100 rounded-lg flex flex-col items-center justify-center">
+                    <span className="block text-[8px] font-black text-slate-400 uppercase">Change</span>
+                    <span className={`text-xs font-black font-mono ${selectedEntry.quantityChange > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {selectedEntry.quantityChange > 0 ? `+${selectedEntry.quantityChange}` : selectedEntry.quantityChange}
+                    </span>
+                  </div>
+                  <div className="bg-[#0b8252]/5 p-2.5 border border-[#0b8252]/10 rounded-lg">
+                    <span className="block text-[9px] font-black text-[#0b8252] uppercase">Post-Stock</span>
+                    <span className="text-sm font-black text-slate-800 font-mono">{selectedEntry.afterStock}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="divide-y divide-slate-100 text-xs">
+                <div className="flex justify-between py-2.5">
+                  <span className="font-bold text-slate-500">Event Action Type:</span>
+                  <span className="font-black text-slate-800">{selectedEntry.movementType}</span>
+                </div>
+                <div className="flex justify-between py-2.5">
+                  <span className="font-bold text-slate-500">Timestamp:</span>
+                  <span className="font-bold text-slate-800 font-mono">{new Date(selectedEntry.timestamp).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between py-2.5">
+                  <span className="font-bold text-slate-500">Authorized Operator:</span>
+                  <span className="font-black text-slate-800">{selectedEntry.user}</span>
+                </div>
+                <div className="flex justify-between py-2.5">
+                  <span className="font-bold text-slate-500">System Integrity:</span>
+                  <span className={`font-black flex items-center gap-1 ${selectedEntry.status === 'Success' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    <span className="material-symbols-outlined text-[14px]">{selectedEntry.status === 'Success' ? 'verified' : 'warning'}</span>
+                    {selectedEntry.status}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Transaction Context Notes</span>
+                <p className="text-xs text-slate-600 font-bold bg-slate-50 p-3 rounded-lg border border-slate-100 leading-relaxed">{selectedEntry.reason}</p>
+              </div>
+            </div>
+            <div className="pt-4 border-t border-slate-100">
+              <button type="button" onClick={() => setSelectedEntry(null)} className="w-full py-2 bg-slate-100 text-slate-700 font-black rounded-lg text-xs hover:bg-slate-200 transition-colors text-center">
+                Close Audit Inspection
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

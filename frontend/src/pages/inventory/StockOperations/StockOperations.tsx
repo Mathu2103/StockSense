@@ -1,9 +1,7 @@
-import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Sidebar from '../Shared/Sidebar';
 import InventoryHeader from '../Shared/InventoryHeader';
 import GRNPage from './operations/GRNPage';
-import StockMovements from './operations/StockMovements';
 import StockAdjustments from './operations/StockAdjustments';
 
 export default function InventoryOperations() {
@@ -17,7 +15,6 @@ export default function InventoryOperations() {
 
   const tabsConfig = [
     { id: 'grn', label: 'Goods Receiving (GRN)', icon: 'local_shipping' },
-    { id: 'movements', label: 'Stock Movement (Unified Ledger)', icon: 'swap_horiz' },
     { id: 'adjustments', label: 'Stock Adjustments', icon: 'sync_alt' }
   ];
 
@@ -71,7 +68,6 @@ export default function InventoryOperations() {
             {/* Active Sub-Page tab router with smooth fades */}
             <div className="transition-opacity duration-200 ease-in-out">
               {activeTab === 'grn' && <GRNPage />}
-              {activeTab === 'movements' && <StockMovements />}
               {activeTab === 'adjustments' && <StockAdjustments />}
             </div>
           </div>

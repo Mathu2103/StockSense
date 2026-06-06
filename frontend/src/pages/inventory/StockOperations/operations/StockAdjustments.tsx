@@ -148,85 +148,101 @@ export default function StockAdjustments() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="flex flex-col gap-6">
         {/* INTERACTIVE FORM CONTAINER */}
-        <div className="lg:col-span-1">
+        <div className="w-full">
           <form onSubmit={handleSaveAdjustment} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
-            <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2">Log Stock Discrepancy</h3>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+              <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">Log Stock Discrepancy</h3>
+            </div>
 
-            {/* Select Product */}
-            <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Select Product Node</label>
-              {products.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+              {/* Select Product */}
+              <div className="lg:col-span-1">
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Select Product Node</label>
+                {products.length > 0 && (
+                  <select
+                    value={selectedProductIndex}
+                    onChange={(e) => setSelectedProductIndex(parseInt(e.target.value))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0b8252]"
+                  >
+                    {products.map((p, idx) => (
+                      <option key={p.id} value={idx}>
+                        {p.name} (Stock: {p.stock})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Qty delta changes */}
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Quantity Change (+/-)</label>
+                <input
+                  type="number"
+                  value={qtyDelta}
+                  onChange={(e) => setQtyDelta(parseInt(e.target.value) || 0)}
+                  placeholder="-5 for damages, +5 for found stock"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0b8252]"
+                />
+              </div>
+
+              {/* Adjustment Reason */}
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Discrepancy Category</label>
                 <select
-                  value={selectedProductIndex}
-                  onChange={(e) => setSelectedProductIndex(parseInt(e.target.value))}
+                  value={selectedReason}
+                  onChange={(e) => setSelectedReason(e.target.value as any)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0b8252]"
                 >
-                  {products.map((p, idx) => (
-                    <option key={p.id} value={idx}>
-                      {p.name} (Stock: {p.stock})
-                    </option>
-                  ))}
+                  <option value="Damaged">Damaged Goods</option>
+                  <option value="Lost">Lost / Stolen Items</option>
+                  <option value="Expired">Expired Batches</option>
+                  <option value="Returned">Customer Returns</option>
+                  <option value="Counting error">Counting Inventory Error</option>
+                  <option value="System correction">System Database Correction</option>
                 </select>
-              )}
-            </div>
-
-            {/* Current Product Stats Panel */}
-            {activeProduct && (
-              <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="block text-[9px] text-slate-400 font-bold">SKU ID:</span>
-                  <span className="font-mono font-bold text-slate-700">{activeProduct.sku}</span>
-                </div>
-                <div>
-                  <span className="block text-[9px] text-slate-400 font-bold">Current Stock:</span>
-                  <span className="font-black text-slate-800">{activeProduct.stock} units</span>
-                </div>
               </div>
-            )}
 
-            {/* Qty delta changes */}
-            <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Quantity Change Delta (+/-)</label>
-              <input
-                type="number"
-                value={qtyDelta}
-                onChange={(e) => setQtyDelta(parseInt(e.target.value) || 0)}
-                placeholder="-5 for damages, +5 for found stock"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0b8252]"
-              />
-              <span className="text-[10px] text-slate-400 font-extrabold mt-1 block">
-                Use negative figures for losses, positive for counting gains.
-              </span>
+              {/* Operator */}
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Authorized Operator</label>
+                <input
+                  type="text"
+                  value={adjustedBy}
+                  onChange={(e) => setAdjustedBy(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0b8252]"
+                />
+              </div>
             </div>
 
-            {/* Adjustment Reason */}
-            <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Discrepancy Reason Category</label>
-              <select
-                value={selectedReason}
-                onChange={(e) => setSelectedReason(e.target.value as any)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none"
-              >
-                <option value="Damaged">Damaged Goods</option>
-                <option value="Lost">Lost / Stolen Items</option>
-                <option value="Expired">Expired Batches</option>
-                <option value="Returned">Customer Returns</option>
-                <option value="Counting error">Counting Inventory Error</option>
-                <option value="System correction">System Database Correction</option>
-              </select>
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-5 items-center">
+              {/* Current Product Stats Panel */}
+              <div className="md:col-span-3">
+                {activeProduct ? (
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                    <div className="col-span-2">
+                      <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wider">SKU ID</span>
+                      <span className="font-mono font-bold text-slate-700">{activeProduct.sku}</span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wider">Stock Transition Preview</span>
+                      <span className="font-mono font-bold text-slate-500">
+                        {activeProduct.stock} <span className="text-slate-300 mx-1">→</span> <span className="text-slate-800 font-black">{Math.max(0, activeProduct.stock + qtyDelta)}</span>
+                      </span>
+                    </div>
+                  </div>
+                ) : <div />}
+              </div>
 
-            {/* Operator */}
-            <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Authorized Operator</label>
-              <input
-                type="text"
-                value={adjustedBy}
-                onChange={(e) => setAdjustedBy(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none"
-              />
+              <div className="md:col-span-1">
+                <button
+                  type="submit"
+                  className="w-full py-3.5 bg-primary bg-[#0b8252] text-white rounded-lg text-xs font-black hover:bg-[#096a43] transition-colors shadow-sm text-center h-full"
+                >
+                  Commit Stock Correction
+                </button>
+              </div>
             </div>
 
             {/* REAL-TIME WARNING BANNER */}
@@ -237,72 +253,70 @@ export default function StockAdjustments() {
                 </p>
               </div>
             )}
-
-            <button
-              type="submit"
-              className="w-full py-2.5 bg-primary bg-[#0b8252] text-white rounded-lg text-xs font-black hover:bg-[#096a43] transition-colors shadow-sm text-center"
-            >
-              Commit Stock Correction
-            </button>
           </form>
         </div>
 
         {/* ADJUSTMENT HISTORY TABLE */}
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+        <div className="w-full bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
           <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">Adjustment Audit Log</h3>
           <div className="overflow-x-auto rounded-xl border border-slate-100 max-h-[480px]">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50 text-slate-500 font-black uppercase text-[10px] border-b border-slate-100">
-                  <th className="px-4 py-3">Reference No</th>
-                  <th className="px-4 py-3">Product Name</th>
-                  <th className="px-4 py-3 text-center">Change Qty</th>
-                  <th className="px-4 py-3">Reason Category</th>
-                  <th className="px-4 py-3 text-right">Corrective Value</th>
-                  <th className="px-4 py-3 text-center">Verification Status</th>
-                  <th className="px-4 py-3 w-10"></th>
+                  <th className="px-4 py-3">Timestamp</th>
+                  <th className="px-4 py-3">Product Profile</th>
+                  <th className="px-4 py-3">SKU ID</th>
+                  <th className="px-4 py-3 text-center">Movement Type</th>
+                  <th className="px-4 py-3 text-center">Qty Delta</th>
+                  <th className="px-4 py-3 text-center">Stock Transitions</th>
+                  <th className="px-4 py-3">Description Reason</th>
+                  <th className="px-4 py-3">Authorized By</th>
+                  <th className="px-4 py-3 text-center">Audit Check</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
                 {adjustments.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center text-slate-400 font-bold">
+                    <td colSpan={9} className="px-4 py-12 text-center text-slate-400 font-bold">
                       No adjustments logged yet.
                     </td>
                   </tr>
                 ) : (
                   adjustments.map((a) => (
-                    <tr key={a.id} className="hover:bg-slate-50/50">
-                      <td className="px-4 py-3 font-mono font-extrabold text-[#0b8252]">{a.adjustmentNumber}</td>
-                      <td className="px-4 py-3 font-bold text-slate-800">{a.productName}</td>
+                    <tr key={a.id} className="hover:bg-slate-50/50 select-none transition-colors">
+                      <td className="px-4 py-3 text-slate-500 font-mono font-bold">
+                        {new Date(a.date).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric'
+                        })}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="font-black text-slate-800 text-xs">{a.productName}</span>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-slate-600 font-bold">{a.sku}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="inline-block px-2.5 py-0.5 font-extrabold text-[10px] rounded-full border bg-amber-50 text-amber-700 border-amber-100">
+                          Adjustment
+                        </span>
+                      </td>
                       <td className={`px-4 py-3 text-center font-black ${a.qtyChanged > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                         {a.qtyChanged > 0 ? `+${a.qtyChanged}` : a.qtyChanged}
                       </td>
-                      <td className="px-4 py-3 text-slate-500 font-bold">{a.reason}</td>
-                      <td className="px-4 py-3 text-right font-black text-slate-800">Rs. {a.totalValue.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-center text-slate-500 font-mono font-bold">
+                        {a.beforeStock} <span className="text-slate-300 mx-1">→</span> <span className="text-slate-800 font-black">{a.afterStock}</span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 font-medium truncate max-w-xs">
+                        Manual Correction: {a.reason} ({a.adjustmentNumber})
+                      </td>
+                      <td className="px-4 py-3 text-slate-700 font-bold">{a.adjustedBy}</td>
                       <td className="px-4 py-3 text-center">
                         {a.status === 'Approved' ? (
-                          <span className="inline-block px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-extrabold text-[10px] rounded-full border border-emerald-100">
-                            Approved
-                          </span>
+                          <span className="material-symbols-outlined text-emerald-500 text-[18px]">check_circle</span>
                         ) : a.status === 'Needs Review' ? (
-                          <span className="inline-block px-2.5 py-0.5 bg-amber-50 text-amber-700 font-extrabold text-[10px] rounded-full border border-amber-100 animate-pulse">
-                            Needs Review
-                          </span>
+                          <span className="material-symbols-outlined text-amber-500 text-[18px]">warning</span>
                         ) : (
-                          <span className="inline-block px-2.5 py-0.5 bg-slate-50 text-slate-700 font-extrabold text-[10px] rounded-full border border-slate-100">
-                            Pending
-                          </span>
+                          <span className="material-symbols-outlined text-rose-500 text-[18px]">cancel</span>
                         )}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => setViewingAdjustment(a)}
-                          className="text-slate-400 hover:text-slate-600 transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">timeline</span>
-                        </button>
                       </td>
                     </tr>
                   ))
