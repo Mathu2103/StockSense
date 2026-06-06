@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom';
 import Sidebar from '../Shared/Sidebar';
 import InventoryHeader from '../Shared/InventoryHeader';
 import GRNPage from './operations/GRNPage';
-import InventoryMonitoring from './operations/InventoryMonitoring';
 import StockMovements from './operations/StockMovements';
 import StockAdjustments from './operations/StockAdjustments';
 
@@ -18,7 +17,6 @@ export default function InventoryOperations() {
 
   const tabsConfig = [
     { id: 'grn', label: 'Goods Receiving (GRN)', icon: 'local_shipping' },
-    { id: 'monitoring', label: 'Inventory Monitoring', icon: 'monitoring' },
     { id: 'movements', label: 'Stock Movement (Unified Ledger)', icon: 'swap_horiz' },
     { id: 'adjustments', label: 'Stock Adjustments', icon: 'sync_alt' }
   ];
@@ -73,7 +71,6 @@ export default function InventoryOperations() {
             {/* Active Sub-Page tab router with smooth fades */}
             <div className="transition-opacity duration-200 ease-in-out">
               {activeTab === 'grn' && <GRNPage />}
-              {activeTab === 'monitoring' && <InventoryMonitoring />}
               {activeTab === 'movements' && <StockMovements />}
               {activeTab === 'adjustments' && <StockAdjustments />}
             </div>

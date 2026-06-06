@@ -118,14 +118,24 @@ export const downloadReport = async (
   let content = csvContent;
 
   if (format === 'excel') {
+    // Load SheetJS from CDN at runtime (xlsx is not bundled)
     try {
-      const modName = 'xlsx';
-      const XLSX = await import(modName as any);
+      if (!(window as any).XLSX) {
+        await new Promise<void>((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error('Failed to load SheetJS from CDN'));
+          document.head.appendChild(s);
+        });
+      }
+      const XLSX = (window as any).XLSX;
+      if (!XLSX) throw new Error('SheetJS not available');
       const aoa = [headers, ...rows.map(r => r.map(c => (c === null || c === undefined) ? '' : String(c)))];
-      const ws = (XLSX.utils as any).aoa_to_sheet(aoa as any);
-      const wb = (XLSX.utils as any).book_new();
-      (XLSX.utils as any).book_append_sheet(wb, ws, 'Report');
-      const wbout = (XLSX as any).write(wb, { bookType: 'xlsx', type: 'array' });
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Report');
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
       const blobExcel = new Blob([wbout], { type: 'application/octet-stream' });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blobExcel);
@@ -138,40 +148,8 @@ export const downloadReport = async (
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       return;
-    } catch (err) {
-      // dynamic import failed — try loading SheetJS from CDN as a fallback
-      try {
-        if (!(window as any).XLSX) {
-          await new Promise<void>((resolve, reject) => {
-            const s = document.createElement('script');
-            s.src = 'https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js';
-            s.onload = () => resolve();
-            s.onerror = () => reject(new Error('Failed to load SheetJS from CDN'));
-            document.head.appendChild(s);
-          });
-        }
-        const XLSX = (window as any).XLSX;
-        if (!XLSX) throw new Error('SheetJS not available');
-        const aoa = [headers, ...rows.map(r => r.map(c => (c === null || c === undefined) ? '' : String(c)))];
-        const ws = (XLSX.utils as any).aoa_to_sheet(aoa as any);
-        const wb = (XLSX.utils as any).book_new();
-        (XLSX.utils as any).book_append_sheet(wb, ws, 'Report');
-        const wbout = (XLSX as any).write(wb, { bookType: 'xlsx', type: 'array' });
-        const blobExcel = new Blob([wbout], { type: 'application/octet-stream' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blobExcel);
-        const filename = `${reportName.replace(/\s+/g, '_').toLowerCase()}_${new Date().getTime()}.xlsx`;
-        link.setAttribute('href', url);
-        link.setAttribute('download', filename);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        return;
-      } catch (err2) {
-        // CDN load failed — fall back to CSV/HTML below
-      }
+    } catch (_err) {
+      // CDN load failed — fall through to CSV download below
     }
   }
 
