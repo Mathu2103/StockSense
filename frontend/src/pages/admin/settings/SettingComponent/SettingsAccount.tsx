@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Toggle } from './Toggle';
 import { toast } from 'sonner';
 
 export default function SettingsAccount() {
@@ -23,19 +22,17 @@ export default function SettingsAccount() {
   };
 
   return (
-    <div className="max-w-2xl animate-in fade-in duration-300 space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800">Account Settings</h2>
-          <p className="text-sm text-slate-500 mt-1">Configure your login preferences, password, and system settings.</p>
+    <div className="max-w-4xl animate-in fade-in duration-300">
+      <div className="bg-white border border-slate-100 rounded-xl p-8 shadow-sm">
+        <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-50">
+          <div>
+            <h2 className="text-xl font-bold text-slate-800">Account Settings</h2>
+            <p className="text-[14px] text-slate-500 mt-1">Configure your login preferences and system security.</p>
+          </div>
         </div>
-      </div>
 
-      {/* Security Form */}
-      <div className="p-5 rounded-xl border border-slate-200 bg-white">
         <form onSubmit={handlePasswordChange} className="space-y-6">
-          <h3 className="text-[15px] font-bold text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2 mb-4">
+          <h3 className="text-[15px] font-bold text-slate-800 flex items-center gap-2">
             <span className="material-symbols-outlined text-[20px] text-[#0b8252]">lock</span>
             Change Password
           </h3>

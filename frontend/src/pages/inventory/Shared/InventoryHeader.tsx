@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link, useSearchParams } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../../../hooks/useAuth';
 import defaultAvatar from '@/assets/images/default-avatar.png';
 
@@ -505,7 +506,7 @@ function ProfileDropdown({ activeDropdown, setActiveDropdown }: { activeDropdown
         </div>
       )}
       {/* Edit Profile Modal */}
-      {isEditModalOpen && (
+      {isEditModalOpen && createPortal(
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={(e) => { e.stopPropagation(); setIsEditModalOpen(false); }}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
@@ -547,7 +548,8 @@ function ProfileDropdown({ activeDropdown, setActiveDropdown }: { activeDropdown
               }} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b8252] hover:bg-[#096b43] rounded-lg shadow-sm transition-colors">Save Changes</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

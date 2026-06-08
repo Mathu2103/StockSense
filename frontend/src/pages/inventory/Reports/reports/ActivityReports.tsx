@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
-import { downloadReport, ViewState } from './reportUtils';
+import { downloadReport } from './reportUtils';
 import { inventoryOperationsService, LedgerEntry, ProductItem } from '../../StockOperations/operations/inventoryOperationsService';
 
-export default function ActivityReports({ onViewChange }: { onViewChange: (view: ViewState) => void }) {
+export default function ActivityReports() {
   const [period, setPeriod] = useState<'Today' | 'Week' | 'Month' | 'Year' | 'Custom Range'>('Today');
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
@@ -90,10 +90,7 @@ export default function ActivityReports({ onViewChange }: { onViewChange: (view:
     });
   }, [ledger, searchTerm, selectedType, timeFilter, startDate, endDate]);
 
-  const handlePeriodChange = (tab: any) => {
-    if (tab === 'Custom Range') setShowCustomModal(true);
-    else setPeriod(tab);
-  };
+
 
   const applyCustomRange = () => {
     setPeriod('Custom Range');

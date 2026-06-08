@@ -29,7 +29,7 @@ export default function Reports() {
       case 'supplier':
         return <SupplierReports onViewChange={setActiveView} />;
       case 'activity':
-        return <ActivityReports onViewChange={setActiveView} />;
+        return <ActivityReports />;
       case 'purchase':
         return <PurchaseReports onViewChange={setActiveView} />;
       case 'alert':

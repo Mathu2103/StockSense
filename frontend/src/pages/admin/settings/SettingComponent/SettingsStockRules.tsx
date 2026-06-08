@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { StockRulesConfig } from "./types";
 import { Toggle } from './Toggle';
 
