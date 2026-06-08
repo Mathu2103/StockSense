@@ -366,6 +366,11 @@ function ProfileDropdown({ activeDropdown, setActiveDropdown }: { activeDropdown
   const toggle = () => setActiveDropdown(isOpen ? null : 'profile');
   const close = () => setActiveDropdown(null);
 
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editName, setEditName] = useState(user?.name || 'User');
+  const [editEmail, setEditEmail] = useState(user?.email || '');
+  const [editPhone, setEditPhone] = useState('+1 (555) 000-0000');
+
   const userName = user?.name || 'User';
   const userRole = user?.role ? formatRole(user.role) : 'Team Member';
   const userEmail = user?.email || '';
@@ -436,32 +441,17 @@ function ProfileDropdown({ activeDropdown, setActiveDropdown }: { activeDropdown
           <div className="py-1.5 px-1.5 space-y-0.5">
             <button
               type="button"
-              onClick={() => { close(); navigate('/admin/settings?tab=My Profile'); }}
+              onClick={() => { close(); setIsEditModalOpen(true); }}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-[#f0fdf4] hover:text-[#0b8252] transition-all duration-150 group"
             >
               <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-emerald-100 transition-colors">
-                <span className="material-symbols-outlined text-[18px] text-slate-500 group-hover:text-[#0b8252] transition-colors">person</span>
+                <span className="material-symbols-outlined text-[18px] text-slate-500 group-hover:text-[#0b8252] transition-colors">edit_square</span>
               </div>
               <div className="text-left">
-                <p className="text-[12.5px] font-semibold">My Profile</p>
-                <p className="text-[10.5px] text-slate-400">View and edit your details</p>
+                <p className="text-[12.5px] font-semibold">Edit Profile</p>
+                <p className="text-[10.5px] text-slate-400">Update your details</p>
               </div>
             </button>
-
-            <button
-              type="button"
-              onClick={() => { close(); navigate('/admin/settings?tab=Account Settings'); }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-[#f0fdf4] hover:text-[#0b8252] transition-all duration-150 group"
-            >
-              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-emerald-100 transition-colors">
-                <span className="material-symbols-outlined text-[18px] text-slate-500 group-hover:text-[#0b8252] transition-colors">settings</span>
-              </div>
-              <div className="text-left">
-                <p className="text-[12.5px] font-semibold">Account Settings</p>
-                <p className="text-[10.5px] text-slate-400">Preferences & security</p>
-              </div>
-            </button>
-
             <button
               type="button"
               onClick={() => { close(); navigate('/reports'); }}

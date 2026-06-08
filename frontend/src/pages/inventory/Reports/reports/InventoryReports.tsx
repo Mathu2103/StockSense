@@ -94,9 +94,7 @@ export default function InventoryReports({ onViewChange }: { onViewChange: (view
       {/* 1. PAGE HEADER SECTION */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <button onClick={() => onViewChange('overview')} className="mb-2 flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-[#0b8252] transition-colors">
-            <span className="material-symbols-outlined text-[16px]">arrow_back</span> Back to Overview
-          </button>
+
           <h2 className="text-2xl font-bold text-slate-800">Inventory Reports</h2>
           <p className="text-slate-500 text-sm mt-1">
             Monitor stock levels, expiry risks, and inventory status.
@@ -254,7 +252,7 @@ export default function InventoryReports({ onViewChange }: { onViewChange: (view
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* 8. INVENTORY REPORT TABLE */}
-        <div className="xl:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden flex flex-col">
+        <div className="xl:col-span-3 bg-white rounded-2xl border border-slate-200 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] overflow-hidden flex flex-col">
           <div className="p-5 border-b border-slate-100 flex items-center justify-between">
             <h3 className="font-bold text-lg text-slate-800">Inventory Status</h3>
             <button className="text-sm font-bold text-[#0b8252] hover:text-[#096b43] transition-colors">View All</button>
@@ -307,36 +305,6 @@ export default function InventoryReports({ onViewChange }: { onViewChange: (view
               <button className="w-8 h-8 rounded border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-white transition-colors"><span className="material-symbols-outlined text-[16px]">chevron_right</span></button>
             </div>
           </div>
-        </div>
-
-        {/* 10. RECENT REPORTS PANEL */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] p-6">
-          <h3 className="font-bold text-lg text-slate-800 mb-6">Recent Reports</h3>
-          <div className="space-y-4">
-            {[
-              { name: "Daily Stock Report", date: "Today, 08:30 AM", type: "PDF", icon: "picture_as_pdf", color: "text-red-500", bg: "bg-red-50" },
-              { name: "Weekly Summary", date: "Yesterday, 17:00 PM", type: "XLSX", icon: "table_chart", color: "text-green-600", bg: "bg-green-50" },
-              { name: "Expiry Report", date: "Oct 22, 09:15 AM", type: "PDF", icon: "picture_as_pdf", color: "text-red-500", bg: "bg-red-50" }
-            ].map((report, i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-slate-200 hover:shadow-sm transition-all group cursor-pointer bg-slate-50/50 hover:bg-white">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${report.bg} ${report.color}`}>
-                    <span className="material-symbols-outlined text-[20px]">{report.icon}</span>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-800 group-hover:text-[#0b8252] transition-colors">{report.name}</h4>
-                    <p className="text-xs text-slate-500 mt-0.5">{report.date}</p>
-                  </div>
-                </div>
-                <button onClick={() => downloadReport(report.name.replace(/\s+/g, '_'), report.type === 'XLSX' ? 'excel' : report.type.toLowerCase() as any)} className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 group-hover:bg-[#eef8f2] group-hover:text-[#0b8252] transition-colors">
-                  <span className="material-symbols-outlined text-[18px]">download</span>
-                </button>
-              </div>
-            ))}
-          </div>
-          <button className="w-full mt-6 py-2.5 rounded-xl border-2 border-dashed border-slate-200 text-sm font-bold text-slate-500 hover:border-[#0b8252] hover:text-[#0b8252] transition-colors">
-            View Archive
-          </button>
         </div>
       </div>
     </div>

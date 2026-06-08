@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
 import defaultAvatar from '@/assets/images/default-avatar.png';
 
@@ -365,6 +365,8 @@ function ProfileDropdown({ activeDropdown, setActiveDropdown }: { activeDropdown
   const [profileName, setProfileName] = useState(user?.name || 'User');
   const [profileEmail, setProfileEmail] = useState(user?.email || '');
   const [profileAvatar, setProfileAvatar] = useState(defaultAvatar);
+  const [profilePhone, setProfilePhone] = useState('+1 (555) 000-0000'); // Dummy phone
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const userRole = user?.role ? formatRole(user.role) : 'Team Member';
 
@@ -469,29 +471,15 @@ function ProfileDropdown({ activeDropdown, setActiveDropdown }: { activeDropdown
           <div className="py-1.5 px-1.5 space-y-0.5">
             <button
               type="button"
-              onClick={() => { close(); navigate('/settings?tab=My Profile'); }}
+              onClick={() => { close(); setIsEditModalOpen(true); }}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-[#f0fdf4] hover:text-[#0b8252] transition-all duration-150 group"
             >
               <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-emerald-100 transition-colors">
-                <span className="material-symbols-outlined text-[18px] text-slate-500 group-hover:text-[#0b8252] transition-colors">person</span>
+                <span className="material-symbols-outlined text-[18px] text-slate-500 group-hover:text-[#0b8252] transition-colors">edit_square</span>
               </div>
               <div className="text-left">
-                <p className="text-[12.5px] font-semibold">My Profile</p>
-                <p className="text-[10.5px] text-slate-400">View and edit your details</p>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => { close(); navigate('/settings?tab=Account Settings'); }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-[#f0fdf4] hover:text-[#0b8252] transition-all duration-150 group"
-            >
-              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-emerald-100 transition-colors">
-                <span className="material-symbols-outlined text-[18px] text-slate-500 group-hover:text-[#0b8252] transition-colors">settings</span>
-              </div>
-              <div className="text-left">
-                <p className="text-[12.5px] font-semibold">Account Settings</p>
-                <p className="text-[10.5px] text-slate-400">Preferences & security</p>
+                <p className="text-[12.5px] font-semibold">Edit Profile</p>
+                <p className="text-[10.5px] text-slate-400">Update your details</p>
               </div>
             </button>
 
@@ -516,6 +504,51 @@ function ProfileDropdown({ activeDropdown, setActiveDropdown }: { activeDropdown
           </div>
         </div>
       )}
+      {/* Edit Profile Modal */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={(e) => { e.stopPropagation(); setIsEditModalOpen(false); }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#0b8252]">edit_square</span>
+                Edit Profile
+              </h3>
+              <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">Full Name</label>
+                <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full bg-[#f8f9fa] border border-slate-200 text-slate-700 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252] transition-all" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">Username / Email</label>
+                <input type="text" value={profileEmail} onChange={e => setProfileEmail(e.target.value)} className="w-full bg-[#f8f9fa] border border-slate-200 text-slate-700 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252] transition-all" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">Phone Number</label>
+                <input type="text" value={profilePhone} onChange={e => setProfilePhone(e.target.value)} placeholder="+1 (555) 000-0000" className="w-full bg-[#f8f9fa] border border-slate-200 text-slate-700 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252] transition-all" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1.5">Assigned Role</label>
+                <input type="text" value={userRole} disabled className="w-full bg-slate-100 border border-slate-200 text-slate-500 font-medium rounded-lg px-4 py-2.5 cursor-not-allowed" />
+              </div>
+            </div>
+            <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+              <button onClick={() => setIsEditModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Cancel</button>
+              <button onClick={() => {
+                const stored = JSON.parse(localStorage.getItem('stocksense_profile_settings') || '{}');
+                stored.fullName = profileName;
+                stored.email = profileEmail;
+                localStorage.setItem('stocksense_profile_settings', JSON.stringify(stored));
+                window.dispatchEvent(new Event('stocksense_profile_updated'));
+                setIsEditModalOpen(false);
+              }} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b8252] hover:bg-[#096b43] rounded-lg shadow-sm transition-colors">Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -535,6 +568,8 @@ export default function InventoryHeader({ children }: InventoryHeaderProps) {
     return () => clearInterval(timer);
   }, []);
 
+  const [searchParams] = useSearchParams();
+
   // Generate breadcrumb path automatically based on current location
   const getBreadcrumbs = () => {
     if (currentPath === '/inventory') {
@@ -543,37 +578,68 @@ export default function InventoryHeader({ children }: InventoryHeaderProps) {
       );
     }
 
-    let pageLabel = '';
+    let parentLabel = '';
+    let parentPath = '';
+    let childLabel = '';
+
     if (currentPath.startsWith('/manage-products')) {
-      pageLabel = 'Product Catalog';
+      parentLabel = 'Product Catalog';
+      parentPath = '/manage-products';
     } else if (currentPath.startsWith('/inventory-analytics')) {
-      pageLabel = 'Analytics';
+      parentLabel = 'Analytics';
+      parentPath = '/inventory-analytics';
     } else if (currentPath.startsWith('/inventory-operations')) {
-      pageLabel = 'Stock Operations';
+      parentLabel = 'Stock Operations';
+      parentPath = '/inventory-operations';
     } else if (currentPath.startsWith('/inventory-adjustments')) {
-      pageLabel = 'Adjustments';
+      parentLabel = 'Adjustments';
+      parentPath = '/inventory-adjustments';
     } else if (currentPath.startsWith('/procurement') || currentPath.startsWith('/suppliers')) {
-      pageLabel = 'Procurement';
+      parentLabel = 'Procurement';
+      parentPath = currentPath;
     } else if (currentPath.startsWith('/stock-movements')) {
-      pageLabel = 'Stock Movements';
+      parentLabel = 'Stock Movements';
+      parentPath = '/stock-movements';
     } else if (currentPath.startsWith('/alerts')) {
-      pageLabel = 'Alerts';
+      parentLabel = 'Alerts';
+      parentPath = '/alerts';
+      if (searchParams.get('view') === 'settings') {
+        childLabel = 'Settings';
+      }
     } else if (currentPath.startsWith('/reports')) {
-      pageLabel = 'Reports';
+      parentLabel = 'Reports & Analytics';
+      parentPath = '/reports';
+      const view = searchParams.get('view');
+      if (view && view !== 'overview') {
+        const viewMap: Record<string, string> = {
+          sales: 'Sales Reports',
+          inventory: 'Inventory Reports',
+          supplier: 'Supplier Reports',
+          activity: 'Activity Reports',
+          purchase: 'Purchase Reports',
+          alert: 'Alert Reports'
+        };
+        childLabel = viewMap[view] || '';
+      }
     } else if (currentPath.startsWith('/settings')) {
-      pageLabel = 'Settings';
+      parentLabel = 'Settings';
+      parentPath = '/settings';
+      const tab = searchParams.get('tab');
+      if (tab) childLabel = tab;
     } else if (currentPath.startsWith('/categories')) {
-      pageLabel = 'Categories';
+      parentLabel = 'Categories';
+      parentPath = '/categories';
     } else {
       const segments = currentPath.split('/').filter(Boolean);
       if (segments.length > 0) {
-        pageLabel = segments[segments.length - 1]
+        parentLabel = segments[segments.length - 1]
           .replace(/-/g, ' ')
           .replace(/\b\w/g, c => c.toUpperCase());
+        parentPath = currentPath;
       }
     }
 
-    if (!pageLabel) {
+    if (!parentLabel) {
       return <span className="text-[14.5px] font-extrabold text-[#0b8252] tracking-tight">Inventory</span>;
     }
 
@@ -586,7 +652,21 @@ export default function InventoryHeader({ children }: InventoryHeaderProps) {
           Inventory
         </Link>
         <span className="material-symbols-outlined text-[15px] text-slate-400 select-none">chevron_right</span>
-        <span className="text-[#0b8252] font-bold">{pageLabel}</span>
+        
+        {childLabel ? (
+          <>
+            <Link
+              to={parentPath}
+              className="hover:text-[#0b8252] transition-colors cursor-pointer"
+            >
+              {parentLabel}
+            </Link>
+            <span className="material-symbols-outlined text-[15px] text-slate-400 select-none">chevron_right</span>
+            <span className="text-[#0b8252] font-bold">{childLabel}</span>
+          </>
+        ) : (
+          <span className="text-[#0b8252] font-bold">{parentLabel}</span>
+        )}
       </div>
     );
   };

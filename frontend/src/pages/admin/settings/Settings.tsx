@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import Sidebar from "../Shared/Sidebar";
 import AdminHeader from "../Shared/AdminHeader";
 import SettingsProfile from "./SettingComponent/SettingsProfile";
@@ -29,7 +30,6 @@ export default function Settings() {
   const activeTab = searchParams.get('tab') || 'Stock Rules';
 
   const [rules, setRules] = useState<StockRulesConfig>(DEFAULT_RULES);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem('stocksense_settings_config');
@@ -44,15 +44,13 @@ export default function Settings() {
 
   const saveSettings = () => {
     localStorage.setItem('stocksense_settings_config', JSON.stringify(rules));
-    setToastMessage("Settings saved and synchronized successfully!");
-    setTimeout(() => setToastMessage(null), 3000);
+    toast.success("Settings saved and synchronized successfully!");
   };
 
   const resetSettings = () => {
     setRules(DEFAULT_RULES);
     localStorage.setItem('stocksense_settings_config', JSON.stringify(DEFAULT_RULES));
-    setToastMessage("Settings reset to defaults.");
-    setTimeout(() => setToastMessage(null), 3000);
+    toast.success("Settings reset to defaults.");
   };
 
   const tabs = [
@@ -71,13 +69,6 @@ export default function Settings() {
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden relative">
         <AdminHeader />
-
-        {toastMessage && (
-          <div className="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-bold text-white bg-[#0b8252] animate-in fade-in duration-300">
-            <span className="material-symbols-outlined text-[18px]">check_circle</span>
-            {toastMessage}
-          </div>
-        )}
 
         <main className="flex-1 overflow-y-auto bg-[#f8f9fa] p-6 md:p-8">
           <div className="max-w-[1200px] mx-auto space-y-6 h-full flex flex-col">

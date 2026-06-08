@@ -84,9 +84,7 @@ export default function AlertReports({ onViewChange }: { onViewChange: (view: Vi
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <button onClick={() => onViewChange('overview')} className="mb-2 flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-[#0b8252] transition-colors">
-            <span className="material-symbols-outlined text-[16px]">arrow_back</span> Back to Overview
-          </button>
+
           <h2 className="text-2xl font-bold text-slate-800">Alert Reports</h2>
           <p className="text-slate-500 text-sm mt-1">
             Track and manage critical warnings, low stock, and shelf expirations.

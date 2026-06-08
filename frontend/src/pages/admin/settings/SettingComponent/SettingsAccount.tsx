@@ -1,25 +1,22 @@
 import React, { useState } from 'react';
 import { Toggle } from './Toggle';
+import { toast } from 'sonner';
 
 export default function SettingsAccount() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState('');
 
   const handlePasswordChange = (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      setError('New passwords do not match');
+      toast.error('New passwords do not match');
       return;
     }
-    setError('');
-    setSaved(true);
+    toast.success('Password updated successfully!');
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
-    setTimeout(() => setSaved(false), 3000);
   };
 
   return (
@@ -30,12 +27,6 @@ export default function SettingsAccount() {
           <h2 className="text-xl font-bold text-slate-800">Account Settings</h2>
           <p className="text-sm text-slate-500 mt-1">Configure your login preferences, password, and system settings.</p>
         </div>
-        {saved && (
-          <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-600 text-xs font-bold animate-pulse">
-            <span className="material-symbols-outlined text-[14px]">check_circle</span>
-            Settings updated successfully!
-          </span>
-        )}
       </div>
 
       {/* Security Form */}
@@ -45,12 +36,6 @@ export default function SettingsAccount() {
           Change Password
         </h3>
 
-        {error && (
-          <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-xs text-red-600 font-semibold flex items-center gap-2">
-            <span className="material-symbols-outlined text-[16px]">error</span>
-            {error}
-          </div>
-        )}
 
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Current Password</label>

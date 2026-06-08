@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '../Shared/Sidebar';
 import AdminHeader from '../Shared/AdminHeader';
+import { toast } from 'sonner';
 import { authService, AuthUser } from '@/services/authService';
 import { useAuth } from '@/hooks/useAuth';
 import SettingsProfile from '../settings/SettingComponent/SettingsProfile';
@@ -39,13 +40,10 @@ export default function DashboardPage() {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState<'CASHIER' | 'INVENTORY_MANAGER'>('CASHIER');
-  const [formError, setFormError] = useState<string | null>(null);
-  const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [submittingUser, setSubmittingUser] = useState(false);
 
   // Configuration settings state
   const [rules, setRules] = useState<StockRulesConfig>(DEFAULT_RULES);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Load backend staff users
   const loadUsers = async () => {
@@ -80,15 +78,13 @@ export default function DashboardPage() {
 
   const saveSettings = () => {
     localStorage.setItem('stocksense_settings_config', JSON.stringify(rules));
-    setToastMessage("Configuration settings saved successfully!");
-    setTimeout(() => setToastMessage(null), 3000);
+    toast.success("Configuration settings saved successfully!");
   };
 
   const resetSettings = () => {
     setRules(DEFAULT_RULES);
     localStorage.setItem('stocksense_settings_config', JSON.stringify(DEFAULT_RULES));
-    setToastMessage("Configuration settings reset to default.");
-    setTimeout(() => setToastMessage(null), 3000);
+    toast.success("Configuration settings reset to default.");
   };
 
   // Toggle user activation status
@@ -106,16 +102,14 @@ export default function DashboardPage() {
   // Handle staff creation submit
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError(null);
-    setFormSuccess(null);
 
     if (!newUserName || !newUserEmail || !newUserPassword || !newUserRole) {
-      setFormError('All fields are required.');
+      toast.error('All fields are required.');
       return;
     }
 
     if (newUserPassword.length < 6) {
-      setFormError('Password must be at least 6 characters.');
+      toast.error('Password must be at least 6 characters.');
       return;
     }
 
@@ -128,17 +122,16 @@ export default function DashboardPage() {
         role: newUserRole,
       });
       setUsers((prev) => [created, ...prev]);
-      setFormSuccess('Staff member registered successfully!');
+      toast.success('Staff member registered successfully!');
       setNewUserName('');
       setNewUserEmail('');
       setNewUserPassword('');
       setTimeout(() => {
         setShowAddUserModal(false);
-        setFormSuccess(null);
       }, 1500);
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Failed to create user.';
-      setFormError(msg);
+      toast.error(msg);
     } finally {
       setSubmittingUser(false);
     }
@@ -150,13 +143,6 @@ export default function DashboardPage() {
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0 relative">
         <AdminHeader />
-
-        {toastMessage && (
-          <div className="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-bold text-white bg-[#0b8252] animate-in fade-in duration-300">
-            <span className="material-symbols-outlined text-[18px]">check_circle</span>
-            {toastMessage}
-          </div>
-        )}
 
         <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto space-y-6">
@@ -596,18 +582,6 @@ export default function DashboardPage() {
             </div>
 
             <form onSubmit={handleCreateUser} className="p-6 space-y-4">
-              {formError && (
-                <div className="p-3 bg-rose-50 border border-rose-100 rounded-lg text-xs text-rose-600 font-semibold flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px]">error</span>
-                  {formError}
-                </div>
-              )}
-              {formSuccess && (
-                <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg text-xs text-[#0b8252] font-semibold flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                  {formSuccess}
-                </div>
-              )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Full Name</label>

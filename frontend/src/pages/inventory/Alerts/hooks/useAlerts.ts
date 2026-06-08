@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { inventoryOperationsService } from '../../StockOperations/operations/inventoryOperationsService';
 import { AlertItem, AlertSeverity, Tab, Toast } from '../types/alertTypes';
+import { toast as sonnerToast } from 'sonner';
 
 // ── Bulletin Alerts (manual / editorial) ─────────────────────────────────────
 const BULLETINS: AlertItem[] = [
@@ -45,16 +46,17 @@ const formatRelativeTime = (days: number): string => {
 export const useAlerts = () => {
   const [activeTab, setActiveTab] = useState<Tab>('All Alerts');
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
-  const [toasts, setToasts] = useState<Toast[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [sevFilter, setSevFilter] = useState<AlertSeverity | 'All'>('All');
   const [readFilter, setReadFilter] = useState<'All' | 'Unread' | 'Read'>('All');
 
   // ── Toast ──────────────────────────────────────────────────────────────────
   const toast = useCallback((message: string, type: Toast['type'] = 'success') => {
-    const id = Date.now();
-    setToasts(p => [...p, { id, message, type }]);
-    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000);
+    if (type === 'success') {
+      sonnerToast.success(message);
+    } else {
+      sonnerToast.info(message);
+    }
   }, []);
 
   // ── Load and construct dynamic alerts ─────────────────────────────────────
@@ -439,7 +441,7 @@ export const useAlerts = () => {
     criticalAlerts, lowStockAlerts, expiryAlerts, deadStockAlerts, reorderSuggestions,
     filtered, smartInsights,
     activeTab, setActiveTab,
-    toasts, showFilters, setShowFilters,
+    showFilters, setShowFilters,
     sevFilter, setSevFilter, readFilter, setReadFilter,
     filtersActive, tabCount,
     dismiss, markRead, markAllRead, handlePrimary,

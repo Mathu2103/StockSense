@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { authService } from '@/services/authService'
-import { ArrowLeft, Mail, Lock, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react'
+import { ArrowLeft, Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react'
 import manImg from '@/assets/images/man.png'
 import groceryImg from '@/assets/images/grocery.png'
 
@@ -11,7 +12,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const { login, user, isAuthenticated, isLoading } = useAuth()
   const navigate = useNavigate()
@@ -27,11 +27,9 @@ export default function LoginPage() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
-
     // Frontend Validation
     if (!email.includes('@') || !email.includes('.') || password.length < 6) {
-      setError('Invalid email or password.')
+      toast.error('Invalid email or password.')
       return
     }
 
@@ -49,7 +47,7 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Login failed. Please try again.'
-      setError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -188,13 +186,6 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Error Message */}
-            {error && (
-              <div className="flex items-center gap-2 bg-red-500/20 border border-red-400/30 rounded-xl px-4 py-2.5 text-red-300 text-[14px]">
-                <AlertCircle size={16} className="flex-shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
 
             {/* Login Button */}
             <div className="flex justify-center mt-2">

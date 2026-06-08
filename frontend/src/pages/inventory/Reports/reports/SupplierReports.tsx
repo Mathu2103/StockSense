@@ -100,9 +100,7 @@ export default function SupplierReports({ onViewChange }: { onViewChange: (view:
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <button onClick={() => onViewChange('overview')} className="mb-2 flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-[#0b8252] transition-colors">
-            <span className="material-symbols-outlined text-[16px]">arrow_back</span> Back to Overview
-          </button>
+
           <h2 className="text-2xl font-bold text-slate-800">Supplier Performance Reports</h2>
           <p className="text-slate-500 text-sm mt-1">
             Evaluate supplier lead times, fulfillment rates, and delivery quality metrics.
@@ -222,7 +220,6 @@ export default function SupplierReports({ onViewChange }: { onViewChange: (view:
               <tr className="border-b border-slate-100 bg-slate-50/50">
                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Supplier Name</th>
                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contact Details</th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Main Categories</th>
                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Total Products</th>
                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Last Supply Date</th>
                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Status</th>
@@ -246,13 +243,6 @@ export default function SupplierReports({ onViewChange }: { onViewChange: (view:
                     <p className="text-xs text-slate-500 mt-0.5">{item.phone}</p>
                   </td>
                   <td className="p-4">
-                    <div className="flex flex-wrap gap-1.5">
-                      {item.cats.map((c, idx) => (
-                        <span key={idx} className={`px-2 py-0.5 text-[10px] font-bold rounded-md ${c.c}`}>{c.l}</span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="p-4">
                     <div className="flex flex-col gap-1.5 w-32">
                       <span className="font-bold text-slate-800">{item.products} Items</span>
                       <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -274,7 +264,7 @@ export default function SupplierReports({ onViewChange }: { onViewChange: (view:
               ))}
               {filteredSuppliers.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-500">No suppliers match your filters.</td>
+                  <td colSpan={6} className="p-8 text-center text-slate-500">No suppliers match your filters.</td>
                 </tr>
               )}
             </tbody>
