@@ -121,19 +121,7 @@ export default function ProfileDropdown({ activeDropdown, setActiveDropdown }: P
               </div>
             </button>
 
-            <button
-              type="button"
-              onClick={() => { close(); navigate('/reports'); }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-[#f0fdf4] hover:text-[#0b8252] transition-all duration-150 group"
-            >
-              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-emerald-100 transition-colors">
-                <span className="material-symbols-outlined text-[18px] text-slate-500 group-hover:text-[#0b8252] transition-colors">help</span>
-              </div>
-              <div className="text-left">
-                <p className="text-[12.5px] font-semibold">Help & Support</p>
-                <p className="text-[10.5px] text-slate-400">Documentation & guides</p>
-              </div>
-            </button>
+
           </div>
 
           {/* Logout */}

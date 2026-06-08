@@ -17,72 +17,126 @@ export default function SettingsAlerts({ rules, onChange }: Props) {
   };
 
   return (
-    <div className="max-w-2xl animate-in fade-in duration-300">
-      <h2 className="text-xl font-bold text-slate-800 mb-8">Alert Settings</h2>
-      
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="text-sm font-bold text-slate-800">Enable Low Stock Alerts</h4>
-            <p className="text-sm text-slate-500 mt-0.5">Receive notifications when items reach minimum threshold</p>
+    <div className="max-w-4xl animate-in fade-in duration-300">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 border border-orange-100 text-orange-600 text-[13px] font-bold">
+          <span className="material-symbols-outlined text-[16px]">arrow_downward</span>
+          Reorder at {rules.defaultReorderLevel}%
+        </div>
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 border border-red-50 text-red-600 text-[13px] font-bold">
+          <span className="material-symbols-outlined text-[16px]">warning_amber</span>
+          Critical at {rules.minimumStockThreshold}%
+        </div>
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-50 text-blue-600 text-[13px] font-bold">
+          <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
+          Ceiling at {rules.maximumStockLimit}%
+        </div>
+      </div>
+
+      <div className="bg-white border border-slate-100 rounded-xl p-2 shadow-sm">
+        
+        {/* Low Stock Alerts */}
+        <div className="flex items-center justify-between p-4 border-b border-slate-50">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500">
+              <span className="material-symbols-outlined">warning_amber</span>
+            </div>
+            <div>
+              <div className="flex items-center">
+                <h4 className={`text-[15px] font-bold ${rules.enableLowStockAlerts ? 'text-slate-800' : 'text-slate-400'}`}>Low Stock Alerts</h4>
+              </div>
+              <p className={`text-[14px] mt-0.5 ${rules.enableLowStockAlerts ? 'text-slate-500' : 'text-slate-300'}`}>
+                Below {rules.defaultReorderLevel}% reorder · {rules.minimumStockThreshold}% critical — per product capacity
+              </p>
+            </div>
           </div>
-          <div className="cursor-pointer" onClick={() => updateField('enableLowStockAlerts', !rules.enableLowStockAlerts)}>
+          <div className="cursor-pointer ml-4" onClick={() => updateField('enableLowStockAlerts', !rules.enableLowStockAlerts)}>
             <Toggle active={rules.enableLowStockAlerts} />
           </div>
         </div>
-        
-        <div className="flex items-center justify-between border-t border-slate-100 pt-6">
-          <div>
-            <h4 className="text-sm font-bold text-slate-800">Out of Stock Alerts</h4>
-            <p className="text-sm text-slate-500 mt-0.5">Immediate alerts when inventory hits zero</p>
+
+        {/* Out of Stock Alerts */}
+        <div className="flex items-center justify-between p-4 border-b border-slate-50">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-500">
+              <span className="material-symbols-outlined text-[20px]">cancel</span>
+            </div>
+            <div>
+              <div className="flex items-center">
+                <h4 className={`text-[15px] font-bold ${rules.enableOutOfStockAlerts ? 'text-slate-800' : 'text-slate-400'}`}>Out of Stock Alerts</h4>
+              </div>
+              <p className={`text-[14px] mt-0.5 ${rules.enableOutOfStockAlerts ? 'text-slate-500' : 'text-slate-300'}`}>
+                Fires when any active product hits zero units
+              </p>
+            </div>
           </div>
-          <div className="cursor-pointer" onClick={() => updateField('enableOutOfStockAlerts', !rules.enableOutOfStockAlerts)}>
+          <div className="cursor-pointer ml-4" onClick={() => updateField('enableOutOfStockAlerts', !rules.enableOutOfStockAlerts)}>
             <Toggle active={rules.enableOutOfStockAlerts} />
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-100 pt-6">
-          <div>
-            <h4 className="text-sm font-bold text-slate-800">Dead Stock Alerts</h4>
-            <p className="text-sm text-slate-500 mt-0.5">Alerts for items with no movement over specified duration</p>
+        {/* Expiring Soon Alerts */}
+        <div className="flex items-center justify-between p-4 border-b border-slate-50">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-300">
+              <span className="material-symbols-outlined">alarm</span>
+            </div>
+            <div>
+              <div className="flex items-center">
+                <h4 className={`text-[15px] font-bold ${rules.enableExpiringSoonAlerts ? 'text-slate-800' : 'text-slate-400'}`}>Expiring Soon Alerts</h4>
+                <span className="bg-[#0b8252] text-white text-[10px] font-bold px-2 py-0.5 rounded ml-2 uppercase tracking-wide">Novelty</span>
+              </div>
+              <p className={`text-[14px] mt-0.5 ${rules.enableExpiringSoonAlerts ? 'text-slate-500' : 'text-slate-300'}`}>
+                Date-driven · auto-escalates 50% → 25% → 10% → Expired
+              </p>
+            </div>
           </div>
-          <div className="cursor-pointer" onClick={() => updateField('enableDeadStockAlerts', !rules.enableDeadStockAlerts)}>
+          <div className="cursor-pointer ml-4" onClick={() => updateField('enableExpiringSoonAlerts', !rules.enableExpiringSoonAlerts)}>
+            <Toggle active={rules.enableExpiringSoonAlerts} />
+          </div>
+        </div>
+
+        {/* Dead Stock Alerts */}
+        <div className="flex items-center justify-between p-4 border-b border-slate-50">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-300">
+              <span className="material-symbols-outlined">inventory_2</span>
+            </div>
+            <div>
+              <div className="flex items-center">
+                <h4 className={`text-[15px] font-bold ${rules.enableDeadStockAlerts ? 'text-slate-800' : 'text-slate-400'}`}>Dead Stock Alerts</h4>
+                <span className="bg-[#0b8252] text-white text-[10px] font-bold px-2 py-0.5 rounded ml-2 uppercase tracking-wide">Novelty</span>
+              </div>
+              <p className={`text-[14px] mt-0.5 ${rules.enableDeadStockAlerts ? 'text-slate-500' : 'text-slate-300'}`}>
+                Velocity engine · Never Sold, Dead (30d+), Slow Moving
+              </p>
+            </div>
+          </div>
+          <div className="cursor-pointer ml-4" onClick={() => updateField('enableDeadStockAlerts', !rules.enableDeadStockAlerts)}>
             <Toggle active={rules.enableDeadStockAlerts} />
           </div>
         </div>
 
-        <div className="border-t border-slate-100 pt-6">
-          <h4 className="text-sm font-bold text-slate-800 mb-4">Notification Channels</h4>
-          <div className="flex gap-6">
-            <label className="flex items-center gap-2 cursor-pointer text-slate-700 text-sm font-medium">
-              <input 
-                type="checkbox" 
-                checked={rules.notifyInApp} 
-                onChange={(e) => updateField('notifyInApp', e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 text-[#0b8252] focus:ring-[#0b8252] accent-[#0b8252]" 
-              />
-              In-app
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer text-slate-700 text-sm font-medium">
-              <input 
-                type="checkbox" 
-                checked={rules.notifyEmail} 
-                onChange={(e) => updateField('notifyEmail', e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 text-[#0b8252] focus:ring-[#0b8252] accent-[#0b8252]" 
-              />
-              Email
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer text-slate-700 text-sm font-medium">
-              <input 
-                type="checkbox" 
-                checked={rules.notifySMS} 
-                onChange={(e) => updateField('notifySMS', e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 text-[#0b8252] focus:ring-[#0b8252] accent-[#0b8252]" 
-              />
-              SMS
-            </label>
+        {/* Overstock Alerts */}
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-300">
+              <span className="material-symbols-outlined">trending_down</span>
+            </div>
+            <div>
+              <div className="flex items-center">
+                <h4 className={`text-[15px] font-bold ${rules.enableOverstockAlerts ? 'text-slate-800' : 'text-slate-400'}`}>Overstock Alerts</h4>
+              </div>
+              <p className={`text-[14px] mt-0.5 ${rules.enableOverstockAlerts ? 'text-slate-500' : 'text-slate-300'}`}>
+                Exceeds {rules.maximumStockLimit}% ceiling — per product capacity
+              </p>
+            </div>
+          </div>
+          <div className="cursor-pointer ml-4" onClick={() => updateField('enableOverstockAlerts', !rules.enableOverstockAlerts)}>
+            <Toggle active={rules.enableOverstockAlerts} />
           </div>
         </div>
+
       </div>
     </div>
   );
