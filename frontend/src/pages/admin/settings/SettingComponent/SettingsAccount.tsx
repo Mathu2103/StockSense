@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
-import { Toggle } from './Toggle';
 import { toast } from 'sonner';
 
 export default function SettingsAccount() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   const handlePasswordChange = (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
+      setError('New passwords do not match');
       toast.error('New passwords do not match');
       return;
     }
+    setError(null);
     toast.success('Password updated successfully!');
     setCurrentPassword('');
     setNewPassword('');
@@ -34,6 +36,13 @@ export default function SettingsAccount() {
             <span className="material-symbols-outlined text-[20px] text-[#0b8252]">lock</span>
             Change Password
           </h3>
+
+          {error && (
+            <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-[14px] text-red-600 font-semibold flex items-center gap-2">
+              <span className="material-symbols-outlined text-[20px]">error</span>
+              {error}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-x-8 gap-y-6">
             <div className="flex flex-col gap-2 col-span-2 md:col-span-1">

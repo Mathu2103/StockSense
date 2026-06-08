@@ -7,56 +7,6 @@ interface AdminHeaderProps {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   QUICK CREATE MENU CONFIG
-   ────────────────────────────────────────────────────────────────────────── */
-const quickCreateCategories = [
-  {
-    label: 'INVENTORY',
-    icon: 'inventory_2',
-    color: '#0b8252',
-    bg: 'from-emerald-50 to-emerald-100/40',
-    items: [
-      { name: 'Add New Product', path: '/manage-products/new', icon: 'add_box' },
-      { name: 'New Category', path: '/categories', icon: 'category' },
-      { name: 'Stock Adjustment', path: '/inventory-operations?tab=adjustments', icon: 'sync_alt' },
-      { name: 'Stock Movement', path: '/inventory-operations?tab=movements', icon: 'swap_horiz' },
-    ],
-  },
-  {
-    label: 'PROCUREMENT',
-    icon: 'local_shipping',
-    color: '#6366f1',
-    bg: 'from-indigo-50 to-indigo-100/40',
-    items: [
-      { name: 'New Supplier', path: '/suppliers?tab=suppliers&action=new-supplier', icon: 'person_add' },
-      { name: 'Purchase Order', path: '/suppliers?tab=records&action=record-purchase', icon: 'receipt_long' },
-      { name: 'Purchase Record', path: '/suppliers?tab=records', icon: 'assignment' },
-    ],
-  },
-  {
-    label: 'ANALYTICS',
-    icon: 'trending_up',
-    color: '#f59e0b',
-    bg: 'from-amber-50 to-amber-100/40',
-    items: [
-      { name: 'Generate Report', path: '/reports', icon: 'summarize' },
-      { name: 'View Analytics', path: '/inventory-analytics', icon: 'bar_chart' },
-      { name: 'Alert Rules', path: '/alerts', icon: 'notification_add' },
-    ],
-  },
-  {
-    label: 'SYSTEM',
-    icon: 'settings',
-    color: '#64748b',
-    bg: 'from-slate-50 to-slate-100/40',
-    items: [
-      { name: 'Settings', path: '/settings', icon: 'tune' },
-      { name: 'Dashboard', path: '/inventory', icon: 'grid_view' },
-    ],
-  },
-];
-
-/* ──────────────────────────────────────────────────────────────────────────
    NOTIFICATIONS CONFIG
    ────────────────────────────────────────────────────────────────────────── */
 const notifications = [
@@ -110,133 +60,6 @@ const formatRole = (role: string) => {
   };
   return roleMap[role] || role;
 };
-
-/* ──────────────────────────────────────────────────────────────────────────
-   SUB-COMPONENT: QUICK CREATE DROPDOWN
-   ────────────────────────────────────────────────────────────────────────── */
-function QuickCreateDropdown({ activeDropdown, setActiveDropdown }: { activeDropdown: string | null; setActiveDropdown: (name: string | null) => void }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
-  const isOpen = activeDropdown === 'quickcreate';
-
-  const toggle = () => setActiveDropdown(isOpen ? null : 'quickcreate');
-  const close = () => setActiveDropdown(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        close();
-      }
-    };
-    if (isOpen) document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [isOpen]);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, []);
-
-  return (
-    <div className="relative" ref={containerRef}>
-      <button
-        type="button"
-        onClick={toggle}
-        className={`
-          relative flex items-center justify-center w-10 h-10 rounded-xl
-          text-white transition-all duration-300 ease-out
-          shadow-[0_2px_8px_rgba(11,130,82,0.35)]
-          hover:shadow-[0_4px_16px_rgba(11,130,82,0.45)] hover:scale-110
-          active:scale-95
-          ${isOpen
-            ? 'bg-gradient-to-br from-[#096b43] to-[#064e31]'
-            : 'bg-gradient-to-br from-[#0b8252] to-[#0a7048]'
-          }
-        `}
-        aria-expanded={isOpen}
-        aria-label="Quick create menu"
-      >
-        <span
-          className={`material-symbols-outlined text-[22px] transition-transform duration-300 ease-out ${isOpen ? 'rotate-45' : 'rotate-0'}`}
-        >
-          add
-        </span>
-        <span className="absolute inset-0 rounded-xl border-2 border-white/0 hover:border-white/20 transition-all duration-300" />
-      </button>
-
-      {isOpen && (
-        <div
-          className="absolute right-[-14rem] top-[3.2rem] z-50 w-[44rem] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_50px_rgba(0,0,0,0.15)] animate-in fade-in slide-in-from-top-2 duration-200"
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5 bg-gradient-to-r from-[#f0fdf4] via-white to-white">
-            <div className="flex items-center gap-2.5">
-              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#0b8252]/10">
-                <span className="material-symbols-outlined text-[18px] text-[#0b8252]">bolt</span>
-              </div>
-              <div>
-                <p className="text-sm font-bold text-slate-800">Quick Create</p>
-                <p className="text-[11px] text-slate-500">Jump to any action instantly</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={close}
-              className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition-all duration-150"
-            >
-              <span className="material-symbols-outlined text-[18px]">close</span>
-            </button>
-          </div>
-
-          {/* Category Grid */}
-          <div className="grid grid-cols-4 gap-0 divide-x divide-slate-100/80">
-            {quickCreateCategories.map((category) => (
-              <div key={category.label} className="p-4">
-                <div className="flex items-center gap-2 mb-3 pb-2.5 border-b border-slate-100">
-                  <div className={`flex items-center justify-center w-6 h-6 rounded-md bg-gradient-to-br ${category.bg}`}>
-                    <span className="material-symbols-outlined text-[14px]" style={{ color: category.color }}>{category.icon}</span>
-                  </div>
-                  <span className="text-[10px] font-extrabold tracking-[0.08em] uppercase" style={{ color: category.color }}>{category.label}</span>
-                </div>
-
-                <div className="space-y-0.5">
-                  {category.items.map((item) => (
-                    <button
-                      key={item.name}
-                      type="button"
-                      onClick={() => { close(); navigate(item.path); }}
-                      className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left text-slate-600 hover:bg-[#f0fdf4] hover:text-[#0b8252] transition-all duration-150 group"
-                    >
-                      <span className="material-symbols-outlined text-[17px] text-slate-400 group-hover:text-[#0b8252] transition-colors">{item.icon}</span>
-                      <span className="text-[12.5px] font-medium leading-tight">{item.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Footer */}
-          <div className="border-t border-slate-100 bg-slate-50/60 px-5 py-2.5 flex items-center justify-between">
-            <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[14px]">keyboard</span>
-              Press <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono font-bold text-slate-500">Esc</kbd> to close
-            </p>
-            <button
-              type="button"
-              onClick={() => { close(); navigate('/admin'); }}
-              className="text-[11px] font-semibold text-[#0b8252] hover:text-[#096b43] hover:underline flex items-center gap-1 transition-colors"
-            >
-              Go to Dashboard
-              <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 /* ──────────────────────────────────────────────────────────────────────────
    SUB-COMPONENT: NOTIFICATION DROPDOWN
@@ -366,10 +189,7 @@ function ProfileDropdown({ activeDropdown, setActiveDropdown }: { activeDropdown
   const toggle = () => setActiveDropdown(isOpen ? null : 'profile');
   const close = () => setActiveDropdown(null);
 
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editName, setEditName] = useState(user?.name || 'User');
-  const [editEmail, setEditEmail] = useState(user?.email || '');
-  const [editPhone, setEditPhone] = useState('+1 (555) 000-0000');
+
 
   const userName = user?.name || 'User';
   const userRole = user?.role ? formatRole(user.role) : 'Team Member';
@@ -441,30 +261,19 @@ function ProfileDropdown({ activeDropdown, setActiveDropdown }: { activeDropdown
           <div className="py-1.5 px-1.5 space-y-0.5">
             <button
               type="button"
-              onClick={() => { close(); setIsEditModalOpen(true); }}
+              onClick={() => { close(); navigate('/admin/settings?tab=My Profile'); }}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-[#f0fdf4] hover:text-[#0b8252] transition-all duration-150 group"
             >
               <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-emerald-100 transition-colors">
-                <span className="material-symbols-outlined text-[18px] text-slate-500 group-hover:text-[#0b8252] transition-colors">edit_square</span>
+                <span className="material-symbols-outlined text-[18px] text-slate-500 group-hover:text-[#0b8252] transition-colors">person</span>
               </div>
               <div className="text-left">
-                <p className="text-[12.5px] font-semibold">Edit Profile</p>
-                <p className="text-[10.5px] text-slate-400">Update your details</p>
+                <p className="text-[12.5px] font-semibold">My Profile</p>
+                <p className="text-[10.5px] text-slate-400">View and edit your details</p>
               </div>
             </button>
-            <button
-              type="button"
-              onClick={() => { close(); navigate('/reports'); }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-[#f0fdf4] hover:text-[#0b8252] transition-all duration-150 group"
-            >
-              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 group-hover:bg-emerald-100 transition-colors">
-                <span className="material-symbols-outlined text-[18px] text-slate-500 group-hover:text-[#0b8252] transition-colors">help</span>
-              </div>
-              <div className="text-left">
-                <p className="text-[12.5px] font-semibold">Help & Support</p>
-                <p className="text-[10.5px] text-slate-400">Documentation & guides</p>
-              </div>
-            </button>
+
+
           </div>
 
           {/* Logout */}
@@ -582,9 +391,6 @@ export default function AdminHeader({ children }: AdminHeaderProps) {
             {time.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </span>
         </div>
-
-        {/* Quick Create */}
-        <QuickCreateDropdown activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown} />
 
         {/* Notifications */}
         <NotificationDropdown activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown} />
