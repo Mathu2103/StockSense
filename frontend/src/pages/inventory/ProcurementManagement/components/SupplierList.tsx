@@ -1,4 +1,3 @@
-import React from 'react';
 import { Supplier } from '../constants/supplierConstants';
 
 interface SupplierListProps {
@@ -11,7 +10,6 @@ interface SupplierListProps {
   onSupplierClick: (supplier: Supplier) => void;
   onEditClick: (supplier: Supplier) => void;
   onDeleteClick: (id: string) => void;
-  onExportClick: () => void;
   onAddClick: () => void;
 }
 
@@ -25,7 +23,6 @@ export default function SupplierList({
   onSupplierClick,
   onEditClick,
   onDeleteClick,
-  onExportClick,
   onAddClick,
 }: SupplierListProps) {
   const totalSuppliersCount = suppliersList.length;
@@ -99,13 +96,6 @@ export default function SupplierList({
         {/* Actions Buttons */}
         <div className="flex items-center gap-3 flex-shrink-0">
           <button
-            onClick={onExportClick}
-            className="px-4 py-2 border border-outline-variant rounded-lg text-xs font-bold text-on-surface hover:bg-surface-container transition-all flex items-center gap-2"
-          >
-            <span className="material-symbols-outlined text-[16px]">download</span>
-            Export Suppliers
-          </button>
-          <button
             onClick={onAddClick}
             className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-extrabold hover:bg-primary/95 shadow-sm transition-all flex items-center gap-2"
           >
@@ -154,7 +144,7 @@ export default function SupplierList({
                     </td>
                     <td className="px-6 py-4">{s.contact}</td>
                     <td className="px-6 py-4 text-slate-600">{s.phone}</td>
-                    <td className="px-6 py-4 text-slate-600">{s.email}</td>
+                    <td className="px-6 py-4 text-slate-600">{s.email || '—'}</td>
                     <td
                       className="px-6 py-4 max-w-[200px] truncate text-slate-500"
                       title={`${s.street}, ${s.city}`}

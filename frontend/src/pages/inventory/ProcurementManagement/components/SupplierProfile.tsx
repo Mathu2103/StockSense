@@ -1,4 +1,3 @@
-import React from 'react';
 import { Supplier } from '../constants/supplierConstants';
 
 interface SupplierProfileProps {
@@ -42,22 +41,24 @@ export default function SupplierProfile({
 
             {/* Legal Company details */}
             <p className="text-xs font-bold text-slate-500 mt-1">
-              {supplier.companyName} | BRN: {supplier.brn} | Tax ID: {supplier.taxNumber}
+              {supplier.companyName}
             </p>
 
             {/* Contact information details */}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-2.5 text-xs font-semibold text-slate-600">
               <span className="flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm text-primary">person</span> {supplier.contact}
+                <span className="material-symbols-outlined text-sm text-primary">person</span> {supplier.contact} {supplier.contactPhone ? `(${supplier.contactPhone})` : ''}
               </span>
               <span className="flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm text-primary">phone</span> {supplier.phone}
+                <span className="material-symbols-outlined text-sm text-primary">call</span> {supplier.phone}
               </span>
+              {supplier.email && (
+                <span className="flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm text-primary">mail</span> {supplier.email}
+                </span>
+              )}
               <span className="flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm text-primary">mail</span> {supplier.email}
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm text-primary">location_on</span> {supplier.street}, {supplier.city}
+                <span className="material-symbols-outlined text-sm text-primary">location_on</span> {supplier.street}, {supplier.city}, {supplier.province}
               </span>
             </div>
           </div>
@@ -105,47 +106,6 @@ export default function SupplierProfile({
           <span className="text-[10px] font-black text-outline uppercase tracking-wider">Last Purchase Date</span>
           <div className="text-3xl font-black text-amber-600">{profileData.lastPurchase}</div>
           <p className="text-[10px] text-slate-500 font-semibold mt-1">Last transaction received</p>
-        </div>
-      </div>
-
-      {/* 3. Performance Metrics Grid Panel */}
-      <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm space-y-4">
-        <h3 className="font-extrabold text-sm text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
-          <span className="material-symbols-outlined text-primary text-[18px]">verified</span> Enterprise Partner Performance Metrics
-        </h3>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
-          {/* Metric 1: Reliability Score */}
-          <div className="space-y-2 flex flex-col items-center">
-            <span className="text-[10px] font-black text-outline uppercase tracking-wider">Supplier Reliability Score</span>
-            <div className="w-20 h-20 rounded-full border-4 border-[#0b8252] flex items-center justify-center text-sm font-black text-slate-800 bg-[#eef8f2] shadow-sm">
-              {supplier.reliability}%
-            </div>
-            <p className="text-[10px] text-[#0b8252] font-extrabold">Excellent performance</p>
-          </div>
-
-          {/* Metric 2: Delivery Success Rate */}
-          <div className="space-y-2 flex flex-col items-center">
-            <span className="text-[10px] font-black text-outline uppercase tracking-wider">Delivery Success Rate</span>
-            <div className="w-20 h-20 rounded-full border-4 border-primary flex items-center justify-center text-sm font-black text-slate-800 bg-primary/5 shadow-sm">
-              {supplier.onTime}%
-            </div>
-            <p className="text-[10px] text-primary font-extrabold">On-time consignment arrivals</p>
-          </div>
-
-          {/* Metric 3: Average Order Value */}
-          <div className="space-y-2 flex flex-col items-center justify-center">
-            <span className="text-[10px] font-black text-outline uppercase tracking-wider block">Average Order Value</span>
-            <div className="text-xl font-black text-slate-800 mt-2">{profileData.averageOrderValueFormatted}</div>
-            <p className="text-[10px] text-slate-500 font-bold mt-1">AOV calculated dynamically</p>
-          </div>
-
-          {/* Metric 4: Purchase Frequency */}
-          <div className="space-y-2 flex flex-col items-center justify-center">
-            <span className="text-[10px] font-black text-outline uppercase tracking-wider block">Purchase Frequency</span>
-            <div className="text-xl font-black text-primary mt-2">{profileData.frequency}</div>
-            <p className="text-[10px] text-slate-500 font-bold mt-1">Based on delivery days</p>
-          </div>
         </div>
       </div>
     </div>

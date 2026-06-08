@@ -3,6 +3,7 @@ export interface Supplier {
   name: string;
   contact: string;
   phone: string;
+  contactPhone: string;
   email: string;
   companyName: string;
   brn: string;
@@ -29,6 +30,7 @@ export const initialSuppliers: Supplier[] = [
     name: 'ABC Distributors',
     contact: 'John Doe',
     phone: '+94 77 123 4567',
+    contactPhone: '+94 77 123 4560',
     email: 'john@abcdistributors.com',
     companyName: 'ABC Logistics Pvt Ltd',
     brn: 'BRN-20150912',
@@ -53,6 +55,7 @@ export const initialSuppliers: Supplier[] = [
     name: 'Fresh Foods Ltd',
     contact: 'Jane Smith',
     phone: '+94 71 987 6543',
+    contactPhone: '+94 71 987 6540',
     email: 'jane@freshfoodslk.com',
     companyName: 'Fresh Foods Sri Lanka',
     brn: 'BRN-20181102',
@@ -77,6 +80,7 @@ export const initialSuppliers: Supplier[] = [
     name: 'Lanka Grocery Suppliers',
     contact: 'Kamal Perera',
     phone: '+94 75 555 5555',
+    contactPhone: '+94 75 555 5550',
     email: 'kamal@lgs.lk',
     companyName: 'LGS Holdings',
     brn: 'BRN-20120516',
@@ -101,6 +105,7 @@ export const initialSuppliers: Supplier[] = [
     name: 'XYZ Suppliers',
     contact: 'Nimal Silva',
     phone: '+94 72 222 3333',
+    contactPhone: '+94 72 222 3330',
     email: 'nimal@xyz.lk',
     companyName: 'XYZ Imports',
     brn: 'BRN-20160824',
