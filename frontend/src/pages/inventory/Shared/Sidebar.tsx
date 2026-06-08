@@ -29,7 +29,6 @@ export default function Sidebar() {
     { name: 'Stock Operations', path: '/inventory-operations', icon: 'sync_alt' },
     { name: 'Alerts', path: '/alerts', icon: 'notifications' },
     { name: 'Reports', path: '/reports', icon: 'bar_chart' },
-    { name: 'Settings', path: '/settings', icon: 'settings' },
   ];
 
 

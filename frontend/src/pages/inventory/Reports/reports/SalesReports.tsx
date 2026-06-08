@@ -47,8 +47,8 @@ export default function SalesReports({ onViewChange }: { onViewChange: (view: Vi
     ? `Sales_Report_${dateRange.start}_to_${dateRange.end}`
     : `Sales_Report_${period}`;
 
-  const reportHeaders = ['Product Name', 'Category', 'SKU', 'Qty Sold', 'Price', 'Revenue', 'Status'];
-  const reportRows = filteredProducts.map(p => [p.name, p.cat, p.sku, p.qty, p.price, p.rev, p.status]);
+  const reportHeaders = ['Product Name', 'Category', 'SKU', 'Qty Sold', 'Price', 'Revenue'];
+  const reportRows = filteredProducts.map(p => [p.name, p.cat, p.sku, p.qty, p.price, p.rev]);
   const reportData = { headers: reportHeaders, rows: reportRows };
 
   return (
@@ -88,9 +88,7 @@ export default function SalesReports({ onViewChange }: { onViewChange: (view: Vi
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <button onClick={() => onViewChange('overview')} className="mb-2 flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-[#0b8252] transition-colors">
-            <span className="material-symbols-outlined text-[16px]">arrow_back</span> Back to Overview
-          </button>
+
           <h2 className="text-2xl font-bold text-slate-800">Sales Reports</h2>
           <p className="text-slate-500 text-sm mt-1">
             Analyze performance metrics and revenue streams across periods.
@@ -210,7 +208,6 @@ export default function SalesReports({ onViewChange }: { onViewChange: (view: Vi
                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Quantity Sold</th>
                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Unit Price</th>
                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Revenue</th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
@@ -228,16 +225,11 @@ export default function SalesReports({ onViewChange }: { onViewChange: (view: Vi
                   <td className="p-4 text-center font-medium text-slate-700">{item.qty}</td>
                   <td className="p-4 text-center font-medium text-slate-700">{item.price}</td>
                   <td className="p-4 text-right font-bold text-slate-800">{item.rev}</td>
-                  <td className="p-4 text-center">
-                    <span className={`px-2 py-1 text-[10px] font-bold rounded-full whitespace-nowrap ${item.sClass}`}>
-                      {item.status}
-                    </span>
-                  </td>
                 </tr>
               ))}
               {filteredProducts.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-500">
+                  <td colSpan={4} className="p-8 text-center text-slate-500">
                     No products found in this category.
                   </td>
                 </tr>

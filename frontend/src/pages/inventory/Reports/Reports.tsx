@@ -1,17 +1,22 @@
-import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ViewState } from './reports/reportUtils';
 import Sidebar from '../Shared/Sidebar';
 import InventoryHeader from '../Shared/InventoryHeader';
 import ReportsOverview from './reports/ReportsOverview';
 import SalesReports from './reports/SalesReports';
 import InventoryReports from './reports/InventoryReports';
-import SupplierReports from './reports/SupplierReports';
-import ActivityReports from './reports/ActivityReports';
 import PurchaseReports from './reports/PurchaseReports';
 import AlertReports from './reports/AlertReports';
+import SupplierReports from './reports/SupplierReports';
+import ActivityReports from './reports/ActivityReports';
 
 export default function Reports() {
-  const [activeView, setActiveView] = useState<ViewState>('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeView = (searchParams.get('view') as ViewState) || 'overview';
+
+  const setActiveView = (view: ViewState) => {
+    setSearchParams({ view });
+  };
 
   const renderView = () => {
     switch (activeView) {

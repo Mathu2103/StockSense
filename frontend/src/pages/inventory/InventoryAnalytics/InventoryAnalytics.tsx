@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { toast } from 'sonner';
 import Sidebar from '../Shared/Sidebar';
 import InventoryHeader from '../Shared/InventoryHeader';
 import { inventoryOperationsService, ProductItem, LedgerEntry } from '../StockOperations/operations/inventoryOperationsService';
@@ -13,7 +14,6 @@ export default function InventoryAnalytics() {
   // ── UI State ────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'overview' | 'velocity' | 'risk'>('overview');
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'year' | 'custom'>('month');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [hoveredChartBar, setHoveredChartBar] = useState<string | null>(null);
   const [hoveredDonutSegment, setHoveredDonutSegment] = useState<string | null>(null);
   const [customFrom, setCustomFrom] = useState<string>('');
@@ -35,8 +35,7 @@ export default function InventoryAnalytics() {
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
   const triggerToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+    toast.success(msg);
   };
 
   const handleExport = () => {
@@ -249,14 +248,6 @@ export default function InventoryAnalytics() {
 
       <div className="flex-1 flex flex-col overflow-hidden relative">
         <InventoryHeader />
-
-        {/* Toast Notification */}
-        {toastMessage && (
-          <div className="fixed top-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl shadow-lg animate-in fade-in slide-in-from-top-4 duration-200">
-            <span className="material-symbols-outlined text-[#0b8252]">info</span>
-            <span className="text-xs font-extrabold text-white">{toastMessage}</span>
-          </div>
-        )}
 
         <main className="flex-1 overflow-y-auto px-6 py-6 bg-[#f8f9fa]">
           <div className="max-w-[1400px] w-full mx-auto space-y-6">

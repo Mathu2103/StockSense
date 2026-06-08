@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from '../Shared/Sidebar';
 import AdminHeader from '../Shared/AdminHeader';
 import { authService, AuthUser } from '../../../services/authService';
+import { toast } from 'sonner';
 
 export default function AccountManagement() {
   // State
@@ -27,7 +28,6 @@ export default function AccountManagement() {
     role: 'CASHIER' as 'CASHIER' | 'INVENTORY_MANAGER',
     status: 'ACTIVE'
   });
-  const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Load Users (We load backend users and map additional mock fields like phone/username for UI demonstration if needed, but the backend handles name, email, role)
@@ -55,22 +55,22 @@ export default function AccountManagement() {
       );
     } catch (err) {
       console.error('Failed to toggle user status', err);
+      toast.error('Failed to toggle user status');
     }
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError(null);
     if (!formData.name || !formData.username || !formData.password || !formData.role) {
-      setFormError('Name, Username, Password, and Role are required.');
+      toast.error('Name, Username, Password, and Role are required.');
       return;
     }
     if (formData.password !== formData.confirmPassword) {
-      setFormError('Passwords do not match.');
+      toast.error('Passwords do not match.');
       return;
     }
     if (formData.password.length < 6) {
-      setFormError('Password must be at least 6 characters.');
+      toast.error('Password must be at least 6 characters.');
       return;
     }
     setSubmitting(true);
@@ -86,9 +86,10 @@ export default function AccountManagement() {
       setUsers((prev) => [created, ...prev]);
       setShowAddModal(false);
       setFormData({ name: '', phone: '', username: '', password: '', confirmPassword: '', role: 'CASHIER', status: 'ACTIVE' });
+      toast.success('Account created successfully!');
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Failed to create user account.';
-      setFormError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -359,13 +360,6 @@ export default function AccountManagement() {
 
             {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-6">
-              {formError && (
-                <div className="mb-6 p-3 bg-rose-50 border border-rose-100 rounded-xl text-sm text-rose-600 font-semibold flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[18px]">error</span>
-                  {formError}
-                </div>
-              )}
-
               <form id="add-employee-form" onSubmit={handleCreateUser} className="space-y-6">
                 {/* Personal Information */}
                 <div>

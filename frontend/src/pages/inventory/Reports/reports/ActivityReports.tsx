@@ -107,18 +107,16 @@ export default function ActivityReports({ onViewChange }: { onViewChange: (view:
     ? `Activity_Report_${dateRange.start}_to_${dateRange.end}`
     : `Activity_Report_${period}`;
 
-  const reportHeaders = ['Timestamp', 'Product', 'SKU', 'Movement Type', 'Qty Delta', 'Stock Before', 'Stock After', 'Reason', 'Authorized By', 'Status'];
+  const reportHeaders = ['Timestamp', 'Product', 'SKU', 'Qty Delta', 'Stock Before', 'Stock After', 'Reason', 'Authorized By'];
   const reportRows = filteredLedger.map(e => [
     new Date(e.timestamp).toLocaleString(),
     e.productName,
     e.sku,
-    e.movementType,
     e.quantityChange > 0 ? `+${e.quantityChange}` : String(e.quantityChange),
     String(e.beforeStock),
     String(e.afterStock),
     e.reason,
-    e.user,
-    e.status
+    e.user
   ]);
   const reportData = { headers: reportHeaders, rows: reportRows };
 
@@ -158,10 +156,8 @@ export default function ActivityReports({ onViewChange }: { onViewChange: (view:
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <button onClick={() => onViewChange('overview')} className="mb-2 flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-[#0b8252] transition-colors">
-            <span className="material-symbols-outlined text-[16px]">arrow_back</span> Back to Overview
-          </button>
-          <h2 className="text-2xl font-bold text-slate-800">Activity Reports</h2>
+
+          <h2 className="text-2xl font-bold text-slate-800">Adjustment Reports</h2>
           <p className="text-slate-500 text-sm mt-1">
             Real-time audit trail of all inventory movements across the supermarket network.
             {period === 'Custom Range' && dateRange.start && dateRange.end && (
@@ -281,18 +277,16 @@ export default function ActivityReports({ onViewChange }: { onViewChange: (view:
                 <th className="px-4 py-3">Timestamp</th>
                 <th className="px-4 py-3">Product Profile</th>
                 <th className="px-4 py-3">SKU ID</th>
-                <th className="px-4 py-3 text-center">Movement Type</th>
                 <th className="px-4 py-3 text-center">Qty Delta</th>
                 <th className="px-4 py-3 text-center">Stock Transitions</th>
                 <th className="px-4 py-3">Description Reason</th>
                 <th className="px-4 py-3">Authorized By</th>
-                <th className="px-4 py-3 text-center">Audit Check</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
               {filteredLedger.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-slate-400 font-bold">
+                  <td colSpan={7} className="px-4 py-12 text-center text-slate-400 font-bold">
                     No transactions reported in the selected frame.
                   </td>
                 </tr>
@@ -325,15 +319,6 @@ export default function ActivityReports({ onViewChange }: { onViewChange: (view:
                         </div>
                       </td>
                       <td className="px-4 py-3 font-mono text-slate-600 font-bold">{entry.sku}</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`inline-block px-2.5 py-0.5 font-extrabold text-[10px] rounded-full border ${
-                          entry.movementType === 'GRN' ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                          : entry.movementType === 'Sale' ? 'bg-blue-50 text-blue-700 border-blue-100'
-                          : 'bg-amber-50 text-amber-700 border-amber-100'
-                        }`}>
-                          {entry.movementType}
-                        </span>
-                      </td>
                       <td className={`px-4 py-3 text-center font-black ${entry.quantityChange > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                         {entry.quantityChange > 0 ? `+${entry.quantityChange}` : entry.quantityChange}
                       </td>
@@ -342,15 +327,6 @@ export default function ActivityReports({ onViewChange }: { onViewChange: (view:
                       </td>
                       <td className="px-4 py-3 text-slate-500 font-medium truncate max-w-xs">{entry.reason}</td>
                       <td className="px-4 py-3 text-slate-700 font-bold">{entry.user}</td>
-                      <td className="px-4 py-3 text-center">
-                        {entry.status === 'Success' ? (
-                          <span className="material-symbols-outlined text-emerald-500 text-[18px]">check_circle</span>
-                        ) : entry.status === 'Warning' ? (
-                          <span className="material-symbols-outlined text-amber-500 text-[18px]">warning</span>
-                        ) : (
-                          <span className="material-symbols-outlined text-rose-500 text-[18px]">cancel</span>
-                        )}
-                      </td>
                     </tr>
                   );
                 })

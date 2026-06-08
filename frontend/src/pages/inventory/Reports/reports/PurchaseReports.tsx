@@ -45,8 +45,8 @@ export default function PurchaseReports({ onViewChange }: { onViewChange: (view:
 
   const filteredPurchases = allPurchases.filter(p => statusFilter === 'All Statuses' || p.status === statusFilter);
 
-  const reportHeaders = ['Ref #', 'Date', 'Supplier', 'Product', 'Qty', 'Unit Price', 'Total', 'Status'];
-  const reportRows = filteredPurchases.map(p => [p.ref, p.date, p.sup, p.prod, p.qty, p.price, p.total, p.status]);
+  const reportHeaders = ['Ref #', 'Date', 'Supplier', 'Product', 'Qty', 'Unit Price', 'Total'];
+  const reportRows = filteredPurchases.map(p => [p.ref, p.date, p.sup, p.prod, p.qty, p.price, p.total]);
   const reportData = { headers: reportHeaders, rows: reportRows };
 
   return (
@@ -85,9 +85,7 @@ export default function PurchaseReports({ onViewChange }: { onViewChange: (view:
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <button onClick={() => onViewChange('overview')} className="mb-2 flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-[#0b8252] transition-colors">
-            <span className="material-symbols-outlined text-[16px]">arrow_back</span> Back to Overview
-          </button>
+
           <h2 className="text-2xl font-bold text-slate-800">Purchase Records</h2>
           <p className="text-slate-500 text-sm mt-1">
             Track and monitor supplier purchases and stock inflow.
@@ -191,7 +189,6 @@ export default function PurchaseReports({ onViewChange }: { onViewChange: (view:
                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Qty</th>
                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Unit Price</th>
                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Total</th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
@@ -204,14 +201,11 @@ export default function PurchaseReports({ onViewChange }: { onViewChange: (view:
                   <td className="p-4 text-slate-600 text-xs w-16">{item.qty.replace(" ", "\n")}</td>
                   <td className="p-4 text-slate-600">{item.price}</td>
                   <td className="p-4 font-bold text-slate-800">{item.total}</td>
-                  <td className="p-4 text-center">
-                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-wider ${item.sClass}`}>{item.status}</span>
-                  </td>
                 </tr>
               ))}
               {filteredPurchases.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-500">No records match your filters.</td>
+                  <td colSpan={7} className="p-8 text-center text-slate-500">No records match your filters.</td>
                 </tr>
               )}
             </tbody>
