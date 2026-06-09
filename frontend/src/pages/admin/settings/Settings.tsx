@@ -3,8 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import Sidebar from "../Shared/Sidebar";
 import AdminHeader from "../Shared/AdminHeader";
-import SettingsProfile from "./SettingComponent/SettingsProfile";
-import SettingsAccount from "./SettingComponent/SettingsAccount";
+
 import SettingsStockRules from "./SettingComponent/SettingsStockRules";
 import SettingsAlerts from "./SettingComponent/SettingsAlerts";
 import { StockRulesConfig } from "./SettingComponent/types";
@@ -20,6 +19,8 @@ const DEFAULT_RULES: StockRulesConfig = {
   enableLowStockAlerts: true,
   enableOutOfStockAlerts: true,
   enableDeadStockAlerts: false,
+  enableExpiringSoonAlerts: true,
+  enableOverstockAlerts: false,
   notifyInApp: true,
   notifyEmail: true,
   notifySMS: false,
@@ -54,8 +55,6 @@ export default function Settings() {
   };
 
   const tabs = [
-    { id: 'My Profile', icon: 'person' },
-    { id: 'Account Settings', icon: 'settings' },
     { id: 'Stock Rules', icon: 'rule' },
     { id: 'Alerts', icon: 'notifications' },
   ];
@@ -101,8 +100,7 @@ export default function Settings() {
               <div className="flex-1 flex flex-col bg-white overflow-hidden">
                 <div className="p-8 flex-1 overflow-y-auto bg-slate-50/30">
 
-                  {activeTab === 'My Profile' && <SettingsProfile />}
-                  {activeTab === 'Account Settings' && <SettingsAccount />}
+
                   {activeTab === 'Stock Rules' && (
                     <SettingsStockRules rules={rules} onChange={(updated) => setRules(updated)} />
                   )}
