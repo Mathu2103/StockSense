@@ -4,8 +4,7 @@ import AdminHeader from '../Shared/AdminHeader';
 import { toast } from 'sonner';
 import { authService, AuthUser } from '@/services/authService';
 import { useAuth } from '@/hooks/useAuth';
-import SettingsProfile from '../settings/SettingComponent/SettingsProfile';
-import SettingsAccount from '../settings/SettingComponent/SettingsAccount';
+
 import SettingsStockRules from '../settings/SettingComponent/SettingsStockRules';
 import SettingsAlerts from '../settings/SettingComponent/SettingsAlerts';
 import { StockRulesConfig } from '../settings/SettingComponent/types';
@@ -20,6 +19,8 @@ const DEFAULT_RULES: StockRulesConfig = {
   enableLowStockAlerts: true,
   enableOutOfStockAlerts: true,
   enableDeadStockAlerts: false,
+  enableExpiringSoonAlerts: true,
+  enableOverstockAlerts: false,
   notifyInApp: true,
   notifyEmail: true,
   notifySMS: false,
@@ -28,7 +29,7 @@ const DEFAULT_RULES: StockRulesConfig = {
 export default function DashboardPage() {
   const { user: currentAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'settings'>('overview');
-  const [settingsSubTab, setSettingsSubTab] = useState<'profile' | 'account' | 'rules' | 'alerts'>('profile');
+  const [settingsSubTab, setSettingsSubTab] = useState<'rules' | 'alerts'>('rules');
 
   // Staff User State
   const [users, setUsers] = useState<AuthUser[]>([]);
@@ -473,28 +474,7 @@ export default function DashboardPage() {
                   
                   {/* Left Settings Navigation Pane */}
                   <div className="w-64 border-r border-slate-200 p-4 flex flex-col gap-1 overflow-y-auto bg-white shrink-0">
-                    <button
-                      onClick={() => setSettingsSubTab('profile')}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-colors ${
-                        settingsSubTab === 'profile'
-                          ? 'bg-[#0b8252] text-white shadow-sm'
-                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-[20px]">person</span>
-                      My Profile
-                    </button>
-                    <button
-                      onClick={() => setSettingsSubTab('account')}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-colors ${
-                        settingsSubTab === 'account'
-                          ? 'bg-[#0b8252] text-white shadow-sm'
-                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-[20px]">security</span>
-                      Account Security
-                    </button>
+
                     <button
                       onClick={() => setSettingsSubTab('rules')}
                       className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-bold transition-colors ${
@@ -523,8 +503,7 @@ export default function DashboardPage() {
                   <div className="flex-1 flex flex-col bg-white overflow-hidden">
                     <div className="p-8 flex-1 overflow-y-auto bg-slate-50/30">
                       
-                      {settingsSubTab === 'profile' && <SettingsProfile />}
-                      {settingsSubTab === 'account' && <SettingsAccount />}
+
                       {settingsSubTab === 'rules' && (
                         <SettingsStockRules rules={rules} onChange={(updated) => setRules(updated)} />
                       )}
