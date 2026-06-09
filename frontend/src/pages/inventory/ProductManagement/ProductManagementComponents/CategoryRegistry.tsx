@@ -27,7 +27,7 @@ type CategoryItem = {
 type CategoryRegistryProps = {
   categories: CategoryItem[];
   products: ProductItem[];
-  onViewProducts: (categoryName: string) => void;
+
   onAddCategory: (newCategory: { name: string; description: string; hierarchy: 'parent' | 'sub'; parentId: string; image?: string | null }) => void;
   onEditCategory: (id: string, name: string, description: string, image?: string | null) => void;
   onEditSubcategory: (parentId: string, subId: string, name: string) => void;
@@ -40,13 +40,20 @@ type CategoryRegistryProps = {
   onArchiveProduct?: (productId: string, productName: string) => void;
 };
 
-// View state type
 type ActiveView = 'parents' | 'children' | 'products';
+
+type ArchivePromptData = {
+  type: 'category' | 'subcategory';
+  id: string;
+  parentId?: string;
+  name: string;
+  activeSubcategories: string[];
+  activeProducts: string[];
+} | null;
 
 export default function CategoryRegistry({
   categories,
   products,
-  onViewProducts,
   onAddCategory,
   onEditCategory,
   onEditSubcategory,
@@ -67,6 +74,7 @@ export default function CategoryRegistry({
   const [editingSubcategory, setEditingSubcategory] = useState<{parent: CategoryItem, sub: SubCategoryNode} | null>(null);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const [categoryImage, setCategoryImage] = useState<string | null>(null);
+  const [archivePrompt, setArchivePrompt] = useState<ArchivePromptData>(null);
 
   // Navigation states
   const [activeView, setActiveView] = useState<ActiveView>('parents');
@@ -195,6 +203,30 @@ export default function CategoryRegistry({
     setCategoryName(''); setCategoryDescription(''); setCategoryImage(null);
     setDuplicateError(null); setEditingCategory(null); setEditingSubcategory(null); setIsModalOpen(false);
     if (!editingCategory && !editingSubcategory && returnTo) navigate(`/manage-products?tab=${returnTo}`);
+  };
+
+  const handleInitiateCategoryArchive = (category: CategoryItem) => {
+    const activeSubs = category.children.filter(c => c.status !== 'Inactive').map(c => c.name);
+    const activeProds = products.filter(p => p.category === category.name && p.status === 'Active').map(p => p.name);
+    setArchivePrompt({
+      type: 'category',
+      id: category.id,
+      name: category.name,
+      activeSubcategories: activeSubs,
+      activeProducts: activeProds
+    });
+  };
+
+  const handleInitiateSubcategoryArchive = (parent: CategoryItem, sub: SubCategoryNode) => {
+    const activeProds = products.filter(p => p.category === parent.name && p.subcategory === sub.name && p.status === 'Active').map(p => p.name);
+    setArchivePrompt({
+      type: 'subcategory',
+      id: sub.id,
+      parentId: parent.id,
+      name: sub.name,
+      activeSubcategories: [],
+      activeProducts: activeProds
+    });
   };
 
   const getStockLabel = (p: ProductItem) => {
@@ -331,7 +363,7 @@ export default function CategoryRegistry({
                           <button onClick={() => handleOpenEditModal(category)} title="Edit" className="p-1 rounded text-outline-variant hover:text-primary hover:bg-primary/5 transition-colors">
                             <span className="material-symbols-outlined text-sm">edit</span>
                           </button>
-                          <button onClick={() => onArchiveCategory(category.id)} title="Archive" className="p-1 rounded text-outline-variant hover:text-red-600 hover:bg-red-50 transition-colors">
+                          <button onClick={() => handleInitiateCategoryArchive(category)} title="Archive" className="p-1 rounded text-outline-variant hover:text-red-600 hover:bg-red-50 transition-colors">
                             <span className="material-symbols-outlined text-sm">archive</span>
                           </button>
                         </div>
@@ -460,7 +492,7 @@ export default function CategoryRegistry({
                           <button onClick={() => handleOpenSubcategoryEditModal(currentParent, child)} className="p-1 rounded text-outline-variant hover:text-primary hover:bg-primary/5">
                             <span className="material-symbols-outlined text-[16px]">edit</span>
                           </button>
-                          <button onClick={() => onArchiveSubcategory(currentParent.id, child.id)} className="p-1 rounded text-outline-variant hover:text-red-600 hover:bg-red-50">
+                          <button onClick={() => handleInitiateSubcategoryArchive(currentParent, child)} className="p-1 rounded text-outline-variant hover:text-red-600 hover:bg-red-50">
                             <span className="material-symbols-outlined text-[16px]">archive</span>
                           </button>
                         </div>
@@ -861,6 +893,80 @@ export default function CategoryRegistry({
               <button type="button" onClick={() => { setIsModalOpen(false); setCategoryName(''); setCategoryDescription(''); setEditingCategory(null); setEditingSubcategory(null); }} className="px-4 py-2 bg-white border border-outline rounded-lg text-xs font-bold text-on-surface-variant hover:bg-slate-50 transition-colors shadow-sm">Cancel</button>
               <button type="button" onClick={handleSave} className="px-5 py-2 bg-primary text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all shadow-sm">
                 {editingCategory || editingSubcategory ? 'Save Changes' : 'Save Category Node'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {archivePrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-[480px] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-slate-100 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-red-600 text-[24px]">warning</span>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Archive {archivePrompt.type === 'category' ? 'Category' : 'Subcategory'}</h3>
+                <p className="text-sm text-slate-500 mt-0.5">You are about to archive "{archivePrompt.name}".</p>
+              </div>
+            </div>
+            <div className="p-6 bg-slate-50 text-sm text-slate-700 space-y-5">
+              <p className="text-slate-600 text-[15px]">
+                By archiving this {archivePrompt.type}, the following active items will be affected:
+              </p>
+              
+              {archivePrompt.type === 'category' && (
+                <div className="space-y-2">
+                  <h4 className="font-bold text-slate-900 flex justify-between items-center text-[15px]">
+                    <span>Active Subcategories</span>
+                    <span className="bg-[#e0ece5] text-[#103e2c] font-black w-6 h-6 flex items-center justify-center rounded-full text-[11px]">{archivePrompt.activeSubcategories.length}</span>
+                  </h4>
+                  <ul className="list-disc pl-5 text-slate-500 text-[14px] max-h-24 overflow-y-auto space-y-1">
+                    {archivePrompt.activeSubcategories.length > 0 
+                      ? archivePrompt.activeSubcategories.map(name => <li key={name}>{name}</li>)
+                      : <li>No active subcategories</li>}
+                  </ul>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <h4 className="font-bold text-slate-900 flex justify-between items-center text-[15px]">
+                  <span>Active Products</span>
+                  <span className="bg-[#e0ece5] text-[#103e2c] font-black w-6 h-6 flex items-center justify-center rounded-full text-[11px]">{archivePrompt.activeProducts.length}</span>
+                </h4>
+                <ul className="list-disc pl-5 text-slate-500 text-[14px] max-h-24 overflow-y-auto space-y-1">
+                  {archivePrompt.activeProducts.length > 0 
+                    ? archivePrompt.activeProducts.map(name => <li key={name}>{name}</li>)
+                    : <li>No active products</li>}
+                </ul>
+              </div>
+              
+              <div className="border-t border-slate-200 pt-4 mt-2">
+                <p className="font-bold text-red-600 text-[15px]">
+                  Do you want to archive these products and {archivePrompt.type === 'category' ? 'subcategories' : 'related items'} as well?
+                </p>
+              </div>
+            </div>
+            <div className="p-4 bg-white border-t border-slate-100 flex justify-end gap-3">
+              <button
+                onClick={() => setArchivePrompt(null)}
+                className="px-5 py-2.5 border border-slate-200 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (archivePrompt.type === 'category') {
+                    onArchiveCategory(archivePrompt.id);
+                  } else if (archivePrompt.type === 'subcategory' && archivePrompt.parentId) {
+                    onArchiveSubcategory(archivePrompt.parentId, archivePrompt.id);
+                  }
+                  setArchivePrompt(null);
+                }}
+                className="px-5 py-2.5 bg-[#dc2626] text-white rounded-lg text-sm font-bold hover:bg-red-700 transition-colors shadow-sm"
+              >
+                Yes, Archive All
               </button>
             </div>
           </div>

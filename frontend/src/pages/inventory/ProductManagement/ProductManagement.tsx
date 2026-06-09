@@ -274,7 +274,7 @@ const normalizeProduct = (product: Partial<ProductItem> & Record<string, any>, f
     targetCapacity: Number(product.targetCapacity ?? (product.reorderLevel ? (product.reorderLevel * 4) : 100)),
     costPrice: Number(product.costPrice ?? 0),
     sellingPrice: Number(product.sellingPrice ?? 0),
-    status: product.status === 'Inactive' ? product.status : 'Active',
+    status: ['Active', 'Inactive', 'Disconnected'].includes(product.status as string) ? (product.status as 'Active' | 'Inactive' | 'Disconnected') : 'Active',
     lastUpdated: String(product.lastUpdated || formatUpdatedAt()),
     imageUrl: product.imageUrl || product.frontImageUrl || null,
     description: String(product.description || ''),
@@ -343,7 +343,7 @@ export default function ProductManagement() {
 
   // Filter redirection state
   const [initialSearch] = useState('');
-  const [initialCategory, setInitialCategory] = useState('All Categories');
+  const [initialCategory] = useState('All Categories');
 
   // Edit target state
   const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
@@ -417,7 +417,9 @@ export default function ProductManagement() {
 
   // Toggle Category Status (Archive/Restore)
   const handleToggleCategoryStatus = (id: string, targetStatus: 'Active' | 'Inactive') => {
-    if (!window.confirm(`Are you sure you want to mark this category as ${targetStatus}?`)) return;
+    if (targetStatus === 'Active') {
+      if (!window.confirm(`Are you sure you want to mark this category as ${targetStatus}?`)) return;
+    }
 
     let targetCategoryName = '';
     setCategories((prev) => prev.map((c) => {
@@ -440,7 +442,9 @@ export default function ProductManagement() {
 
   // Toggle Subcategory Status (Archive/Restore)
   const handleToggleSubcategoryStatus = (parentId: string, subId: string, targetStatus: 'Active' | 'Inactive') => {
-    if (!window.confirm(`Are you sure you want to mark this subcategory as ${targetStatus}?`)) return;
+    if (targetStatus === 'Active') {
+      if (!window.confirm(`Are you sure you want to mark this subcategory as ${targetStatus}?`)) return;
+    }
 
     let targetSubName = '';
     setCategories((prev) => prev.map((c) => {
@@ -526,7 +530,7 @@ export default function ProductManagement() {
       const productRecord: ProductItem = {
         id: existingProduct?.id || String(formData.id || `prod_${Date.now()}`),
         name: String(formData.name || existingProduct?.name || 'Untitled Product'),
-        sku: existingProduct?.sku || String(formData.sku || buildSku(formData.name || existingProduct?.name || 'Untitled Product', formData.category || existingProduct?.category || 'Uncategorized')),
+        sku: existingProduct?.sku || String(formData.sku || representativeVariant?.sku || buildSku(formData.name || existingProduct?.name || 'Untitled Product', formData.category || existingProduct?.category || 'Uncategorized')),
         barcode: String(
           formData.barcode ||
           representativeVariant?.barcode ||
@@ -587,18 +591,7 @@ export default function ProductManagement() {
     setIsNewProductModalOpen(true);
   };
 
-  const handleDuplicateProduct = (product: ProductItem) => {
-    const duplicated: ProductItem = {
-      ...product,
-      id: `copy_${Date.now()}`,
-      name: `${product.name} (Copy)`,
-      sku: `${product.sku}-COPY`,
-      barcode: `479${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-      lastUpdated: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    };
-    setProducts((prev) => [duplicated, ...prev]);
-    showToast(`Duplicated "${product.name}" successfully.`);
-  };
+
 
   // Function to handle moving a product to archive (or mark Inactive)
   const handleArchiveProduct = (id: string, name: string) => {
@@ -608,11 +601,6 @@ export default function ProductManagement() {
     showToast(`Product "${name}" has been marked as Inactive`, 'info');
   };
 
-  // View Category Products redirects: swiches to products tab and sets filter
-  const handleViewCategoryProducts = (categoryName: string) => {
-    setInitialCategory(categoryName);
-    handleTabChange('products');
-  };
 
 
 
@@ -713,7 +701,7 @@ export default function ProductManagement() {
               <CategoryRegistry
                 categories={categories}
                 products={products}
-                onViewProducts={handleViewCategoryProducts}
+
                 onAddCategory={handleAddCategoryNode}
                 onEditCategory={handleEditCategoryNode}
                 onEditSubcategory={handleEditSubcategoryNode}

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import ProductFilters from './SubComponents/ProductFilters';
-export type ProductStatus = 'Active' | 'Inactive';
+export type ProductStatus = 'Active' | 'Inactive' | 'Disconnected';
 export type StockStatus = 'In Stock' | 'Low Stock' | 'Out of Stock';
 
 export type ProductItem = {

@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 type ProductFiltersProps = {
   search: string;
@@ -100,7 +100,7 @@ export default function ProductFilters({
             <option value="All Statuses">All Statuses</option>
             <option value="Active">Active</option>
             <option value="Inactive">Inactive</option>
-            <option value="Discontinued">Discontinued</option>
+            <option value="Disconnected">Disconnected</option>
           </select>
           <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant text-[20px] pointer-events-none">
             expand_more

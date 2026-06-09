@@ -28,7 +28,7 @@ type NewProductFormProps = {
 };
 
 type ProductStructure = 'single' | 'variant';
-type ProductStatus = 'Active' | 'Inactive';
+type ProductStatus = 'Active' | 'Inactive' | 'Disconnected';
 type VariantImageMode = 'different' | 'shared';
 
 type VariantItem = {
@@ -37,6 +37,7 @@ type VariantItem = {
   attributeType: 'Size' | 'Flavor' | 'Color';
   attributeValue: string;
   unit: string;
+  sku: string;
   barcode: string;
   costPrice: number;
   sellingPrice: number;
@@ -62,7 +63,6 @@ const UNIT_OPTIONS = [
   'm'
 ];
 
-const FORECAST_TAG_OPTIONS = ['Stable', 'Rising', 'Seasonal Peak', 'Promotion Spike', 'Declining'];
 
 const createBarcode = () => `479${Math.floor(1000000000 + Math.random() * 9000000000)}`;
 
@@ -71,6 +71,7 @@ const createVariantDraft = (barcode: string): Omit<VariantItem, 'id'> => ({
   attributeType: 'Flavor',
   attributeValue: '',
   unit: UNIT_OPTIONS[0],
+  sku: '',
   barcode,
   costPrice: 0,
   sellingPrice: 0,
@@ -98,13 +99,13 @@ export default function NewProductForm({
   const [subcategory, setSubcategory] = useState(initialProduct?.subcategory || '');
   const [brand, setBrand] = useState(initialProduct?.brand || brands[0]?.name || '');
   const [supplier, setSupplier] = useState(initialProduct?.supplier || suppliers[0]?.name || '');
-  const [manufacturer, setManufacturer] = useState(initialProduct?.manufacturer || '');
-  const [description, setDescription] = useState(initialProduct?.description || '');
+  const [manufacturer] = useState(initialProduct?.manufacturer || '');
+  const [description] = useState(initialProduct?.description || '');
 
   const [frontImageUrl, setFrontImageUrl] = useState<string | null>(
     initialProduct?.frontImageUrl || initialProduct?.imageUrl || null
   );
-  const [additionalImages, setAdditionalImages] = useState<string[]>(initialProduct?.additionalImages || []);
+  const [additionalImages] = useState<string[]>(initialProduct?.additionalImages || []);
 
   const [structure, setStructure] = useState<ProductStructure>(initialProduct?.variants?.length ? 'variant' : 'single');
 
@@ -116,6 +117,7 @@ export default function NewProductForm({
     initialProduct?.targetCapacity || 100
   );
   const [singleUnit, setSingleUnit] = useState(initialProduct?.unitType || UNIT_OPTIONS[0]);
+  const [singleSku, setSingleSku] = useState<string>(initialProduct?.sku || '');
   const [singleBarcode, setSingleBarcode] = useState<string>(initialProduct?.barcode || createBarcode());
 
   const [reorderPercent, setReorderPercent] = useState<number>(25);
@@ -135,15 +137,17 @@ export default function NewProductForm({
 
   const calculatedReorderPoint = Math.round((reorderPercent / 100) * singleTargetCapacity);
 
-  const [variantImageMode, setVariantImageMode] = useState<VariantImageMode>('different');
-  const [autoVariantBarcode, setAutoVariantBarcode] = useState(true);
+  const [variantImageMode] = useState<VariantImageMode>('different');
+  const [autoVariantBarcode] = useState(true);
   const DUMMY_VARIANTS: VariantItem[] = initialProduct?.variants?.length ? [] : [
-    { id: 'demo_1', variantName: 'Chocolate', attributeType: 'Flavor', attributeValue: 'Chocolate', unit: 'Packet', barcode: '4791185535175', costPrice: 120, sellingPrice: 150, stock: 48, reorderLevel: 25, targetCapacity: 100, imageUrl: null, mfgDate: '2025-01-15', expiryDate: '2026-01-15', batchNumber: 'BATCH-CHO-001' },
-    { id: 'demo_2', variantName: 'Vanilla', attributeType: 'Flavor', attributeValue: 'Vanilla', unit: 'Packet', barcode: '4791185535182', costPrice: 115, sellingPrice: 145, stock: 32, reorderLevel: 25, targetCapacity: 100, imageUrl: null, mfgDate: '2025-02-10', expiryDate: '2026-02-10', batchNumber: 'BATCH-VAN-002' },
-    { id: 'demo_3', variantName: 'Strawberry', attributeType: 'Flavor', attributeValue: 'Strawberry', unit: 'Packet', barcode: '4791185535199', costPrice: 125, sellingPrice: 155, stock: 15, reorderLevel: 25, targetCapacity: 100, imageUrl: null, mfgDate: '2025-03-05', expiryDate: '2026-03-05', batchNumber: 'BATCH-STR-003' },
+    { id: 'demo_1', variantName: 'Chocolate', attributeType: 'Flavor', attributeValue: 'Chocolate', unit: 'Packet', sku: 'VAR-CHO', barcode: '4791185535175', costPrice: 120, sellingPrice: 150, stock: 48, reorderLevel: 25, targetCapacity: 100, imageUrl: null, mfgDate: '2025-01-15', expiryDate: '2026-01-15', batchNumber: 'BATCH-CHO-001' },
+    { id: 'demo_2', variantName: 'Vanilla', attributeType: 'Flavor', attributeValue: 'Vanilla', unit: 'Packet', sku: 'VAR-VAN', barcode: '4791185535182', costPrice: 115, sellingPrice: 145, stock: 32, reorderLevel: 25, targetCapacity: 100, imageUrl: null, mfgDate: '2025-02-10', expiryDate: '2026-02-10', batchNumber: 'BATCH-VAN-002' },
+    { id: 'demo_3', variantName: 'Strawberry', attributeType: 'Flavor', attributeValue: 'Strawberry', unit: 'Packet', sku: 'VAR-STR', barcode: '4791185535199', costPrice: 125, sellingPrice: 155, stock: 15, reorderLevel: 25, targetCapacity: 100, imageUrl: null, mfgDate: '2025-03-05', expiryDate: '2026-03-05', batchNumber: 'BATCH-STR-003' },
   ];
 
   const [variants, setVariants] = useState<VariantItem[]>(initialProduct?.variants || DUMMY_VARIANTS);
+
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState<'single' | 'variant' | null>(null);
 
   const [isVariantModalOpen, setIsVariantModalOpen] = useState(false);
   const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
@@ -157,11 +161,11 @@ export default function NewProductForm({
   const [promotionEligible, setPromotionEligible] = useState<boolean>(Boolean(initialProduct?.promotionEligible));
   const [seasonalProduct, setSeasonalProduct] = useState<boolean>(Boolean(initialProduct?.seasonalProduct));
 
-  const [fastMoving, setFastMoving] = useState<boolean>(Boolean(initialProduct?.fastMoving));
-  const [lowStockAlertThreshold, setLowStockAlertThreshold] = useState<number>(
+  const [fastMoving] = useState<boolean>(Boolean(initialProduct?.fastMoving));
+  const [lowStockAlertThreshold] = useState<number>(
     initialProduct?.lowStockAlertThreshold || 0
   );
-  const [demandForecastTag, setDemandForecastTag] = useState<string>(initialProduct?.demandForecastTag || 'Stable');
+  const [demandForecastTag] = useState<string>(initialProduct?.demandForecastTag || 'Stable');
   const [isCategoryPickerOpen, setIsCategoryPickerOpen] = useState(false);
 
   const selectedCategoryLabel = subcategory ? `${category} / ${subcategory}` : category;
@@ -240,10 +244,15 @@ export default function NewProductForm({
 
   const handleVariantSave = () => {
     const trimmedName = variantDraft.variantName.trim();
+    const trimmedSku = variantDraft.sku.trim();
     const trimmedBarcode = variantDraft.barcode.trim();
 
     if (!trimmedName) {
       alert('Variant Name is required.');
+      return;
+    }
+    if (!trimmedSku) {
+      alert('Variant SKU is required.');
       return;
     }
     if (!trimmedBarcode) {
@@ -267,6 +276,7 @@ export default function NewProductForm({
       id: editingVariantId || `var_${Date.now()}`,
       ...variantDraft,
       variantName: trimmedName,
+      sku: trimmedSku,
       barcode: trimmedBarcode
     };
 
@@ -284,18 +294,6 @@ export default function NewProductForm({
     setVariants((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const handleAddAdditionalImage = () => {
-    if (additionalImages.length >= 5) return;
-    setAdditionalImages((prev) => [...prev, '']);
-  };
-
-  const handleUpdateAdditionalImage = (index: number, value: string) => {
-    setAdditionalImages((prev) => prev.map((img, i) => (i === index ? value : img)));
-  };
-
-  const handleRemoveAdditionalImage = (index: number) => {
-    setAdditionalImages((prev) => prev.filter((_, i) => i !== index));
-  };
 
   const validateBeforeSave = () => {
     if (!productName.trim()) {
@@ -307,6 +305,10 @@ export default function NewProductForm({
     if (structure === 'single') {
       if (!frontImageUrl) {
         alert('Front Image is required.');
+        return false;
+      }
+      if (!singleSku.trim()) {
+        alert('SKU ID is required for single product.');
         return false;
       }
       if (!singleBarcode.trim()) {
@@ -356,6 +358,7 @@ export default function NewProductForm({
       additionalImages:
         structure === 'single' ? additionalImages.filter((item) => item.trim() !== '') : [],
 
+      sku: structure === 'single' ? singleSku.trim() : null,
       barcode: structure === 'single' ? singleBarcode.trim() : null,
       unitType: structure === 'single' ? singleUnit : null,
       stock: structure === 'single' ? singleStock : null,
@@ -415,7 +418,7 @@ export default function NewProductForm({
                   <label className="block text-[10px] font-bold text-outline uppercase tracking-wider">Category *</label>
                   <button
                     type="button"
-                    onClick={() => navigate('/manage-products?tab=categories&action=add&returnTo=new-product')}
+                    onClick={() => { onCancel(); navigate('/manage-products?tab=categories&action=add&returnTo=new-product'); }}
                     className="text-[10px] text-primary font-bold hover:underline flex items-center gap-0.5"
                   >
                     <span className="material-symbols-outlined text-xs">add_link</span>
@@ -495,7 +498,7 @@ export default function NewProductForm({
                   <label className="block text-[10px] font-bold text-outline uppercase tracking-wider">Brand *</label>
                   <button
                     type="button"
-                    onClick={() => navigate('/manage-products?tab=brands&action=add&returnTo=new-product')}
+                    onClick={() => { onCancel(); navigate('/manage-products?tab=brands&action=add&returnTo=new-product'); }}
                     className="text-[10px] text-primary font-bold hover:underline flex items-center gap-0.5"
                   >
                     <span className="material-symbols-outlined text-xs">add_link</span>
@@ -521,7 +524,7 @@ export default function NewProductForm({
                   <label className="block text-[10px] font-bold text-outline uppercase tracking-wider">Supplier *</label>
                   <button
                     type="button"
-                    onClick={() => navigate(`/procurement?action=new-supplier&returnTo=${encodeURIComponent('/manage-products?tab=new-product')}`)}
+                    onClick={() => { onCancel(); navigate(`/procurement?action=new-supplier&returnTo=${encodeURIComponent('/manage-products?tab=new-product')}`); }}
                     className="text-[10px] text-primary font-bold hover:underline flex items-center gap-0.5"
                   >
                     <span className="material-symbols-outlined text-xs">add_link</span>
@@ -682,7 +685,7 @@ export default function NewProductForm({
                     <p className="text-[9px] text-outline mt-1 font-medium">Current physical stock quantity.</p>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">Calculated Reorder Point (Preview)</label>
+                    <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">Calculated Reorder Point</label>
                     <div className="relative flex items-center">
                       <input
                         type="text"
@@ -711,38 +714,61 @@ export default function NewProductForm({
                   </div>
                 </div>
 
-                <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <label className="text-[10px] font-bold text-outline uppercase tracking-wider">Barcode Number *</label>
-                    <button
-                      type="button"
-                      onClick={() => setSingleBarcode(createBarcode())}
-                      className="text-[11px] font-bold text-primary hover:underline"
-                    >
-                      Generate Barcode
-                    </button>
-                  </div>
-                  <div className="flex gap-3 items-center">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">SKU ID *</label>
                     <input
                       type="text"
-                      value={singleBarcode}
-                      onChange={(e) => setSingleBarcode(e.target.value)}
-                      placeholder="e.g. 4791029384729"
-                      className="flex-1 px-4 py-2.5 bg-background border border-outline-variant rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary"
+                      value={singleSku}
+                      onChange={(e) => setSingleSku(e.target.value)}
+                      placeholder="e.g. DAI-005"
+                      className="w-full px-4 py-2.5 bg-background border border-outline-variant rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary"
                     />
-                    {singleBarcode && (
-                      <div className="flex flex-col items-center justify-center p-1.5 border border-outline-variant rounded-lg bg-white h-[42px] min-w-[70px] shrink-0">
-                        <div className="flex items-center justify-center h-4 gap-[0.5px] overflow-hidden select-none">
-                          {singleBarcode.split('').map((char, index) => {
-                            const num = parseInt(char, 10) || 0;
-                            const widthClass = num % 3 === 0 ? 'w-[2px]' : 'w-[1px]';
-                            const colorClass = index % 3 === 0 && num > 4 ? 'bg-transparent' : 'bg-black';
-                            return <div key={`${char}-${index}`} className={`h-full ${widthClass} ${colorClass}`} />;
-                          })}
-                        </div>
-                        <span className="text-[7px] font-mono tracking-widest text-outline mt-0.5">{singleBarcode.substring(0, 8)}...</span>
+                  </div>
+                  <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="text-[10px] font-bold text-outline uppercase tracking-wider">Barcode Number *</label>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setShowBarcodeScanner('single')}
+                          className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">qr_code_scanner</span>
+                          Scan Barcode
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSingleBarcode(createBarcode())}
+                          className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">autorenew</span>
+                          Generate Barcode
+                        </button>
                       </div>
-                    )}
+                    </div>
+                    <div className="flex gap-3 items-center">
+                      <input
+                        type="text"
+                        value={singleBarcode}
+                        onChange={(e) => setSingleBarcode(e.target.value)}
+                        placeholder="e.g. 4791029384729"
+                        className="flex-1 px-4 py-2.5 bg-background border border-outline-variant rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      {singleBarcode && (
+                        <div className="flex flex-col items-center justify-center p-1.5 border border-outline-variant rounded-lg bg-white h-[42px] min-w-[70px] shrink-0">
+                          <div className="flex items-center justify-center h-4 gap-[0.5px] overflow-hidden select-none">
+                            {singleBarcode.split('').map((char, index) => {
+                              const num = parseInt(char, 10) || 0;
+                              const widthClass = num % 3 === 0 ? 'w-[2px]' : 'w-[1px]';
+                              const colorClass = index % 3 === 0 && num > 4 ? 'bg-transparent' : 'bg-black';
+                              return <div key={`${char}-${index}`} className={`h-full ${widthClass} ${colorClass}`} />;
+                            })}
+                          </div>
+                          <span className="text-[7px] font-mono tracking-widest text-outline mt-0.5">{singleBarcode.substring(0, 8)}...</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -771,6 +797,7 @@ export default function NewProductForm({
                         <th className="px-3 py-2.5 font-bold">#</th>
                         <th className="px-3 py-2.5 font-bold whitespace-nowrap">Variant Name</th>
                         <th className="px-3 py-2.5 font-bold whitespace-nowrap">Attribute</th>
+                        <th className="px-3 py-2.5 font-bold whitespace-nowrap">SKU</th>
                         <th className="px-3 py-2.5 font-bold whitespace-nowrap">Barcode</th>
                         <th className="px-3 py-2.5 font-bold whitespace-nowrap">Stock</th>
                         <th className="px-3 py-2.5 font-bold whitespace-nowrap">Selling Price</th>
@@ -781,7 +808,7 @@ export default function NewProductForm({
                     <tbody>
                       {variants.length === 0 && (
                         <tr>
-                          <td colSpan={8} className="px-3 py-10 text-center text-outline">
+                          <td colSpan={9} className="px-3 py-10 text-center text-outline">
                             <span className="material-symbols-outlined text-[32px] block mb-1 opacity-30">category</span>
                             No variants added yet. Click "+ Add Variant" to begin.
                           </td>
@@ -808,6 +835,7 @@ export default function NewProductForm({
                               <span className="text-on-surface-variant">{item.attributeValue || '-'}</span>
                             </div>
                           </td>
+                          <td className="px-3 py-3 font-mono text-[10px] font-bold text-on-surface">{item.sku}</td>
                           <td className="px-3 py-3 font-mono text-[10px] text-outline">{item.barcode}</td>
                           <td className="px-3 py-3">
                             <span className={`font-bold ${item.stock <= item.reorderLevel ? 'text-red-600' : 'text-on-surface'}`}>
@@ -910,6 +938,10 @@ export default function NewProductForm({
                   <label className="flex items-center gap-2 text-xs font-bold cursor-pointer">
                     <input type="radio" checked={status === 'Inactive'} onChange={() => setStatus('Inactive')} />
                     Inactive
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-bold cursor-pointer">
+                    <input type="radio" checked={status === 'Disconnected'} onChange={() => setStatus('Disconnected')} />
+                    Disconnected
                   </label>
                 </div>
               </div>
@@ -1014,16 +1046,6 @@ export default function NewProductForm({
                   <span className="material-symbols-outlined absolute right-3 top-[34px] text-outline-variant text-[20px] pointer-events-none">expand_more</span>
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">Attribute Value</label>
-                  <input
-                    type="text"
-                    value={variantDraft.attributeValue}
-                    onChange={(e) => setVariantDraft((prev) => ({ ...prev, attributeValue: e.target.value }))}
-                    placeholder="e.g. 500g"
-                    className="w-full px-4 py-2.5 bg-background border border-outline-variant rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
                 <div className="relative">
                   <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">Unit *</label>
                   <select
@@ -1041,15 +1063,37 @@ export default function NewProductForm({
                 </div>
 
                 <div>
+                  <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">SKU ID *</label>
+                  <input
+                    type="text"
+                    value={variantDraft.sku}
+                    onChange={(e) => setVariantDraft((prev) => ({ ...prev, sku: e.target.value }))}
+                    placeholder="e.g. VAR-001"
+                    className="w-full px-4 py-2.5 bg-background border border-outline-variant rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
                   <div className="flex justify-between items-center mb-1.5">
                     <label className="text-[10px] font-bold text-outline uppercase tracking-wider">Barcode *</label>
-                    <button
-                      type="button"
-                      onClick={() => setVariantDraft((prev) => ({ ...prev, barcode: createBarcode() }))}
-                      className="text-[11px] font-bold text-primary"
-                    >
-                      Generate
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowBarcodeScanner('variant')}
+                        className="text-[11px] font-bold text-primary flex items-center gap-1 hover:underline"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">qr_code_scanner</span>
+                        Scan Barcode
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVariantDraft((prev) => ({ ...prev, barcode: createBarcode() }))}
+                        className="text-[11px] font-bold text-primary flex items-center gap-1 hover:underline"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">autorenew</span>
+                        Generate
+                      </button>
+                    </div>
                   </div>
                   <input
                     type="text"
@@ -1091,7 +1135,7 @@ export default function NewProductForm({
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">Calculated Reorder Point (Preview)</label>
+                  <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">Calculated Reorder Point</label>
                   <div className="relative flex items-center">
                     <input
                       type="text"
@@ -1196,6 +1240,64 @@ export default function NewProductForm({
               >
                 Save Variant
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBarcodeScanner && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800 flex items-center">
+                <span className="material-symbols-outlined text-primary text-[24px] mr-2">qr_code_scanner</span> Scan Barcode
+              </h2>
+              <button 
+                type="button"
+                onClick={() => setShowBarcodeScanner(null)} 
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            <div className="p-8 bg-gray-50 flex flex-col items-center">
+               <div className="relative w-64 h-64 bg-black rounded-lg overflow-hidden flex items-center justify-center shadow-inner cursor-pointer"
+                    onClick={() => {
+                      const mockBarcode = createBarcode();
+                      if (showBarcodeScanner === 'single') {
+                        setSingleBarcode(mockBarcode);
+                      } else {
+                        setVariantDraft(prev => ({ ...prev, barcode: mockBarcode }));
+                      }
+                      setShowBarcodeScanner(null);
+                    }}
+                    title="Click to simulate scan"
+               >
+                  <div className="absolute inset-0 opacity-40 bg-[url('https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=400&auto=format&fit=crop')] bg-cover bg-center mix-blend-luminosity"></div>
+                  <div className="absolute w-48 h-48 border-2 border-white/40 rounded-lg box-border"></div>
+                  <style>{`
+                    @keyframes scanLine {
+                      0% { top: 10%; }
+                      50% { top: 90%; }
+                      100% { top: 10%; }
+                    }
+                  `}</style>
+                  <div 
+                    className="absolute w-48 h-[2px] bg-red-500 shadow-[0_0_8px_2px_rgba(239,68,68,0.5)]"
+                    style={{ animation: 'scanLine 2s linear infinite' }}
+                  ></div>
+               </div>
+               <p className="mt-6 text-sm font-medium text-gray-600">Place the product barcode inside the frame</p>
+               <p className="mt-1 text-[10px] text-gray-400">(Click camera to simulate successful scan)</p>
+            </div>
+            <div className="p-4 bg-white border-t border-gray-100">
+               <button 
+                 type="button"
+                 onClick={() => setShowBarcodeScanner(null)} 
+                 className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
+               >
+                 Cancel
+               </button>
             </div>
           </div>
         </div>
