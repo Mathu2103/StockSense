@@ -44,7 +44,7 @@ export default function InventoryOperations() {
             </div>
 
             {/* Segment Controls Navigation Tab Bar */}
-            <div className="border-b border-outline-variant pb-px">
+            <div className="border-b border-outline-variant pb-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="inline-flex p-1 bg-surface-container-low border border-outline-variant/60 rounded-lg text-xs font-medium w-full sm:w-auto overflow-x-auto gap-1">
                   {tabsConfig.map((t) => (
