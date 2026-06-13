@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Sidebar from '../Shared/Sidebar';
 import InventoryHeader from '../Shared/InventoryHeader';
+import { mockStorage as localStorage } from '../Shared/mockStorage';
 
 // Import our modular subcomponents
 import ProductsRegistry, { ProductItem } from './ProductManagementComponents/ProductsRegistry';
@@ -284,11 +285,7 @@ const normalizeProduct = (product: Partial<ProductItem> & Record<string, any>, f
 };
 
 const loadStoredProducts = (): ProductItem[] => {
-  if (typeof window === 'undefined') {
-    return initialProducts;
-  }
-
-  const stored = window.localStorage.getItem(PRODUCT_STORAGE_KEY);
+  const stored = localStorage.getItem(PRODUCT_STORAGE_KEY);
   if (!stored) {
     return initialProducts;
   }
@@ -326,7 +323,7 @@ export default function ProductManagement() {
   // preloaded suppliers directory from localStorage
   const [suppliers] = useState<SupplierItem[]>(() => {
     try {
-      const stored = window.localStorage.getItem('stocksense_suppliers_registry');
+      const stored = localStorage.getItem('stocksense_suppliers_registry');
       if (stored) {
         return JSON.parse(stored);
       }
@@ -353,7 +350,7 @@ export default function ProductManagement() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
 
   useEffect(() => {
-    window.localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(products));
+    localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(products));
   }, [products]);
 
   // Handle URL redirects for Quick Create "Add Product"

@@ -351,6 +351,9 @@ function NotificationDropdown({ activeDropdown, setActiveDropdown }: { activeDro
   );
 }
 
+// Temporary in-memory store for profile settings (resets on page refresh)
+let memoryProfileSettings: { fullName?: string; email?: string; customAvatar?: string } = {};
+
 /* ──────────────────────────────────────────────────────────────────────────
    SUB-COMPONENT: PROFILE DROPDOWN
    ────────────────────────────────────────────────────────────────────────── */
@@ -373,36 +376,19 @@ function ProfileDropdown({ activeDropdown, setActiveDropdown }: { activeDropdown
 
   useEffect(() => {
     const updateDisplayInfo = () => {
-      const stored = localStorage.getItem('stocksense_profile_settings');
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          const name = parsed.fullName || user?.name || 'User';
-          const email = parsed.email || user?.email || '';
-          const avatar = parsed.customAvatar || defaultAvatar;
-          setProfileName(name);
-          setProfileEmail(email);
-          setProfileAvatar(avatar);
-        } catch (e) {
-          // Fallback
-        }
-      } else {
-        const name = user?.name || 'User';
-        const email = user?.email || '';
-        const avatar = defaultAvatar;
-        setProfileName(name);
-        setProfileEmail(email);
-        setProfileAvatar(avatar);
-      }
+      const name = memoryProfileSettings.fullName || user?.name || 'User';
+      const email = memoryProfileSettings.email || user?.email || '';
+      const avatar = memoryProfileSettings.customAvatar || defaultAvatar;
+      setProfileName(name);
+      setProfileEmail(email);
+      setProfileAvatar(avatar);
     };
 
     updateDisplayInfo();
 
-    window.addEventListener('storage', updateDisplayInfo);
     window.addEventListener('stocksense_profile_updated', updateDisplayInfo);
 
     return () => {
-      window.removeEventListener('storage', updateDisplayInfo);
       window.removeEventListener('stocksense_profile_updated', updateDisplayInfo);
     };
   }, [user]);
@@ -539,10 +525,8 @@ function ProfileDropdown({ activeDropdown, setActiveDropdown }: { activeDropdown
             <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
               <button onClick={() => setIsEditModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Cancel</button>
               <button onClick={() => {
-                const stored = JSON.parse(localStorage.getItem('stocksense_profile_settings') || '{}');
-                stored.fullName = profileName;
-                stored.email = profileEmail;
-                localStorage.setItem('stocksense_profile_settings', JSON.stringify(stored));
+                memoryProfileSettings.fullName = profileName;
+                memoryProfileSettings.email = profileEmail;
                 window.dispatchEvent(new Event('stocksense_profile_updated'));
                 setIsEditModalOpen(false);
               }} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b8252] hover:bg-[#096b43] rounded-lg shadow-sm transition-colors">Save Changes</button>

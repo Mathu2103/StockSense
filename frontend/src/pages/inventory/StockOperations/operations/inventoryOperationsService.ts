@@ -296,25 +296,18 @@ const initialAdjustments: AdjustmentRecord[] = [
   }
 ];
 
+const memoryStore: Record<string, any[]> = {};
+
 // Helper database loaders
 function load<T>(key: string, initial: T[]): T[] {
-  if (typeof window === 'undefined') return initial;
-  const stored = window.localStorage.getItem(key);
-  if (!stored) {
-    window.localStorage.setItem(key, JSON.stringify(initial));
-    return initial;
+  if (!memoryStore[key]) {
+    memoryStore[key] = [...initial];
   }
-  try {
-    return JSON.parse(stored);
-  } catch {
-    return initial;
-  }
+  return memoryStore[key];
 }
 
 function save<T>(key: string, data: T[]) {
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(key, JSON.stringify(data));
-  }
+  memoryStore[key] = [...data];
 }
 
 export const inventoryOperationsService = {

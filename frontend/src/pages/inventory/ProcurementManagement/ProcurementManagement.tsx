@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { mockStorage as localStorage } from '../Shared/mockStorage';
 import Sidebar from "../Shared/Sidebar";
 import InventoryHeader from '../Shared/InventoryHeader';
 
@@ -17,7 +18,7 @@ export default function ProcurementManagement() {
 
   // Active Datasets State
   const [suppliersList, setSuppliersList] = useState<Supplier[]>(() => {
-    const stored = window.localStorage.getItem(SUPPLIERS_STORAGE_KEY);
+    const stored = localStorage.getItem(SUPPLIERS_STORAGE_KEY);
     if (stored) {
       try {
         return JSON.parse(stored);
@@ -29,7 +30,7 @@ export default function ProcurementManagement() {
   });
 
   useEffect(() => {
-    window.localStorage.setItem(SUPPLIERS_STORAGE_KEY, JSON.stringify(suppliersList));
+    localStorage.setItem(SUPPLIERS_STORAGE_KEY, JSON.stringify(suppliersList));
   }, [suppliersList]);
 
   // Supplier Profile Page State
@@ -286,7 +287,7 @@ export default function ProcurementManagement() {
 
 
   useEffect(() => {
-    window.localStorage.setItem(SUPPLIERS_STORAGE_KEY, JSON.stringify(suppliersList));
+    localStorage.setItem(SUPPLIERS_STORAGE_KEY, JSON.stringify(suppliersList));
   }, [suppliersList]);
 
   useEffect(() => {
