@@ -225,6 +225,7 @@ export default function BrandRegistry({
                   setBrandName('');
                   setDescription('');
                   setEditingBrand(null);
+                  if (returnTo) navigate(`/manage-products?tab=${returnTo}`);
                 }}
                 className="text-outline hover:text-on-surface transition-colors"
               >
@@ -271,6 +272,7 @@ export default function BrandRegistry({
                   setBrandName('');
                   setDescription('');
                   setEditingBrand(null);
+                  if (returnTo) navigate(`/manage-products?tab=${returnTo}`);
                 }}
                 className="px-4 py-2 bg-white border border-outline rounded-lg text-xs font-bold text-on-surface-variant hover:bg-slate-50 transition-colors shadow-sm"
               >

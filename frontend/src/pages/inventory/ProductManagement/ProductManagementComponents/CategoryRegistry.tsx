@@ -325,9 +325,9 @@ export default function CategoryRegistry({
             {activeView !== 'products' && (
               <button
                 onClick={() => handleOpenAddModal(activeView === 'parents' ? 'parent' : 'sub', selectedParent?.id)}
-                className="flex items-center gap-1 text-primary text-xs font-bold hover:underline"
+                className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg hover:opacity-90 transition-all shadow-sm"
               >
-                <span className="material-symbols-outlined text-sm">add</span>
+                <span className="material-symbols-outlined text-[16px]">add</span>
                 Add {activeView === 'parents' ? 'Category' : 'Sub-category'}
               </button>
             )}
@@ -811,7 +811,7 @@ export default function CategoryRegistry({
                 </h2>
               </div>
               <button
-                onClick={() => { setIsModalOpen(false); setCategoryName(''); setCategoryDescription(''); setEditingCategory(null); setEditingSubcategory(null); }}
+                onClick={() => { setIsModalOpen(false); setCategoryName(''); setCategoryDescription(''); setEditingCategory(null); setEditingSubcategory(null); if (returnTo) navigate(`/manage-products?tab=${returnTo}`); }}
                 className="text-outline hover:text-on-surface transition-colors"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
@@ -890,7 +890,7 @@ export default function CategoryRegistry({
               )}
             </div>
             <div className="bg-slate-50 px-6 py-4 flex justify-end gap-2 border-t border-outline-variant/60">
-              <button type="button" onClick={() => { setIsModalOpen(false); setCategoryName(''); setCategoryDescription(''); setEditingCategory(null); setEditingSubcategory(null); }} className="px-4 py-2 bg-white border border-outline rounded-lg text-xs font-bold text-on-surface-variant hover:bg-slate-50 transition-colors shadow-sm">Cancel</button>
+              <button type="button" onClick={() => { setIsModalOpen(false); setCategoryName(''); setCategoryDescription(''); setEditingCategory(null); setEditingSubcategory(null); if (returnTo) navigate(`/manage-products?tab=${returnTo}`); }} className="px-4 py-2 bg-white border border-outline rounded-lg text-xs font-bold text-on-surface-variant hover:bg-slate-50 transition-colors shadow-sm">Cancel</button>
               <button type="button" onClick={handleSave} className="px-5 py-2 bg-primary text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all shadow-sm">
                 {editingCategory || editingSubcategory ? 'Save Changes' : 'Save Category Node'}
               </button>
