@@ -6,7 +6,10 @@ import { z } from 'zod'
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt.js'
 import { AuthRequest } from '../middlewares/authMiddleware.js'
 
-const prisma = new PrismaClient()
+const connectionString = process.env.DATABASE_URL!
+const pool = new Pool({ connectionString })
+const adapter = new PrismaPg(pool)
+const prisma = new PrismaClient({ adapter })
 
 // ─── Zod Schemas ────────────────────────────────────────────────────
 const loginSchema = z.object({
