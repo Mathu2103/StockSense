@@ -1,10 +1,7 @@
 import 'dotenv/config';
-import { PrismaClient, $Enums } from '@prisma/client';
-import { PrismaNeon } from '@prisma/adapter-neon';
+import { PrismaClient } from '@prisma/client';
 
-const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL! });
-// Cast to PrismaClient to restore full delegate types lost when adapter is passed
-const prisma = new PrismaClient({ adapter }) as unknown as PrismaClient;
+const prisma = new PrismaClient();
 
 // EAN-13 barcode generator with 479 (Sri Lanka) prefix
 let barcodeSeq = 100000000;

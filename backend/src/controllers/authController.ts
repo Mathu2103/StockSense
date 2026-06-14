@@ -2,13 +2,11 @@ import 'dotenv/config'
 import { Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
 import { PrismaClient } from '@prisma/client'
-import { PrismaNeon } from '@prisma/adapter-neon'
 import { z } from 'zod'
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt.js'
 import { AuthRequest } from '../middlewares/authMiddleware.js'
 
-const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL! })
-const prisma = new PrismaClient({ adapter })
+const prisma = new PrismaClient()
 
 // ─── Zod Schemas ────────────────────────────────────────────────────
 const loginSchema = z.object({
