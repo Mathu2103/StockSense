@@ -1,34 +1,39 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { downloadReport, ViewState } from './reportUtils';
+import { inventoryOperationsService, ProductItem, LedgerEntry } from '../../StockOperations/operations/inventoryOperationsService';
 
 export default function SalesReports({ onViewChange }: { onViewChange: (view: ViewState) => void }) {
-  const [period, setPeriod] = useState<'Today' | 'Week' | 'Month' | 'Year' | 'Custom Range'>('Today');
+  const [period, setPeriod] = useState<'Today' | 'Week' | 'Month' | 'Year' | 'Custom Range'>('Month');
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('All Departments');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
-  const dataMap = {
-    Today: { sales: 'Rs. 248,392.50', salesTrend: '+12.5%', orders: '1,842', ordersTrend: '+8.1%', top: 'Organic Avocados', topUnits: '412', topRev: 'Rs. 201,880.00', chart: [40, 75, 50, 95, 80, 45, 25] },
-    Week: { sales: 'Rs. 1,482,900.00', salesTrend: '+8.2%', orders: '12,940', ordersTrend: '+5.4%', top: 'Spring Water 24pk', topUnits: '3,842', topRev: 'Rs. 450,500.00', chart: [60, 55, 80, 75, 95, 100, 85] },
-    Month: { sales: 'Rs. 6,293,400.00', salesTrend: '+15.4%', orders: '54,200', ordersTrend: '+12.0%', top: 'Grade A Large Eggs', topUnits: '18,390', topRev: 'Rs. 1,275,500.00', chart: [40, 50, 45, 60, 70, 85, 90] },
-    Year: { sales: 'Rs. 75,200,800.00', salesTrend: '+22.1%', orders: '648,300', ordersTrend: '+18.5%', top: 'Organic Avocados', topUnits: '182,400', topRev: 'Rs. 18,376,000.00', chart: [30, 40, 35, 50, 60, 80, 95] },
-    'Custom Range': { sales: 'Rs. 104,200.00', salesTrend: '+4.1%', orders: '840', ordersTrend: '+2.1%', top: 'Premium Coffee', topUnits: '240', topRev: 'Rs. 42,000.00', chart: [50, 60, 40, 70, 80, 60, 40] }
-  };
+  // Live Database States
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const activeData = dataMap[period] || dataMap['Today'];
-
-  const allProducts = [
-    { name: "Grade A Large Eggs (12pk)", cat: "Dairy", sku: "EG-29384-L", qty: 328, price: "Rs. 450.00", rev: "Rs. 147,600.00", status: "IN STOCK", icon: "egg", sClass: "bg-[#dcfce7] text-[#16a34a]" },
-    { name: "Organic Avocados", cat: "Produce", sku: "AV-11022-O", qty: 412, price: "Rs. 490.00", rev: "Rs. 201,880.00", status: "LOW STOCK", icon: "eco", sClass: "bg-[#fee2e2] text-[#ef4444]" },
-    { name: "Premium Roasted Coffee 500g", cat: "Grocery", sku: "CF-88392-P", qty: 194, price: "Rs. 2,400.00", rev: "Rs. 465,600.00", status: "IN STOCK", icon: "local_cafe", sClass: "bg-[#dcfce7] text-[#16a34a]" },
-    { name: "Spring Water 24pk", cat: "Grocery", sku: "WT-77281-S", qty: 582, price: "Rs. 1,450.00", rev: "Rs. 843,900.00", status: "IN STOCK", icon: "water_drop", sClass: "bg-[#dcfce7] text-[#16a34a]" },
-    { name: "Cheddar Cheese 200g", cat: "Dairy", sku: "CH-11200-D", qty: 150, price: "Rs. 950.00", rev: "Rs. 142,500.00", status: "IN STOCK", icon: "kitchen", sClass: "bg-[#dcfce7] text-[#16a34a]" },
-    { name: "Fresh Strawberries", cat: "Produce", sku: "ST-99001-P", qty: 85, price: "Rs. 890.00", rev: "Rs. 75,650.00", status: "LOW STOCK", icon: "local_dining", sClass: "bg-[#fee2e2] text-[#ef4444]" },
-  ];
-
-  const filteredProducts = categoryFilter === 'All Departments' 
-    ? allProducts 
-    : allProducts.filter(p => p.cat === categoryFilter);
+  useEffect(() => {
+    let active = true;
+    async function loadSalesData() {
+      try {
+        const [loadedProducts, loadedLedger] = await Promise.all([
+          inventoryOperationsService.getProducts(),
+          inventoryOperationsService.getLedger(),
+        ]);
+        if (!active) return;
+        setProducts(loadedProducts);
+        setLedger(loadedLedger);
+        setLoading(false);
+      } catch (err) {
+        console.error('Failed to load live sales reports data', err);
+        if (!active) return;
+        setLoading(false);
+      }
+    }
+    loadSalesData();
+    return () => { active = false; };
+  }, []);
 
   const handlePeriodChange = (tab: any) => {
     if (tab === 'Custom Range') {
@@ -47,8 +52,84 @@ export default function SalesReports({ onViewChange }: { onViewChange: (view: Vi
     ? `Sales_Report_${dateRange.start}_to_${dateRange.end}`
     : `Sales_Report_${period}`;
 
+  // Period Date Range calculation
+  const getPeriodDateRange = () => {
+    const now = new Date();
+    let start = new Date();
+    let end = new Date();
+
+    if (period === 'Today') {
+      start.setHours(0, 0, 0, 0);
+    } else if (period === 'Week') {
+      start.setDate(now.getDate() - 7);
+    } else if (period === 'Month') {
+      start.setDate(now.getDate() - 30);
+    } else if (period === 'Year') {
+      start.setDate(now.getDate() - 365);
+    } else if (period === 'Custom Range') {
+      if (dateRange.start) start = new Date(dateRange.start);
+      if (dateRange.end) {
+        end = new Date(dateRange.end);
+        end.setHours(23, 59, 59, 999);
+      }
+    }
+    return { start, end };
+  };
+
+  const { start, end } = getPeriodDateRange();
+  const periodLedger = ledger.filter(entry => {
+    const entryDate = new Date(entry.timestamp);
+    return entryDate >= start && entryDate <= end;
+  });
+
+  // Calculate units sold, price, and revenue for each product in the selected period
+  const salesItems = products.map(product => {
+    const salesEntries = periodLedger.filter(
+      entry => entry.sku === product.sku && entry.movementType === 'Sale'
+    );
+    const qty = salesEntries.reduce((sum, entry) => sum + Math.abs(entry.quantityChange), 0);
+    const revenue = qty * product.sellingPrice;
+
+    return {
+      name: product.name,
+      cat: product.category,
+      sku: product.sku,
+      qty,
+      price: `Rs. ${product.sellingPrice.toFixed(2)}`,
+      numericPrice: product.sellingPrice,
+      rev: `Rs. ${revenue.toFixed(2)}`,
+      numericRev: revenue,
+      icon: product.category === 'Produce' ? 'eco' :
+            product.category === 'Dairy' ? 'kitchen' :
+            product.category === 'Meat' ? 'local_dining' : 'shopping_bag'
+    };
+  });
+
+  // Unique categories list
+  const categoriesList = ['All Departments', ...Array.from(new Set(products.map(p => p.category)))];
+
+  // Filtering products
+  const filteredProducts = salesItems.filter(item => {
+    const matchCat = categoryFilter === 'All Departments' || item.cat === categoryFilter;
+    return matchCat;
+  });
+
+  // Sort: display those with sales first, or alphabetical if equal
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    if (b.qty !== a.qty) return b.qty - a.qty;
+    return a.name.localeCompare(b.name);
+  });
+
+  // KPIs
+  const totalSalesValue = salesItems.reduce((sum, item) => sum + item.numericRev, 0);
+  const totalOrders = periodLedger.filter(entry => entry.movementType === 'Sale').length;
+  
+  // Find top selling product
+  const sortedAll = [...salesItems].sort((a, b) => b.qty - a.qty);
+  const topProduct = sortedAll[0] && sortedAll[0].qty > 0 ? sortedAll[0] : null;
+
   const reportHeaders = ['Product Name', 'Category', 'SKU', 'Qty Sold', 'Price', 'Revenue'];
-  const reportRows = filteredProducts.map(p => [p.name, p.cat, p.sku, p.qty, p.price, p.rev]);
+  const reportRows = sortedProducts.map(p => [p.name, p.cat, p.sku, p.qty, p.price, p.rev]);
   const reportData = { headers: reportHeaders, rows: reportRows };
 
   return (
@@ -88,7 +169,6 @@ export default function SalesReports({ onViewChange }: { onViewChange: (view: Vi
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-
           <h2 className="text-2xl font-bold text-slate-800">Sales Reports</h2>
           <p className="text-slate-500 text-sm mt-1">
             Analyze performance metrics and revenue streams across periods.
@@ -117,14 +197,14 @@ export default function SalesReports({ onViewChange }: { onViewChange: (view: Vi
             tabLabel = `${dateRange.start} to ${dateRange.end}`;
           }
           return (
-          <button 
-            key={tab}
-            onClick={() => handlePeriodChange(tab)}
-            className={`px-5 py-1.5 text-sm font-medium rounded-md flex items-center gap-1 transition-colors ${period === tab ? 'bg-white text-[#0b8252] font-bold shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
-          >
-            {tab === 'Custom Range' && <span className="material-symbols-outlined text-[16px]">calendar_today</span>}
-            {tabLabel}
-          </button>
+            <button 
+              key={tab}
+              onClick={() => handlePeriodChange(tab)}
+              className={`px-5 py-1.5 text-sm font-medium rounded-md flex items-center gap-1 transition-colors ${period === tab ? 'bg-white text-[#0b8252] font-bold shadow-sm' : 'text-slate-600 hover:text-slate-800'}`}
+            >
+              {tab === 'Custom Range' && <span className="material-symbols-outlined text-[16px]">calendar_today</span>}
+              {tabLabel}
+            </button>
           );
         })}
       </div>
@@ -137,9 +217,11 @@ export default function SalesReports({ onViewChange }: { onViewChange: (view: Vi
             <span className="material-symbols-outlined text-[16px]">payments</span>
             <p className="text-xs font-bold uppercase tracking-wider">Total Sales</p>
           </div>
-          <h3 className="text-4xl font-bold text-slate-800 tracking-tight">{activeData.sales}</h3>
-          <p className="text-xs font-bold text-[#10b981] mt-3 flex items-center gap-1">
-            <span className="material-symbols-outlined text-[14px]">trending_up</span> {activeData.salesTrend}
+          <h3 className="text-4xl font-bold text-slate-800 tracking-tight">
+            Rs. {totalSalesValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </h3>
+          <p className="text-xs font-bold text-slate-400 mt-3 flex items-center gap-1">
+            Real-time sales value
           </p>
         </div>
 
@@ -149,9 +231,9 @@ export default function SalesReports({ onViewChange }: { onViewChange: (view: Vi
             <span className="material-symbols-outlined text-[16px]">shopping_bag</span>
             <p className="text-xs font-bold uppercase tracking-wider">Total Orders</p>
           </div>
-          <h3 className="text-4xl font-bold text-slate-800 tracking-tight">{activeData.orders}</h3>
-          <p className="text-xs font-bold text-[#10b981] mt-3 flex items-center gap-1">
-            <span className="material-symbols-outlined text-[14px]">trending_up</span> {activeData.ordersTrend}
+          <h3 className="text-4xl font-bold text-slate-800 tracking-tight">{totalOrders}</h3>
+          <p className="text-xs font-bold text-slate-400 mt-3 flex items-center gap-1">
+            Sales transactions logged
           </p>
         </div>
 
@@ -162,10 +244,14 @@ export default function SalesReports({ onViewChange }: { onViewChange: (view: Vi
               <span className="material-symbols-outlined text-[16px]">stars</span>
               <p className="text-xs font-bold uppercase tracking-wider">Top Selling Product</p>
             </div>
-            <h3 className="text-2xl font-bold text-slate-800 leading-tight truncate">{activeData.top}</h3>
+            <h3 className="text-2xl font-bold text-slate-800 leading-tight truncate">
+              {topProduct ? topProduct.name : 'No sales'}
+            </h3>
             <div className="mt-3">
-              <p className="text-xs text-slate-600 mb-0.5">{activeData.topUnits} Units Sold</p>
-              <p className="text-sm font-bold text-[#0b8252]">Revenue: {activeData.topRev}</p>
+              <p className="text-xs text-slate-600 mb-0.5">{topProduct ? topProduct.qty : 0} Units Sold</p>
+              <p className="text-sm font-bold text-[#0b8252]">
+                Revenue: {topProduct ? topProduct.rev : 'Rs. 0.00'}
+              </p>
             </div>
           </div>
           <span className="material-symbols-outlined absolute -bottom-4 -right-4 text-[120px] text-[#0b8252] opacity-10">
@@ -185,18 +271,14 @@ export default function SalesReports({ onViewChange }: { onViewChange: (view: Vi
                 onChange={(e) => setCategoryFilter(e.target.value)}
                 className="appearance-none bg-[#f8f9fa] border border-slate-200 text-slate-700 text-sm font-medium rounded-lg px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-[#0b8252]/20 focus:border-[#0b8252]"
               >
-                <option value="All Departments">All Departments</option>
-                <option value="Grocery">Grocery</option>
-                <option value="Produce">Produce</option>
-                <option value="Dairy">Dairy</option>
+                {categoriesList.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
               </select>
               <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[20px]">
                 expand_more
               </span>
             </div>
-            <button className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">
-              <span className="material-symbols-outlined text-[20px]">filter_list</span>
-            </button>
           </div>
         </div>
 
@@ -211,7 +293,11 @@ export default function SalesReports({ onViewChange }: { onViewChange: (view: Vi
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
-              {filteredProducts.map((item, i) => (
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="p-8 text-center text-slate-500">Loading live sales records...</td>
+                </tr>
+              ) : sortedProducts.map((item, i) => (
                 <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                   <td className="p-4 flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-[#eef8f2] flex items-center justify-center text-[#0b8252]">
@@ -227,7 +313,7 @@ export default function SalesReports({ onViewChange }: { onViewChange: (view: Vi
                   <td className="p-4 text-right font-bold text-slate-800">{item.rev}</td>
                 </tr>
               ))}
-              {filteredProducts.length === 0 && (
+              {!loading && sortedProducts.length === 0 && (
                 <tr>
                   <td colSpan={4} className="p-8 text-center text-slate-500">
                     No products found in this category.
@@ -236,16 +322,6 @@ export default function SalesReports({ onViewChange }: { onViewChange: (view: Vi
               )}
             </tbody>
           </table>
-        </div>
-
-        {/* Footer Pagination */}
-        <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-500">
-          <p>Showing {filteredProducts.length > 0 ? 1 : 0} to {filteredProducts.length} of {filteredProducts.length} products</p>
-          <div className="flex gap-1">
-            <button className="w-8 h-8 flex items-center justify-center rounded border border-slate-200 hover:bg-slate-50"><span className="material-symbols-outlined text-[18px]">chevron_left</span></button>
-            <button className="w-8 h-8 flex items-center justify-center rounded bg-[#0b8252] text-white font-bold">1</button>
-            <button className="w-8 h-8 flex items-center justify-center rounded border border-slate-200 hover:bg-slate-50"><span className="material-symbols-outlined text-[18px]">chevron_right</span></button>
-          </div>
         </div>
       </div>
     </div>

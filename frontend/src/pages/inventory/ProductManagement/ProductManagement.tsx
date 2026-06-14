@@ -10,6 +10,7 @@ import CategoryRegistry from './ProductManagementComponents/CategoryRegistry';
 import NewProductForm from './ProductManagementComponents/NewProductForm';
 import BrandRegistry, { BrandItem } from './ProductManagementComponents/BrandRegistry';
 import { SupplierItem } from './ProductManagementComponents/SupplierRegistry';
+import DiscountRegistry from './ProductManagementComponents/DiscountRegistry';
 
 export type SubCategoryNode = {
   id: string;
@@ -676,6 +677,14 @@ export default function ProductManagement() {
                   >
                     Brands
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange('discounts')}
+                    className={`px-4 py-1.5 rounded-md transition-all whitespace-nowrap ${activeTab === 'discounts' ? 'bg-white text-primary shadow-sm font-black' : 'text-on-surface-variant hover:text-on-surface'
+                      }`}
+                  >
+                    Discounts
+                  </button>
                 </div>
               </div>
             </div>
@@ -722,6 +731,13 @@ export default function ProductManagement() {
                 onEditBrand={handleEditBrand}
                 onArchiveBrand={(id) => handleToggleBrandStatus(id, 'Inactive')}
                 onRestoreBrand={(id) => handleToggleBrandStatus(id, 'Active')}
+              />
+            )}
+
+            {activeTab === 'discounts' && (
+              <DiscountRegistry
+                products={products}
+                showToast={showToast}
               />
             )}
 

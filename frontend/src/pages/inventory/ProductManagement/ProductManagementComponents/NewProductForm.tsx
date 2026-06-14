@@ -998,8 +998,8 @@ export default function NewProductForm({
 
       {isVariantModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
-          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 border-b border-outline-variant/60">
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-5 border-b border-outline-variant/60 shrink-0">
               <h3 className="text-sm font-bold text-on-surface">
                 {editingVariantId ? 'Edit Variant' : 'Add Variant'}
               </h3>
@@ -1015,7 +1015,7 @@ export default function NewProductForm({
               </button>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="p-5 space-y-4 overflow-y-auto flex-1">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">Variant Name *</label>
@@ -1222,7 +1222,7 @@ export default function NewProductForm({
               </div>
             </div>
 
-            <div className="px-5 py-4 bg-slate-50 border-t flex justify-end gap-2">
+            <div className="px-5 py-4 bg-slate-50 border-t flex justify-end gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => {

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+.import { useState, useEffect } from 'react';
 import { downloadReport, ViewState } from './reportUtils';
+import { inventoryOperationsService } from '../../StockOperations/operations/inventoryOperationsService';
 
 export default function PurchaseReports({ onViewChange }: { onViewChange: (view: ViewState) => void }) {
   const [period, setPeriod] = useState<'Today' | 'Week' | 'Month' | 'Year' | 'Custom Range'>('Month');
@@ -8,15 +9,27 @@ export default function PurchaseReports({ onViewChange }: { onViewChange: (view:
 
   const [statusFilter, setStatusFilter] = useState('All Statuses');
 
-  const dataMap: Record<string, any> = {
-    Today: { pur: '45', items: '1,200', sup: '12', pend: '3', t1: '+5%' },
-    Week: { pur: '320', items: '12,500', sup: '45', pend: '15', t1: '+8%' },
-    Month: { pur: '1,284', items: '45,920', sup: '142', pend: '8', t1: '+12%' },
-    Year: { pur: '15,400', items: '550,000', sup: '150', pend: '5', t1: '+20%' },
-    'Custom Range': { pur: '400', items: '14,000', sup: '50', pend: '10', t1: '+10%' }
-  };
+  // Live Purchases States
+  const [grns, setGrns] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const activeData = dataMap[period] || dataMap['Month'];
+  useEffect(() => {
+    let active = true;
+    async function loadPurchases() {
+      try {
+        const loadedGrns = await inventoryOperationsService.getGRNHistory();
+        if (!active) return;
+        setGrns(loadedGrns);
+        setLoading(false);
+      } catch (err) {
+        console.error('Failed to load purchases history data', err);
+        if (!active) return;
+        setLoading(false);
+      }
+    }
+    loadPurchases();
+    return () => { active = false; };
+  }, []);
 
   const handlePeriodChange = (tab: any) => {
     if (tab === 'Custom Range') {
@@ -35,15 +48,63 @@ export default function PurchaseReports({ onViewChange }: { onViewChange: (view:
     ? `Purchase_Report_${dateRange.start}_to_${dateRange.end}`
     : `Purchase_Report_${period}`;
 
-  const allPurchases = [
-    { ref: "PR-00881", date: "Oct 24 2023", sup: "Green Harvest Co.", prod: "Organic Milk 1L", qty: "200 units", price: "Rs. 450.00", total: "Rs. 90,000.00", status: "RECEIVED", sClass: "bg-[#eef8f2] text-[#0b8252]" },
-    { ref: "PR-00882", date: "Oct 25 2023", sup: "Fresh Dairy Inc.", prod: "Cheddar Cheese 200g", qty: "50 units", price: "Rs. 950.00", total: "Rs. 47,500.00", status: "PENDING", sClass: "bg-[#fef3c7] text-[#d97706]" },
-    { ref: "PR-00883", date: "Oct 25 2023", sup: "Global Grains Ltd.", prod: "Whole Wheat Bread", qty: "100 units", price: "Rs. 220.00", total: "Rs. 22,000.00", status: "PARTIAL", sClass: "bg-[#fee2e2] text-[#ef4444]" },
-    { ref: "PR-00884", date: "Oct 25 2023", sup: "Orchard Valley", prod: "Red Apples (Box)", qty: "15 units", price: "Rs. 8,500.00", total: "Rs. 127,500.00", status: "RECEIVED", sClass: "bg-[#eef8f2] text-[#0b8252]" },
-    { ref: "PR-00885", date: "Oct 26 2023", sup: "Beverage Prox", prod: "Sparkling Water 500ml", qty: "500 units", price: "Rs. 180.00", total: "Rs. 90,000.00", status: "PENDING", sClass: "bg-[#fef3c7] text-[#d97706]" },
-  ];
+  // Period Date Range calculation
+  const getPeriodDateRange = () => {
+    const now = new Date();
+    let start = new Date();
+    let end = new Date();
 
-  const filteredPurchases = allPurchases.filter(p => statusFilter === 'All Statuses' || p.status === statusFilter);
+    if (period === 'Today') {
+      start.setHours(0, 0, 0, 0);
+    } else if (period === 'Week') {
+      start.setDate(now.getDate() - 7);
+    } else if (period === 'Month') {
+      start.setDate(now.getDate() - 30);
+    } else if (period === 'Year') {
+      start.setDate(now.getDate() - 365);
+    } else if (period === 'Custom Range') {
+      if (dateRange.start) start = new Date(dateRange.start);
+      if (dateRange.end) {
+        end = new Date(dateRange.end);
+        end.setHours(23, 59, 59, 999);
+      }
+    }
+    return { start, end };
+  };
+
+  const { start, end } = getPeriodDateRange();
+  const periodGrns = grns.filter(g => {
+    const gDate = new Date(g.receivedDate);
+    return gDate >= start && gDate <= end;
+  });
+
+  // Flatten GRN records into individual items for display
+  const purchaseRowsList: any[] = [];
+  periodGrns.forEach(grn => {
+    grn.items.forEach((item: any) => {
+      purchaseRowsList.push({
+        ref: grn.grnNumber,
+        date: new Date(grn.receivedDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+        sup: grn.supplierName,
+        prod: item.productName,
+        qty: `${item.receivedQty} units`,
+        price: `Rs. ${item.unitCost.toFixed(2)}`,
+        total: `Rs. ${(item.receivedQty * item.unitCost).toFixed(2)}`,
+        status: grn.status === 'Completed' ? 'RECEIVED' : grn.status === 'Shortage' ? 'PARTIAL' : 'RECEIVED',
+        sClass: grn.status === 'Completed' ? 'bg-[#eef8f2] text-[#0b8252]' : 'bg-[#fee2e2] text-[#ef4444]'
+      });
+    });
+  });
+
+  const filteredPurchases = purchaseRowsList.filter(
+    p => statusFilter === 'All Statuses' || p.status === statusFilter
+  );
+
+  // KPIs
+  const totalPurchases = periodGrns.length;
+  const totalItemsPurchased = periodGrns.reduce((sum, g) => sum + g.totalQuantity, 0);
+  const activeSuppliers = new Set(periodGrns.map(g => g.supplierName)).size;
+  const pendingDeliveries = periodGrns.filter(g => g.status === 'Shortage').length;
 
   const reportHeaders = ['Ref #', 'Date', 'Supplier', 'Product', 'Qty', 'Unit Price', 'Total'];
   const reportRows = filteredPurchases.map(p => [p.ref, p.date, p.sup, p.prod, p.qty, p.price, p.total]);
@@ -85,7 +146,6 @@ export default function PurchaseReports({ onViewChange }: { onViewChange: (view:
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-
           <h2 className="text-2xl font-bold text-slate-800">Purchase Records</h2>
           <p className="text-slate-500 text-sm mt-1">
             Track and monitor supplier purchases and stock inflow.
@@ -110,14 +170,14 @@ export default function PurchaseReports({ onViewChange }: { onViewChange: (view:
             tabLabel = `${dateRange.start} to ${dateRange.end}`;
           }
           return (
-          <button 
-            key={tab}
-            onClick={() => handlePeriodChange(tab)}
-            className={`px-6 py-2 text-sm font-bold rounded-lg flex items-center gap-1 transition-all ${period === tab ? 'bg-white text-[#0b8252] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
-          >
-            {tab === 'Custom Range' && <span className="material-symbols-outlined text-[16px]">calendar_today</span>}
-            {tabLabel}
-          </button>
+            <button 
+              key={tab}
+              onClick={() => handlePeriodChange(tab)}
+              className={`px-6 py-2 text-sm font-bold rounded-lg flex items-center gap-1 transition-all ${period === tab ? 'bg-white text-[#0b8252] shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+            >
+              {tab === 'Custom Range' && <span className="material-symbols-outlined text-[16px]">calendar_today</span>}
+              {tabLabel}
+            </button>
           );
         })}
       </div>
@@ -125,35 +185,24 @@ export default function PurchaseReports({ onViewChange }: { onViewChange: (view:
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <div className="flex justify-between items-start mb-4">
-            <div className="w-8 h-8 rounded bg-[#eef8f2] text-[#0b8252] flex items-center justify-center">
-              <span className="material-symbols-outlined text-[18px]">shopping_cart</span>
-            </div>
-            <span className="text-[10px] font-bold text-[#10b981]">{activeData.t1} vs last {period.toLowerCase()}</span>
-          </div>
-          <p className="text-xs font-bold text-slate-500 mb-0.5">Total Purchases</p>
-          <h3 className="text-2xl font-bold text-slate-800">{activeData.pur}</h3>
+          <p className="text-xs font-bold text-slate-500 mb-2">Total Purchases</p>
+          <h3 className="text-2xl font-bold text-slate-800">{loading ? '...' : totalPurchases}</h3>
+          <p className="text-[10px] font-bold text-slate-400 mt-1">Orders processed</p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <div className="w-8 h-8 rounded bg-blue-50 text-blue-600 flex items-center justify-center mb-4">
-            <span className="material-symbols-outlined text-[18px]">inventory</span>
-          </div>
-          <p className="text-xs font-bold text-slate-500 mb-0.5">Total Items Purchased</p>
-          <h3 className="text-2xl font-bold text-slate-800">{activeData.items}</h3>
+          <p className="text-xs font-bold text-slate-500 mb-2">Total Items Purchased</p>
+          <h3 className="text-2xl font-bold text-slate-800">{loading ? '...' : totalItemsPurchased}</h3>
+          <p className="text-[10px] font-bold text-slate-400 mt-1">Units received</p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <div className="w-8 h-8 rounded bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4">
-            <span className="material-symbols-outlined text-[18px]">storefront</span>
-          </div>
-          <p className="text-xs font-bold text-slate-500 mb-0.5">Total Suppliers Active</p>
-          <h3 className="text-2xl font-bold text-slate-800">{activeData.sup}</h3>
+          <p className="text-xs font-bold text-slate-500 mb-2">Total Suppliers Active</p>
+          <h3 className="text-2xl font-bold text-slate-800">{loading ? '...' : activeSuppliers}</h3>
+          <p className="text-[10px] font-bold text-slate-400 mt-1">Unique vendors</p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <div className="w-8 h-8 rounded bg-[#fef3c7] text-[#d97706] flex items-center justify-center mb-4">
-            <span className="material-symbols-outlined text-[18px]">local_shipping</span>
-          </div>
-          <p className="text-xs font-bold text-slate-500 mb-0.5">Pending Deliveries</p>
-          <h3 className="text-2xl font-bold text-slate-800">{activeData.pend}</h3>
+          <p className="text-xs font-bold text-slate-500 mb-2">Shortages / Issues</p>
+          <h3 className="text-2xl font-bold text-[#d97706]">{loading ? '...' : pendingDeliveries}</h3>
+          <p className="text-[10px] font-bold text-[#d97706] mt-1">Partial deliveries</p>
         </div>
       </div>
 
@@ -163,17 +212,14 @@ export default function PurchaseReports({ onViewChange }: { onViewChange: (view:
           <label className="block text-xs font-bold text-slate-500 mb-1.5">Status</label>
           <div className="relative">
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full appearance-none bg-[#f8f9fa] border border-slate-200 text-slate-700 text-sm font-medium rounded-lg px-4 py-2 pr-10 focus:outline-none focus:border-[#0b8252]">
-              <option>All Statuses</option>
-              <option>RECEIVED</option>
-              <option>PENDING</option>
-              <option>PARTIAL</option>
+              <option value="All Statuses">All Statuses</option>
+              <option value="RECEIVED">RECEIVED</option>
+              <option value="PARTIAL">PARTIAL</option>
             </select>
             <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[18px]">expand_more</span>
           </div>
         </div>
-        <div className="flex gap-3 mt-4 lg:mt-0">
-          <button onClick={() => setStatusFilter('All Statuses')} className="px-5 py-2 text-[#0b8252] font-bold text-sm hover:underline">Reset</button>
-        </div>
+        <button onClick={() => setStatusFilter('All Statuses')} className="px-5 py-2 text-[#0b8252] font-bold text-sm hover:underline">Reset</button>
       </div>
 
       {/* Main Table */}
@@ -187,23 +233,27 @@ export default function PurchaseReports({ onViewChange }: { onViewChange: (view:
                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Supplier</th>
                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Product</th>
                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Qty</th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Unit Price</th>
+                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Unit Cost</th>
                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Total</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
-              {filteredPurchases.map((item, i) => (
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-slate-500">Loading live purchases...</td>
+                </tr>
+              ) : filteredPurchases.map((item, i) => (
                 <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                   <td className="p-4 font-bold text-[#0b8252]">{item.ref}</td>
-                  <td className="p-4 text-slate-600 text-xs w-20">{item.date.replace(" ", "\n")}</td>
+                  <td className="p-4 text-slate-600 text-xs w-20">{item.date}</td>
                   <td className="p-4 text-slate-700 font-medium">{item.sup}</td>
                   <td className="p-4 text-slate-800">{item.prod}</td>
-                  <td className="p-4 text-slate-600 text-xs w-16">{item.qty.replace(" ", "\n")}</td>
+                  <td className="p-4 text-slate-600 text-xs w-16">{item.qty}</td>
                   <td className="p-4 text-slate-600">{item.price}</td>
                   <td className="p-4 font-bold text-slate-800">{item.total}</td>
                 </tr>
               ))}
-              {filteredPurchases.length === 0 && (
+              {!loading && filteredPurchases.length === 0 && (
                 <tr>
                   <td colSpan={7} className="p-8 text-center text-slate-500">No records match your filters.</td>
                 </tr>
@@ -211,16 +261,7 @@ export default function PurchaseReports({ onViewChange }: { onViewChange: (view:
             </tbody>
           </table>
         </div>
-        <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex justify-between items-center text-sm text-slate-500">
-          <p>Showing <strong>{filteredPurchases.length > 0 ? 1 : 0} - {filteredPurchases.length}</strong> of <strong>{filteredPurchases.length}</strong> results</p>
-          <div className="flex gap-1">
-            <button className="w-8 h-8 flex items-center justify-center rounded border border-slate-200 hover:bg-slate-50"><span className="material-symbols-outlined text-[18px]">chevron_left</span></button>
-            <button className="w-8 h-8 flex items-center justify-center rounded bg-[#0b8252] text-white font-bold">1</button>
-            <button className="w-8 h-8 flex items-center justify-center rounded border border-slate-200 hover:bg-slate-50"><span className="material-symbols-outlined text-[18px]">chevron_right</span></button>
-          </div>
-        </div>
       </div>
-
     </div>
   );
 }
