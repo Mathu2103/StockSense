@@ -167,7 +167,6 @@ export default function POSPage() {
 
   const total = itemsSubtotal - billDiscountAmount;
   const totalSavedAmount = grossTotal - total;
-  const effectiveDiscountPercentage = grossTotal > 0 ? (totalSavedAmount / grossTotal) * 100 : 0;
   const isOverallDiscountActive = discountType === 'bill' || discountType === 'both';
 
 
