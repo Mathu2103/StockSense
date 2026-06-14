@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { ProductItem } from './ProductsRegistry';
 
 export type BrandItem = {
   id: string;
@@ -10,6 +11,7 @@ export type BrandItem = {
 
 type BrandRegistryProps = {
   brands: BrandItem[];
+  products: ProductItem[];
   onAddBrand: (brand: Omit<BrandItem, 'id' | 'status'>) => void;
   onEditBrand: (id: string, updatedFields: Partial<BrandItem>) => void;
   onArchiveBrand: (id: string) => void;
@@ -18,6 +20,7 @@ type BrandRegistryProps = {
 
 export default function BrandRegistry({
   brands,
+  products,
   onAddBrand,
   onEditBrand,
   onArchiveBrand,
@@ -28,6 +31,7 @@ export default function BrandRegistry({
   const [editingBrand, setEditingBrand] = useState<BrandItem | null>(null);
   const [brandName, setBrandName] = useState('');
   const [description, setDescription] = useState('');
+  const [expandedBrandId, setExpandedBrandId] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [returnTo, setReturnTo] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -54,6 +58,16 @@ export default function BrandRegistry({
         b.description.toLowerCase().includes(query)
     );
   }, [brands, search]);
+
+  const getBrandProductCount = (brandName: string) =>
+    products.filter((product) => product.brand.toLowerCase() === brandName.toLowerCase()).length;
+
+  const getBrandProducts = (brandName: string) =>
+    products.filter((product) => product.brand.toLowerCase() === brandName.toLowerCase());
+
+  const handleToggleExpandedBrand = (brandId: string) => {
+    setExpandedBrandId((current) => (current === brandId ? null : brandId));
+  };
 
   const handleOpenAddModal = () => {
     setEditingBrand(null);
@@ -153,43 +167,69 @@ export default function BrandRegistry({
           {filteredBrands.map((brand) => (
             <div
               key={brand.id}
-              className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm hover:border-primary/40 transition-colors flex flex-col justify-between"
+              role="button"
+              tabIndex={0}
+              onClick={() => handleToggleExpandedBrand(brand.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleToggleExpandedBrand(brand.id);
+                }
+              }}
+              className={`group bg-surface-container-lowest border rounded-2xl p-5 shadow-sm hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between cursor-pointer ${expandedBrandId === brand.id ? 'border-primary/50 shadow-md ring-1 ring-primary/10' : 'border-outline-variant'}`}
             >
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-primary/5 text-primary flex items-center justify-center font-bold text-xs uppercase shadow-sm">
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/10 to-secondary-container text-primary flex items-center justify-center font-black text-sm uppercase shadow-sm ring-1 ring-primary/10">
                       {brand.name.substring(0, 2)}
                     </div>
                     <div className="flex flex-col">
-                      <span className="font-extrabold text-on-surface text-sm">{brand.name}</span>
-                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider w-fit mt-0.5 ${brand.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
-                        {brand.status}
-                      </span>
+                      <span className="font-extrabold text-on-surface text-base tracking-tight">{brand.name}</span>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-[0.12em] ${brand.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
+                          {brand.status}
+                        </span>
+                        <span className="text-[10px] font-bold text-outline">
+                          {getBrandProductCount(brand.name)} products
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  
-                  <div className="flex gap-0.5">
+
+                  <div className="flex gap-0.5 opacity-80 group-hover:opacity-100">
                     <button
-                      onClick={() => handleOpenEditModal(brand)}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenEditModal(brand);
+                      }}
                       title="Edit Brand"
-                      className="p-1 rounded text-outline-variant hover:text-primary hover:bg-primary/5 transition-colors"
+                      className="p-1.5 rounded-lg text-outline-variant hover:text-primary hover:bg-primary/5 transition-colors"
                     >
                       <span className="material-symbols-outlined text-sm">edit</span>
                     </button>
                     {brand.status === 'Active' ? (
                       <button
-                        onClick={() => onArchiveBrand(brand.id)}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onArchiveBrand(brand.id);
+                        }}
                         title="Archive Brand"
-                        className="p-1 rounded text-outline-variant hover:text-red-600 hover:bg-red-50 transition-colors"
+                        className="p-1.5 rounded-lg text-outline-variant hover:text-red-600 hover:bg-red-50 transition-colors"
                       >
                         <span className="material-symbols-outlined text-sm">archive</span>
                       </button>
                     ) : (
                       <button
-                        onClick={() => onRestoreBrand(brand.id)}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRestoreBrand(brand.id);
+                        }}
                         title="Restore Brand"
-                        className="p-1 rounded text-outline-variant hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                        className="p-1.5 rounded-lg text-outline-variant hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
                       >
                         <span className="material-symbols-outlined text-sm">unarchive</span>
                       </button>
@@ -200,6 +240,50 @@ export default function BrandRegistry({
                 <p className="text-xs text-on-surface-variant leading-relaxed line-clamp-3 min-h-[48px]">
                   {brand.description || 'No description provided for this supermarket brand.'}
                 </p>
+
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-outline-variant">
+                    {expandedBrandId === brand.id ? 'Click to hide products' : 'Click to view allocated products'}
+                  </span>
+                  <span className={`material-symbols-outlined text-[18px] text-primary transition-transform duration-300 ${expandedBrandId === brand.id ? 'rotate-90' : 'group-hover:translate-x-1'}`}>
+                    arrow_forward
+                  </span>
+                </div>
+
+                {expandedBrandId === brand.id && (
+                  <div className="mt-4 rounded-2xl border border-primary/10 bg-primary/5 p-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-[0.12em] text-primary">Allocated Products</p>
+                        <p className="text-[11px] text-outline">Products assigned to {brand.name}</p>
+                      </div>
+                      <div className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-primary border border-primary/10">
+                        {getBrandProductCount(brand.name)} total
+                      </div>
+                    </div>
+
+                    {getBrandProducts(brand.name).length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-outline-variant bg-white px-4 py-5 text-center text-xs text-outline">
+                        No products are currently assigned to this brand.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-3 max-h-80 overflow-y-auto pr-1">
+                        {getBrandProducts(brand.name).map((product) => (
+                          <div key={product.id} className="rounded-xl border border-outline-variant/60 bg-white px-4 py-3 shadow-sm flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-on-surface truncate">{product.name}</p>
+                              <p className="text-[11px] text-outline">SKU {product.sku} · {product.category}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-xs font-black text-primary">Rs. {product.sellingPrice.toLocaleString()}</p>
+                              <p className="text-[10px] font-bold text-outline">Stock {product.stock}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
             </div>

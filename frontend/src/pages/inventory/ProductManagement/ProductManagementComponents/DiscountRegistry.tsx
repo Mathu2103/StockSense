@@ -264,7 +264,7 @@ export default function DiscountRegistry({ products, showToast }: DiscountRegist
   return (
     <div className="space-y-6">
       {/* Premium Statistics Overview deck */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Total Campaigns */}
         <div className="bg-white border border-outline-variant/60 p-5 rounded-2xl shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
           <div>
@@ -302,23 +302,6 @@ export default function DiscountRegistry({ products, showToast }: DiscountRegist
           </div>
         </div>
 
-        {/* Avg Discount Value */}
-        <div className="bg-white border border-outline-variant/60 p-5 rounded-2xl shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
-          <div>
-            <p className="text-[10px] font-bold text-outline uppercase tracking-wider mb-1">Avg Discount</p>
-            <h3 className="text-2xl font-black text-primary">
-              {(() => {
-                const percentageDiscounts = discounts.filter(d => d.discountMode === 'PERCENTAGE' && d.type !== 'COMBO');
-                if (percentageDiscounts.length === 0) return '0%';
-                const avg = percentageDiscounts.reduce((sum, d) => sum + d.discountValue, 0) / percentageDiscounts.length;
-                return `${Math.round(avg)}%`;
-              })()}
-            </h3>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-            <span className="material-symbols-outlined text-[24px]">percent</span>
-          </div>
-        </div>
       </div>
       {/* Search and filter header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-surface-container-lowest border border-outline-variant/60 p-4 rounded-2xl shadow-sm">

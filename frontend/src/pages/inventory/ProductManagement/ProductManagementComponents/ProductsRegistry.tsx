@@ -35,6 +35,7 @@ type ProductsRegistryProps = {
   suppliers: string[];
   initialSearch?: string;
   initialCategory?: string;
+  initialBrand?: string;
 };
 
 export default function ProductsRegistry({
@@ -46,6 +47,7 @@ export default function ProductsRegistry({
   suppliers,
   initialSearch = '',
   initialCategory = 'All Categories',
+  initialBrand = '',
 }: ProductsRegistryProps) {
   // Details view state
   const [viewingProduct, setViewingProduct] = useState<ProductItem | null>(null);
@@ -55,6 +57,7 @@ export default function ProductsRegistry({
   const [categoryFilter, setCategoryFilter] = useState(initialCategory);
   const [supplierFilter, setSupplierFilter] = useState('All Suppliers');
   const [statusFilter, setStatusFilter] = useState('All Statuses');
+  const [brandFilter, setBrandFilter] = useState(initialBrand);
   const [quickFilter, setQuickFilter] = useState<'All' | 'Active' | 'Low Stock' | 'Out of Stock'>('All');
 
   const [reorderPercent, setReorderPercent] = useState<number>(25);
@@ -99,6 +102,10 @@ export default function ProductsRegistry({
     }
   }, [initialSearch]);
 
+  React.useEffect(() => {
+    setBrandFilter(initialBrand);
+  }, [initialBrand]);
+
   // Reactive calculations for filtered items
   const filteredProducts = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -119,6 +126,9 @@ export default function ProductsRegistry({
       const matchesStatus =
         statusFilter === 'All Statuses' || p.status === statusFilter;
 
+      const matchesBrand =
+        !brandFilter || p.brand.toLowerCase() === brandFilter.toLowerCase();
+
       // 3. Quick Chips Filters
       let matchesQuick = true;
       if (quickFilter === 'Active') {
@@ -129,24 +139,24 @@ export default function ProductsRegistry({
         matchesQuick = p.stock === 0;
       }
 
-      return matchesSearch && matchesCategory && matchesSupplier && matchesStatus && matchesQuick;
+      return matchesSearch && matchesCategory && matchesSupplier && matchesStatus && matchesBrand && matchesQuick;
     });
-  }, [products, search, categoryFilter, supplierFilter, statusFilter, quickFilter, reorderPercent]);
+  }, [products, search, categoryFilter, supplierFilter, statusFilter, brandFilter, quickFilter, reorderPercent]);
 
   // Reactive KPI Calculations
   const kpis = useMemo(() => {
-    const total = products.length;
-    const active = products.filter((p) => p.status === 'Active').length;
+    const total = filteredProducts.length;
+    const active = filteredProducts.filter((p) => p.status === 'Active').length;
 
     // Low stock indicator check: stock <= reorderLevel but > 0
-    const lowStock = products.filter((p) => p.stock > 0 && p.stock <= getReorderLimit(p)).length;
-    const outOfStock = products.filter((p) => p.stock === 0).length;
+    const lowStock = filteredProducts.filter((p) => p.stock > 0 && p.stock <= getReorderLimit(p)).length;
+    const outOfStock = filteredProducts.filter((p) => p.stock === 0).length;
 
     // Total Inventory Value sum (cost price * current stock)
-    const totalValue = products.reduce((sum, p) => sum + p.costPrice * p.stock, 0);
+    const totalValue = filteredProducts.reduce((sum, p) => sum + p.costPrice * p.stock, 0);
 
     return { total, active, lowStock, outOfStock, totalValue };
-  }, [products, reorderPercent]);
+  }, [filteredProducts, reorderPercent]);
 
   // Formatting Currency
   const formatCurrency = (val: number) => {
@@ -226,6 +236,21 @@ export default function ProductsRegistry({
 
       {/* 2. Advanced Search & Filtering Block */}
       <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 shadow-sm">
+        {brandFilter && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-primary/15 bg-primary/5 px-4 py-2.5">
+            <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+              <span className="material-symbols-outlined text-[18px]">verified</span>
+              Showing products for {brandFilter}
+            </div>
+            <button
+              type="button"
+              onClick={() => setBrandFilter('')}
+              className="text-xs font-bold text-primary hover:underline"
+            >
+              Clear brand filter
+            </button>
+          </div>
+        )}
         <ProductFilters
           search={search}
           setSearch={setSearch}

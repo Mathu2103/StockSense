@@ -342,6 +342,7 @@ export default function ProductManagement() {
   // Filter redirection state
   const [initialSearch] = useState('');
   const [initialCategory] = useState('All Categories');
+  const initialBrand = searchParams.get('brand') || '';
 
   // Edit target state
   const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
@@ -700,6 +701,7 @@ export default function ProductManagement() {
                 suppliers={supplierNamesList}
                 initialSearch={initialSearch}
                 initialCategory={initialCategory}
+                initialBrand={initialBrand}
               />
             )}
 
@@ -727,6 +729,7 @@ export default function ProductManagement() {
             {activeTab === 'brands' && (
               <BrandRegistry
                 brands={brands}
+                products={products}
                 onAddBrand={handleAddBrand}
                 onEditBrand={handleEditBrand}
                 onArchiveBrand={(id) => handleToggleBrandStatus(id, 'Inactive')}
