@@ -168,6 +168,7 @@ export default function POSPage() {
   const total = itemsSubtotal - billDiscountAmount;
   const totalSavedAmount = grossTotal - total;
   const effectiveDiscountPercentage = grossTotal > 0 ? (totalSavedAmount / grossTotal) * 100 : 0;
+  const isOverallDiscountActive = discountType === 'bill' || discountType === 'both';
 
 
   // --- RENDER HELPERS ---
@@ -826,7 +827,7 @@ export default function POSPage() {
                     <span className="text-xs text-gray-500 font-bold tracking-wide">Barcode: {scannedProduct.barcode}</span>
                   </div>
                   <h3 className="text-base font-extrabold text-gray-900 leading-tight">{scannedProduct.name}</h3>
-                  <div className="text-[#047857] font-extrabold text-sm mt-0.5">${scannedProduct.price.toFixed(2)}</div>
+                  <div className="text-[#047857] font-extrabold text-sm mt-0.5">Rs. {scannedProduct.price.toFixed(2)}</div>
                 </div>
               </div>
               <div className="flex items-center gap-6">
@@ -870,7 +871,7 @@ export default function POSPage() {
                       <span className="text-xs text-gray-500 font-bold tracking-wide">Barcode: {match.barcode}</span>
                     </div>
                     <h3 className="text-base font-extrabold text-gray-900 leading-tight">{match.name}</h3>
-                    <div className="text-[#047857] font-extrabold text-sm mt-0.5">${match.price.toFixed(2)}</div>
+                    <div className="text-[#047857] font-extrabold text-sm mt-0.5">Rs. {match.price.toFixed(2)}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-6">
@@ -940,10 +941,10 @@ export default function POSPage() {
           {/* Cart Table Header */}
           <div className="grid grid-cols-12 gap-4 text-[11px] font-bold text-gray-500 tracking-wider pb-3 uppercase border-b border-gray-200 shrink-0">
             <div className="col-span-3">ITEM DETAILS</div>
-            <div className="col-span-1 text-center">BIN</div>
             <div className="col-span-2 text-center">UNIT PRICE</div>
             <div className="col-span-2 text-center">QTY</div>
             <div className="col-span-2 text-center">DISCOUNT (%)</div>
+            <div className="col-span-1 text-center">BIN</div>
             <div className="col-span-2 text-right">TOTAL</div>
           </div>
 
@@ -968,13 +969,8 @@ export default function POSPage() {
                           <p className="text-[11px] text-gray-500 font-medium mt-0.5 truncate">SKU: {item.barcode || `PRD-${item.id}`}</p>
                         </div>
                       </div>
-                      <div className="col-span-1 flex justify-center">
-                        <button onClick={() => setCart(prev => prev.filter(p => p.id !== item.id))} className="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded transition-colors" title="Remove item">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
                       <div className="col-span-2 text-center font-semibold text-gray-700 text-[14px]">
-                        ${item.price.toFixed(2)}
+                        Rs. {item.price.toFixed(2)}
                       </div>
                       <div className="col-span-2 flex justify-center">
                         <div className="flex items-center bg-[#f0f4f8] rounded-lg p-1">
@@ -986,8 +982,13 @@ export default function POSPage() {
                       <div className="col-span-2 text-center font-medium text-gray-600 text-[14px]">
                         {item.discount || 0}%
                       </div>
+                      <div className="col-span-1 flex justify-center">
+                        <button onClick={() => setCart(prev => prev.filter(p => p.id !== item.id))} className="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded transition-colors" title="Remove item">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                       <div className="col-span-2 text-right text-[15px] font-bold text-[#047857]">
-                        ${itemTotal.toFixed(2)}
+                        Rs. {itemTotal.toFixed(2)}
                       </div>
                     </div>
                   );
@@ -995,7 +996,7 @@ export default function POSPage() {
                 {/* Subtotal Row */}
                 <div className="border-t border-gray-100 pt-4 mt-6 flex justify-between items-center bg-[#f8fafc] p-4 rounded-xl">
                   <span className="text-sm font-bold text-gray-600 uppercase tracking-wider">Subtotal</span>
-                  <span className="text-xl font-extrabold text-[#047857]">${itemsSubtotal.toFixed(2)}</span>
+                  <span className="text-xl font-extrabold text-[#047857]">Rs. {itemsSubtotal.toFixed(2)}</span>
                 </div>
               </div>
             )}
@@ -1024,17 +1025,26 @@ export default function POSPage() {
                   <ChevronRight className="w-4 h-4 text-gray-500 absolute right-4 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-900 mb-2 tracking-wide">Select Bill/Both type</label>
+              <div className={`transition-all duration-300 ${!isOverallDiscountActive ? 'opacity-40 blur-[0.75px] pointer-events-none select-none' : ''}`}>
+                <label className="block text-xs font-bold text-gray-900 mb-2 tracking-wide">Overall Discount (%)</label>
                 <div className="relative">
-                  <select className="w-full bg-[#f3f4f6] border border-[#e5e7eb] text-gray-800 rounded-lg px-4 py-3 text-sm font-medium focus:outline-none appearance-none cursor-pointer">
-                    <option>Select Bill/Both type</option>
-                  </select>
-                  <ChevronRight className="w-4 h-4 text-gray-500 absolute right-4 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    placeholder="Enter discount (%)"
+                    value={manualDiscount || ''}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      setManualDiscount(isNaN(val) ? 0 : val);
+                    }}
+                    disabled={!isOverallDiscountActive}
+                    className="w-full bg-[#f3f4f6] border border-[#e5e7eb] text-gray-800 rounded-lg px-4 py-3 text-sm font-medium focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
+                  />
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-extrabold text-gray-500 uppercase tracking-wider">Customer Paid ($)</label>
+                <label className="text-xs font-extrabold text-gray-500 uppercase tracking-wider">Customer Paid (Rs.)</label>
                 <input
                   type="number"
                   placeholder="Enter amount paid"
@@ -1045,37 +1055,55 @@ export default function POSPage() {
               </div>
             </div>
             {/* Row 2: Totals & Payment action */}
-            <div className="flex flex-col md:flex-row items-center justify-end gap-6 pt-4 border-t border-gray-100">
-              <div className="flex flex-col md:flex-row items-center gap-8 w-full md:w-auto justify-between md:justify-end">
-                <div className="text-right flex flex-col gap-1">
-                  <div className="text-xs text-gray-500 font-semibold">
-                    Items Subtotal: <span className="text-gray-900 font-bold ml-1">${grossTotal.toFixed(2)}</span>
+            <div className="flex flex-wrap lg:flex-nowrap items-center justify-between gap-6 pt-4 border-t border-gray-100 w-full">
+              <div className="flex flex-wrap lg:flex-nowrap items-center gap-4 flex-1 w-full mr-4">
+                {/* Items Subtotal Box */}
+                <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 flex-1 min-w-[200px]">
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Items Subtotal</span>
+                  <div className="w-32 h-10 flex items-center justify-center bg-white border border-gray-300 rounded-lg text-sm font-extrabold text-gray-800 shrink-0">
+                    Rs. {grossTotal.toFixed(2)}
                   </div>
-                  {totalSavedAmount > 0 && (
-                    <div className="text-xs text-red-600 font-semibold">
-                      Total Discount ({effectiveDiscountPercentage.toFixed(1)}%): <span className="font-bold ml-1">-${totalSavedAmount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <span className="text-base font-bold text-gray-500">Bill Total:</span>
-                    <span className="text-3xl font-extrabold text-[#047857]">${total.toFixed(2)}</span>
-                  </div>
-                  {customerPaidInput && (
-                    <div className="text-sm font-bold mt-1 text-gray-700">
-                      Change Due: <span className={parseFloat(customerPaidInput) >= total ? 'text-blue-600' : 'text-red-500'}>
-                        ${(Math.max(0, (parseFloat(customerPaidInput) || 0) - total)).toFixed(2)}
-                      </span>
-                    </div>
-                  )}
                 </div>
-                <button
-                  onClick={() => setShowInvoiceModal(true)}
-                  disabled={cart.length === 0 || !customerPaidInput}
-                  className={`px-10 py-4 rounded-xl font-bold text-xl flex items-center justify-center transition-all shadow-sm h-full w-full lg:w-auto ${cart.length > 0 && customerPaidInput ? 'bg-[#047857] hover:bg-[#065f46] text-white shadow-md' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
-                >
-                  Complete Transaction
-                </button>
+
+                {/* Total Discount Box */}
+                <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 flex-1 min-w-[200px]">
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Total Discount</span>
+                  <div className="w-32 h-10 flex items-center justify-center bg-white border border-gray-300 rounded-lg text-sm font-extrabold text-gray-800 shrink-0">
+                    -Rs. {totalSavedAmount.toFixed(2)}
+                  </div>
+                </div>
+
+                {/* Bill Total Box */}
+                <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 flex-1 min-w-[200px]">
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill Total</span>
+                  <div className="w-32 h-10 flex items-center justify-center bg-white border border-gray-300 rounded-lg text-sm font-extrabold text-gray-800 shrink-0">
+                    Rs. {total.toFixed(2)}
+                  </div>
+                </div>
+
+                {/* Change Due Box */}
+                {customerPaidInput && (
+                  <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 flex-1 min-w-[200px]">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Change Due</span>
+                    <div className="w-32 h-10 flex items-center justify-center bg-white border border-gray-300 rounded-lg text-sm font-extrabold text-gray-800 shrink-0">
+                      Rs. {(Math.max(0, (parseFloat(customerPaidInput) || 0) - total)).toFixed(2)}
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {/* Complete Transaction Button */}
+              <button
+                onClick={() => setShowInvoiceModal(true)}
+                disabled={cart.length === 0 || !customerPaidInput}
+                className={`px-8 h-12 rounded-xl font-bold text-base flex items-center justify-center transition-all shadow-sm shrink-0 w-full lg:w-auto ${
+                  cart.length > 0 && customerPaidInput
+                    ? 'bg-[#047857] hover:bg-[#065f46] text-white shadow-md cursor-pointer'
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                Complete Transaction
+              </button>
             </div>
           </div>
         </div>
@@ -1512,7 +1540,7 @@ export default function POSPage() {
             <p className="text-sm text-gray-500 font-medium mb-6">Barcode: {scannedProduct.barcode}</p>
 
             <div className="flex items-center justify-between mb-8">
-              <span className="text-[#047857] font-extrabold text-3xl">${scannedProduct.price.toFixed(2)}</span>
+              <span className="text-[#047857] font-extrabold text-3xl">Rs. {scannedProduct.price.toFixed(2)}</span>
 
               <div className="flex items-center bg-[#f0f4f8] rounded-xl p-1">
                 <button onClick={() => setScannedProductQty(Math.max(1, scannedProductQty - 1))} className="w-10 h-10 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:text-gray-900 transition-colors">
