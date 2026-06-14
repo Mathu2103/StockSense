@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { downloadReport, ViewState } from './reportUtils';
 import { inventoryOperationsService } from '../../StockOperations/operations/inventoryOperationsService';
 
-export default function PurchaseReports({ onViewChange }: { onViewChange: (view: ViewState) => void }) {
+export default function PurchaseReports({ onViewChange: _onViewChange }: { onViewChange: (view: ViewState) => void }) {
   const [period, setPeriod] = useState<'Today' | 'Week' | 'Month' | 'Year' | 'Custom Range'>('Month');
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
