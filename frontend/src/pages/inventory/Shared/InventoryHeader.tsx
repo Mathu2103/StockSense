@@ -3,6 +3,8 @@ import { useNavigate, useLocation, Link, useSearchParams } from 'react-router-do
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../../hooks/useAuth';
 import defaultAvatar from '@/assets/images/default-avatar.png';
+import { authService } from '../../../services/authService';
+import { toast } from 'sonner';
 
 interface InventoryHeaderProps {
   children?: React.ReactNode;
@@ -360,7 +362,7 @@ let memoryProfileSettings: { fullName?: string; email?: string; customAvatar?: s
 function ProfileDropdown({ activeDropdown, setActiveDropdown }: { activeDropdown: string | null; setActiveDropdown: (name: string | null) => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const isOpen = activeDropdown === 'profile';
 
   const toggle = () => setActiveDropdown(isOpen ? null : 'profile');
@@ -369,8 +371,9 @@ function ProfileDropdown({ activeDropdown, setActiveDropdown }: { activeDropdown
   const [profileName, setProfileName] = useState(user?.name || 'User');
   const [profileEmail, setProfileEmail] = useState(user?.email || '');
   const [profileAvatar, setProfileAvatar] = useState(defaultAvatar);
-  const [profilePhone, setProfilePhone] = useState('+1 (555) 000-0000'); // Dummy phone
+  const [profilePhone, setProfilePhone] = useState(user?.phone || '');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const userRole = user?.role ? formatRole(user.role) : 'Team Member';
 
@@ -378,9 +381,11 @@ function ProfileDropdown({ activeDropdown, setActiveDropdown }: { activeDropdown
     const updateDisplayInfo = () => {
       const name = memoryProfileSettings.fullName || user?.name || 'User';
       const email = memoryProfileSettings.email || user?.email || '';
+      const phone = user?.phone || '';
       const avatar = memoryProfileSettings.customAvatar || defaultAvatar;
       setProfileName(name);
       setProfileEmail(email);
+      setProfilePhone(phone);
       setProfileAvatar(avatar);
     };
 
@@ -523,13 +528,48 @@ function ProfileDropdown({ activeDropdown, setActiveDropdown }: { activeDropdown
               </div>
             </div>
             <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
-              <button onClick={() => setIsEditModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors">Cancel</button>
-              <button onClick={() => {
-                memoryProfileSettings.fullName = profileName;
-                memoryProfileSettings.email = profileEmail;
-                window.dispatchEvent(new Event('stocksense_profile_updated'));
-                setIsEditModalOpen(false);
-              }} className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b8252] hover:bg-[#096b43] rounded-lg shadow-sm transition-colors">Save Changes</button>
+              <button 
+                disabled={isSaving} 
+                onClick={() => setIsEditModalOpen(false)} 
+                className="px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                disabled={isSaving}
+                onClick={async () => {
+                  setIsSaving(true);
+                  try {
+                    const updatedUser = await authService.updateProfile({
+                      name: profileName,
+                      email: profileEmail,
+                      phone: profilePhone || undefined,
+                    });
+                    updateUser(updatedUser);
+
+                    memoryProfileSettings.fullName = profileName;
+                    memoryProfileSettings.email = profileEmail;
+                    window.dispatchEvent(new Event('stocksense_profile_updated'));
+                    
+                    toast.success('Profile updated successfully!');
+                    setIsEditModalOpen(false);
+                  } catch (err: any) {
+                    console.error(err);
+                    toast.error(err.response?.data?.message || 'Failed to update profile.');
+                  } finally {
+                    setIsSaving(false);
+                  }
+                }} 
+                className="px-5 py-2.5 text-sm font-bold text-white bg-[#0b8252] hover:bg-[#096b43] rounded-lg shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+              >
+                {isSaving && (
+                  <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                )}
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </button>
             </div>
           </div>
         </div>,

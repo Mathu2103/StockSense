@@ -324,6 +324,7 @@ async function main() {
       data: {
         name: mp.name,
         categoryId: category.id,
+        subCategoryId: subCategory ? subCategory.id : undefined,
         brandId: brand.id,
         supplierId: supplier.id,
         hasVariant: mp.variants.length > 1

@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import CategoryTree from './SubComponents/CategoryTree';
 import ProductImageUploader from './SubComponents/ProductImageUploader';
 import { ProductItem } from './ProductsRegistry';
+import { toast } from 'sonner';
 
 type SubCategoryNode = {
   id: string;
@@ -177,7 +178,7 @@ export default function CategoryRegistry({
 
   const handleSave = () => {
     const trimmed = categoryName.trim();
-    if (!trimmed) { alert('Please enter a valid category name.'); return; }
+    if (!trimmed) { toast.error('Please enter a valid category name.'); return; }
     let isDuplicate = false;
     if (editingCategory) {
       isDuplicate = categories.some(c => c.id !== editingCategory.id && c.name.toLowerCase() === trimmed.toLowerCase());
@@ -677,17 +678,6 @@ export default function CategoryRegistry({
                                       title="Edit Product"
                                     >
                                       <span className="material-symbols-outlined text-[16px]">edit</span>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        onArchiveProduct?.(p.id, p.name);
-                                      }}
-                                      className="w-7 h-7 rounded bg-surface border border-outline-variant text-on-surface-variant hover:text-red-600 hover:bg-red-50 hover:border-red-100 flex items-center justify-center transition-colors"
-                                      title="Delete Product"
-                                    >
-                                      <span className="material-symbols-outlined text-[16px]">delete</span>
                                     </button>
                                   </div>
                                 </td>

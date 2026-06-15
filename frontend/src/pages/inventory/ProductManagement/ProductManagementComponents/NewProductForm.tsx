@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProductImageUploader from './SubComponents/ProductImageUploader';
+import BarcodeScannerModal from './SubComponents/BarcodeScannerModal';
+import { toast } from 'sonner';
 
 type SupplierOption = {
   id: string;
@@ -139,13 +141,8 @@ export default function NewProductForm({
 
   const [variantImageMode] = useState<VariantImageMode>('different');
   const [autoVariantBarcode] = useState(true);
-  const DUMMY_VARIANTS: VariantItem[] = initialProduct?.variants?.length ? [] : [
-    { id: 'demo_1', variantName: 'Chocolate', attributeType: 'Flavor', attributeValue: 'Chocolate', unit: 'Packet', sku: 'VAR-CHO', barcode: '4791185535175', costPrice: 120, sellingPrice: 150, stock: 48, reorderLevel: 25, targetCapacity: 100, imageUrl: null, mfgDate: '2025-01-15', expiryDate: '2026-01-15', batchNumber: 'BATCH-CHO-001' },
-    { id: 'demo_2', variantName: 'Vanilla', attributeType: 'Flavor', attributeValue: 'Vanilla', unit: 'Packet', sku: 'VAR-VAN', barcode: '4791185535182', costPrice: 115, sellingPrice: 145, stock: 32, reorderLevel: 25, targetCapacity: 100, imageUrl: null, mfgDate: '2025-02-10', expiryDate: '2026-02-10', batchNumber: 'BATCH-VAN-002' },
-    { id: 'demo_3', variantName: 'Strawberry', attributeType: 'Flavor', attributeValue: 'Strawberry', unit: 'Packet', sku: 'VAR-STR', barcode: '4791185535199', costPrice: 125, sellingPrice: 155, stock: 15, reorderLevel: 25, targetCapacity: 100, imageUrl: null, mfgDate: '2025-03-05', expiryDate: '2026-03-05', batchNumber: 'BATCH-STR-003' },
-  ];
 
-  const [variants, setVariants] = useState<VariantItem[]>(initialProduct?.variants || DUMMY_VARIANTS);
+  const [variants, setVariants] = useState<VariantItem[]>(initialProduct?.variants || []);
 
   const [showBarcodeScanner, setShowBarcodeScanner] = useState<'single' | 'variant' | null>(null);
 
@@ -248,19 +245,19 @@ export default function NewProductForm({
     const trimmedBarcode = variantDraft.barcode.trim();
 
     if (!trimmedName) {
-      alert('Variant Name is required.');
+      toast.error('Variant Name is required.');
       return;
     }
     if (!trimmedSku) {
-      alert('Variant SKU is required.');
+      toast.error('Variant SKU is required.');
       return;
     }
     if (!trimmedBarcode) {
-      alert('Variant Barcode is required.');
+      toast.error('Variant Barcode is required.');
       return;
     }
     if (variantImageMode === 'different' && !variantDraft.imageUrl) {
-      alert('Variant image is required when "different images" is enabled.');
+      toast.error('Variant image is required when "different images" is enabled.');
       return;
     }
 
@@ -268,7 +265,7 @@ export default function NewProductForm({
       (item) => item.barcode === trimmedBarcode && item.id !== editingVariantId
     );
     if (duplicate) {
-      alert('Each variant must have a unique barcode.');
+      toast.error('Each variant must have a unique barcode.');
       return;
     }
 
@@ -297,42 +294,42 @@ export default function NewProductForm({
 
   const validateBeforeSave = () => {
     if (!productName.trim()) {
-      alert('Product Name is required.');
+      toast.error('Product Name is required.');
       return false;
     }
 
 
     if (structure === 'single') {
       if (!frontImageUrl) {
-        alert('Front Image is required.');
+        toast.error('Front Image is required.');
         return false;
       }
       if (!singleSku.trim()) {
-        alert('SKU ID is required for single product.');
+        toast.error('SKU ID is required for single product.');
         return false;
       }
       if (!singleBarcode.trim()) {
-        alert('Barcode Number is required for single product.');
+        toast.error('Barcode Number is required for single product.');
         return false;
       }
       if (!singleUnit) {
-        alert('Unit of Measurement is required.');
+        toast.error('Unit of Measurement is required.');
         return false;
       }
     }
 
     if (structure === 'variant') {
       if (variants.length === 0) {
-        alert('Add at least one variant.');
+        toast.error('Add at least one variant.');
         return false;
       }
       const uniqueCount = new Set(variantBarcodes).size;
       if (uniqueCount !== variants.length) {
-        alert('Each variant must have a unique barcode.');
+        toast.error('Each variant must have a unique barcode.');
         return false;
       }
       if (variantImageMode === 'different' && variants.some((item) => !item.imageUrl)) {
-        alert('Every variant must include an image when different images are enabled.');
+        toast.error('Every variant must include an image when different images are enabled.');
         return false;
       }
     }
@@ -574,7 +571,31 @@ export default function NewProductForm({
                     type="radio"
                     name="product-structure"
                     checked={structure === 'variant'}
-                    onChange={() => setStructure('variant')}
+                    onChange={() => {
+                      setStructure('variant');
+                      if (variants.length === 0) {
+                        setVariants([
+                          {
+                            id: `var_${Date.now()}`,
+                            variantName: productName || 'Original',
+                            attributeType: 'Flavor',
+                            attributeValue: 'Original',
+                            unit: singleUnit,
+                            sku: singleSku || `VAR-${Date.now()}`,
+                            barcode: singleBarcode,
+                            costPrice: singleCostPrice,
+                            sellingPrice: singleSellingPrice,
+                            stock: singleStock,
+                            reorderLevel: calculatedReorderPoint,
+                            targetCapacity: singleTargetCapacity,
+                            imageUrl: frontImageUrl,
+                            mfgDate: mfgDate,
+                            expiryDate: expiryDate,
+                            batchNumber: batchNumber
+                          }
+                        ]);
+                      }
+                    }}
                   />
                   <span className="font-bold text-sm">Has Variants</span>
                 </div>
@@ -722,7 +743,8 @@ export default function NewProductForm({
                       value={singleSku}
                       onChange={(e) => setSingleSku(e.target.value)}
                       placeholder="e.g. DAI-005"
-                      className="w-full px-4 py-2.5 bg-background border border-outline-variant rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary"
+                      disabled={Boolean(initialProduct)}
+                      className="w-full px-4 py-2.5 bg-background border border-outline-variant rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary disabled:bg-slate-50 disabled:text-on-surface-variant/80 disabled:cursor-not-allowed"
                     />
                   </div>
                   <div>
@@ -843,7 +865,7 @@ export default function NewProductForm({
                               <span className="text-outline font-normal"> / {item.targetCapacity || 100}</span>
                             </span>
                           </td>
-                          <td className="px-3 py-3 font-bold text-primary">₹{item.sellingPrice.toFixed(2)}</td>
+                          <td className="px-3 py-3 font-bold text-primary">Rs. {item.sellingPrice.toFixed(2)}</td>
                           <td className="px-3 py-3">
                             {item.expiryDate ? (
                               <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-100 whitespace-nowrap">
@@ -860,14 +882,6 @@ export default function NewProductForm({
                                 title="Edit"
                               >
                                 <span className="material-symbols-outlined text-[14px]">edit</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleVariantDelete(item.id)}
-                                className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-colors"
-                                title="Delete"
-                              >
-                                <span className="material-symbols-outlined text-[14px]">delete</span>
                               </button>
                             </div>
                           </td>
@@ -1069,7 +1083,8 @@ export default function NewProductForm({
                     value={variantDraft.sku}
                     onChange={(e) => setVariantDraft((prev) => ({ ...prev, sku: e.target.value }))}
                     placeholder="e.g. VAR-001"
-                    className="w-full px-4 py-2.5 bg-background border border-outline-variant rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary"
+                    disabled={editingVariantId ? !editingVariantId.startsWith('var_') : false}
+                    className="w-full px-4 py-2.5 bg-background border border-outline-variant rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary disabled:bg-slate-50 disabled:text-on-surface-variant/80 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -1099,8 +1114,8 @@ export default function NewProductForm({
                     type="text"
                     value={variantDraft.barcode}
                     onChange={(e) => setVariantDraft((prev) => ({ ...prev, barcode: e.target.value }))}
-                    disabled={autoVariantBarcode}
-                    className="w-full px-4 py-2.5 bg-background border border-outline-variant rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary disabled:bg-slate-50"
+                    placeholder="e.g. 4791029384729"
+                    className="w-full px-4 py-2.5 bg-background border border-outline-variant rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
                 <div>
@@ -1245,63 +1260,17 @@ export default function NewProductForm({
         </div>
       )}
 
-      {showBarcodeScanner && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-800 flex items-center">
-                <span className="material-symbols-outlined text-primary text-[24px] mr-2">qr_code_scanner</span> Scan Barcode
-              </h2>
-              <button 
-                type="button"
-                onClick={() => setShowBarcodeScanner(null)} 
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
-            <div className="p-8 bg-gray-50 flex flex-col items-center">
-               <div className="relative w-64 h-64 bg-black rounded-lg overflow-hidden flex items-center justify-center shadow-inner cursor-pointer"
-                    onClick={() => {
-                      const mockBarcode = createBarcode();
-                      if (showBarcodeScanner === 'single') {
-                        setSingleBarcode(mockBarcode);
-                      } else {
-                        setVariantDraft(prev => ({ ...prev, barcode: mockBarcode }));
-                      }
-                      setShowBarcodeScanner(null);
-                    }}
-                    title="Click to simulate scan"
-               >
-                  <div className="absolute inset-0 opacity-40 bg-[url('https://images.unsplash.com/photo-1550989460-0adf9ea622e2?q=80&w=400&auto=format&fit=crop')] bg-cover bg-center mix-blend-luminosity"></div>
-                  <div className="absolute w-48 h-48 border-2 border-white/40 rounded-lg box-border"></div>
-                  <style>{`
-                    @keyframes scanLine {
-                      0% { top: 10%; }
-                      50% { top: 90%; }
-                      100% { top: 10%; }
-                    }
-                  `}</style>
-                  <div 
-                    className="absolute w-48 h-[2px] bg-red-500 shadow-[0_0_8px_2px_rgba(239,68,68,0.5)]"
-                    style={{ animation: 'scanLine 2s linear infinite' }}
-                  ></div>
-               </div>
-               <p className="mt-6 text-sm font-medium text-gray-600">Place the product barcode inside the frame</p>
-               <p className="mt-1 text-[10px] text-gray-400">(Click camera to simulate successful scan)</p>
-            </div>
-            <div className="p-4 bg-white border-t border-gray-100">
-               <button 
-                 type="button"
-                 onClick={() => setShowBarcodeScanner(null)} 
-                 className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
-               >
-                 Cancel
-               </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <BarcodeScannerModal
+        isOpen={Boolean(showBarcodeScanner)}
+        onClose={() => setShowBarcodeScanner(null)}
+        onScan={(scannedBarcode) => {
+          if (showBarcodeScanner === 'single') {
+            setSingleBarcode(scannedBarcode);
+          } else {
+            setVariantDraft((prev) => ({ ...prev, barcode: scannedBarcode }));
+          }
+        }}
+      />
     </form>
   );
 }

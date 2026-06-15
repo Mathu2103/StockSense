@@ -7,6 +7,7 @@ interface AuthContextType {
   user: AuthUser | null
   login: (token: string, user: AuthUser) => void
   logout: () => Promise<void>
+  updateUser: (updatedFields: Partial<AuthUser>) => void
   isAuthenticated: boolean
   isLoading: boolean
 }
@@ -75,11 +76,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
+  const updateUser = (updatedFields: Partial<AuthUser>) => {
+    setUser((prev) => prev ? { ...prev, ...updatedFields } : null)
+  }
+
   return (
     <AuthContext.Provider value={{
       user,
       login,
       logout,
+      updateUser,
       isAuthenticated: !!user,
       isLoading
     }}>

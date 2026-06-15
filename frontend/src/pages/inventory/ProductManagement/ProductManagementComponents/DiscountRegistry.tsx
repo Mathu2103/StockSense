@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ProductItem } from './ProductsRegistry';
+import { toast } from 'sonner';
 
 export interface DiscountItem {
   id: string;
@@ -27,6 +28,7 @@ export interface DiscountItem {
 interface DiscountRegistryProps {
   products: ProductItem[];
   showToast: (msg: string, type?: 'success' | 'info') => void;
+  showConfirm?: (title: string, message: React.ReactNode, onConfirm: () => void) => void;
 }
 
 const DISCOUNTS_STORAGE_KEY = 'stocksense_discounts_registry';
@@ -80,7 +82,7 @@ const initialDiscounts: DiscountItem[] = [
   }
 ];
 
-export default function DiscountRegistry({ products, showToast }: DiscountRegistryProps) {
+export default function DiscountRegistry({ products, showToast, showConfirm }: DiscountRegistryProps) {
   const [discounts, setDiscounts] = useState<DiscountItem[]>(() => {
     const stored = window.localStorage.getItem(DISCOUNTS_STORAGE_KEY);
     if (stored) {
@@ -155,33 +157,33 @@ export default function DiscountRegistry({ products, showToast }: DiscountRegist
 
   const handleSave = () => {
     if (!name.trim()) {
-      alert('Please enter a discount campaign name.');
+      toast.error('Please enter a discount campaign name.');
       return;
     }
 
     if (type !== 'COMBO') {
       if (discountValue <= 0) {
-        alert('Please enter a valid discount value greater than 0.');
+        toast.error('Please enter a valid discount value greater than 0.');
         return;
       }
       if (discountMode === 'PERCENTAGE' && discountValue > 100) {
-        alert('Percentage discount must be in the 0 to 100 range.');
+        toast.error('Percentage discount must be in the 0 to 100 range.');
         return;
       }
     }
 
     if (type === 'SEASONAL' && (!startDate || !endDate)) {
-      alert('Please specify both start and end dates.');
+      toast.error('Please specify both start and end dates.');
       return;
     }
 
     if (type === 'DAILY' && (!dailyStartTime || !dailyEndTime)) {
-      alert('Please specify start and end times.');
+      toast.error('Please specify start and end times.');
       return;
     }
 
     if (type === 'COMBO' && comboItems.length === 0) {
-      alert('Please add at least one product to the combo.');
+      toast.error('Please add at least one product to the combo.');
       return;
     }
 
@@ -215,9 +217,22 @@ export default function DiscountRegistry({ products, showToast }: DiscountRegist
   };
 
   const handleDelete = (id: string, name: string) => {
-    if (!window.confirm(`Are you sure you want to delete the discount "${name}"?`)) return;
-    setDiscounts(prev => prev.filter(d => d.id !== id));
-    showToast(`Discount "${name}" deleted.`, 'info');
+    const action = () => {
+      setDiscounts(prev => prev.filter(d => d.id !== id));
+      showToast(`Discount "${name}" deleted.`, 'info');
+    };
+
+    if (showConfirm) {
+      showConfirm(
+        'Delete Discount',
+        `Are you sure you want to delete the discount "${name}"?`,
+        action
+      );
+    } else {
+      if (window.confirm(`Are you sure you want to delete the discount "${name}"?`)) {
+        action();
+      }
+    }
   };
   const toggleDiscountStatus = (id: string, currentStatus: boolean) => {
     setDiscounts(prev => prev.map(d => d.id === id ? { ...d, isActive: !currentStatus } : d));

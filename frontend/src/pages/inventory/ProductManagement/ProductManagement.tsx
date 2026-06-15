@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Sidebar from '../Shared/Sidebar';
 import InventoryHeader from '../Shared/InventoryHeader';
 import { mockStorage as localStorage } from '../Shared/mockStorage';
+import { MasterDataService } from '../../../services/masterDataService';
+import { toast } from 'sonner';
 
 // Import our modular subcomponents
 import ProductsRegistry, { ProductItem } from './ProductManagementComponents/ProductsRegistry';
@@ -303,41 +305,145 @@ const loadStoredProducts = (): ProductItem[] => {
   }
 };
 
+const mapBackendProductToFrontend = (p: any): ProductItem => {
+  const mapStatusValue = (s: string) => {
+    if (s === 'ACTIVE') return 'Active';
+    if (s === 'INACTIVE') return 'Inactive';
+    if (s === 'DISCONTINUED') return 'Disconnected';
+    return 'Active';
+  };
+
+  return {
+    id: p.sku,
+    name: p.name,
+    sku: p.sku,
+    barcode: p.barcode,
+    category: p.masterClass?.category?.name || 'Uncategorized',
+    subcategory: p.masterClass?.subCategory?.name || 'General',
+    supplier: p.masterClass?.supplier?.name || 'Unknown',
+    brand: p.masterClass?.brand?.name || 'Generic',
+    unitType: p.unitType,
+    stock: p.currentStock,
+    reorderLevel: p.reorderLevel,
+    costPrice: p.costPrice,
+    sellingPrice: p.sellingPrice,
+    status: mapStatusValue(p.status),
+    description: `${p.name} - ${p.unitType}`,
+    imageUrl: p.imageUrl || '',
+    masterId: p.masterId,
+    hasVariant: p.masterClass?.hasVariant || false,
+    variantAttributeType: p.variantAttributeType,
+    targetCapacity: p.targetCapacity,
+    mfgDate: p.mfgDate ? p.mfgDate.split('T')[0] : '',
+    expiryDate: p.expiryDate ? p.expiryDate.split('T')[0] : '',
+    batchNumber: p.batchNumber || ''
+  };
+};
+
 export default function ProductManagement() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'products';
 
   // React shared catalog states
-  const [products, setProducts] = useState<ProductItem[]>(() => loadStoredProducts());
-  const [categories, setCategories] = useState(initialCategories);
+  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [loading, setLoading] = useState(false);
 
   // preloaded brands directory
-  const [brands, setBrands] = useState<BrandItem[]>([
-    { id: 'b-1', name: 'Anchor', description: 'Premium dairy products and milk powders.', status: 'Active' },
-    { id: 'b-2', name: 'Coca-Cola', description: 'Carbonated soft drinks and beverages.', status: 'Active' },
-    { id: 'b-3', name: 'Sunlight', description: 'Leading household cleaning and laundry brands.', status: 'Active' },
-    { id: 'b-4', name: 'Signal', description: 'Oral healthcare and toothpastes.', status: 'Active' },
-    { id: 'b-5', name: 'Munchee', description: 'Biscuits, wafers, and bakery snacks.', status: 'Active' },
-  ]);
+  const [brands, setBrands] = useState<BrandItem[]>([]);
 
   // preloaded suppliers directory from localStorage
-  const [suppliers] = useState<SupplierItem[]>(() => {
+  const [suppliers, setSuppliers] = useState<SupplierItem[]>([]);
+
+  const reloadAllData = async () => {
+    setLoading(true);
     try {
-      const stored = localStorage.getItem('stocksense_suppliers_registry');
-      if (stored) {
-        return JSON.parse(stored);
+      const [prodRes, catRes, brandRes, supRes] = await Promise.all([
+        MasterDataService.getProducts(),
+        MasterDataService.getCategories(),
+        MasterDataService.getBrands(),
+        MasterDataService.getSuppliers()
+      ]);
+      
+      let mappedProducts: ProductItem[] = [];
+      if (prodRes.success) {
+        mappedProducts = prodRes.data.map(mapBackendProductToFrontend);
+        setProducts(mappedProducts);
       }
-    } catch (e) {
-      console.error('Failed to parse stored suppliers', e);
+
+      if (catRes.success) {
+        const getIcon = (name: string) => {
+          const lower = name.toLowerCase();
+          if (lower.includes('grocery')) return '🛒';
+          if (lower.includes('dairy')) return '🥛';
+          if (lower.includes('bakery')) return '🍞';
+          if (lower.includes('frozen')) return '🧊';
+          if (lower.includes('beverage')) return '🥤';
+          if (lower.includes('household')) return '🧹';
+          if (lower.includes('personal')) return '🧴';
+          if (lower.includes('snacks')) return '🍪';
+          if (lower.includes('meat')) return '🥩';
+          if (lower.includes('produce')) return '🥬';
+          return '📦';
+        };
+        const mappedCats = catRes.data.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          icon: getIcon(c.name),
+          image: c.categoryImageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=600&auto=format&fit=crop',
+          status: c.isActive ? 'Active' : 'Inactive',
+          statusClass: c.isActive ? 'bg-emerald-600' : 'bg-slate-500',
+          skus: mappedProducts.filter((p) => p.category === c.name).length,
+          health: '100%',
+          description: c.description || `All ${c.name} products`,
+          children: (c.subCategories || []).map((sub: any) => ({
+            id: sub.id,
+            name: sub.name,
+            status: sub.isActive ? 'Active' : 'Inactive'
+          }))
+        }));
+        setCategories(mappedCats);
+      }
+
+      if (brandRes.success) {
+        const brandImages = [
+          'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?q=80&w=200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1563694983011-6f4d90358083?q=80&w=200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?q=80&w=200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1607006342411-b01354cc792a?q=80&w=200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1607613009820-a29f7bb81c04?q=80&w=200&auto=format&fit=crop'
+        ];
+        setBrands(brandRes.data.map((b: any, i: number) => ({ 
+          id: b.id, 
+          name: b.name, 
+          description: b.description || '', 
+          status: b.state === 'ACTIVE' ? 'Active' : 'Inactive',
+          imageUrl: brandImages[i % brandImages.length]
+        })));
+      }
+
+      if (supRes.success) {
+        setSuppliers(supRes.data.map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          phone: s.phone || '',
+          email: s.email || '',
+          address: s.address || '',
+          status: 'Active'
+        })));
+      }
+
+    } catch (err) {
+      console.error('Failed to fetch master data', err);
+    } finally {
+      setLoading(false);
     }
-    return [
-      { id: 's-1', name: 'FreshFarm Supplies', phone: '+94 77 123 4567', email: 'sales@freshfarm.lk', address: '45 Orchard Lane, Colombo 03', status: 'Active' },
-      { id: 's-2', name: 'Golden Crust Bakery', phone: '+94 11 234 5678', email: 'orders@goldencrust.lk', address: '12 Bakery Lane, Kandy', status: 'Active' },
-      { id: 's-3', name: 'Ocean Harvest', phone: '+94 91 345 6789', email: 'supply@oceanharvest.lk', address: '78 Fishery Pier, Galle', status: 'Active' },
-      { id: 's-4', name: 'Ceylon Beverage Distributors', phone: '+94 71 456 7890', email: 'info@ceylonbev.lk', address: '102 Industrial Zone, Orugodawatta', status: 'Active' }
-    ];
-  });
+  };
+
+  // Fetch Master Data
+  useEffect(() => {
+    reloadAllData();
+  }, []);
 
   // Filter redirection state
   const [initialSearch] = useState('');
@@ -348,8 +454,27 @@ export default function ProductManagement() {
   const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
   const [isNewProductModalOpen, setIsNewProductModalOpen] = useState(false);
 
-  // Toast notification
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+  // Confirm modal state
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: React.ReactNode;
+    onConfirm: () => void;
+  } | null>(null);
+
+  const showConfirm = (title: string, message: React.ReactNode, onConfirm: () => void) => {
+    setConfirmConfig({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        onConfirm();
+        setConfirmConfig(null);
+      }
+    });
+  };
+
+  // Toast notification - using sonner globally
 
   useEffect(() => {
     localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(products));
@@ -365,8 +490,11 @@ export default function ProductManagement() {
   }, [activeTab, setSearchParams]);
 
   const showToast = (message: string, type: 'success' | 'info' = 'success') => {
-    setToast({ message, type });
-    window.setTimeout(() => setToast(null), 3000);
+    if (type === 'success') {
+      toast.success(message);
+    } else {
+      toast.info(message);
+    }
   };
 
   // Dynamic lists derived for dropdown selectors
@@ -382,226 +510,329 @@ export default function ProductManagement() {
   };
 
   // Add category handler
-  const handleAddCategoryNode = (newCat: { name: string; description: string; hierarchy: 'parent' | 'sub'; parentId: string; image?: string | null }) => {
-    if (newCat.hierarchy === 'parent') {
-      const added = {
-        id: `cat_${Date.now()}`,
-        name: newCat.name,
-        icon: '📦',
-        image: newCat.image || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?q=80&w=600&auto=format&fit=crop',
-        status: 'In Stock',
-        statusClass: 'bg-emerald-600',
-        skus: 0,
-        health: '100%',
-        description: newCat.description,
-        children: []
-      };
-      setCategories((prev) => [...prev, added]);
-      showToast(`Category "${newCat.name}" added successfully.`);
-    } else {
-      setCategories((prev) =>
-        prev.map((parent) => {
-          if (parent.id === newCat.parentId) {
-            return {
-              ...parent,
-              children: [...parent.children, { id: `sub_${Date.now()}`, name: newCat.name, status: 'Active' }]
-            };
-          }
-          return parent;
-        })
-      );
-      showToast(`Subcategory "${newCat.name}" added under parent successfully.`);
+  const handleAddCategoryNode = async (newCat: { name: string; description: string; hierarchy: 'parent' | 'sub'; parentId: string; image?: string | null }) => {
+    try {
+      if (newCat.hierarchy === 'parent') {
+        await MasterDataService.createCategory({
+          name: newCat.name,
+          description: newCat.description,
+          categoryImageUrl: newCat.image || null
+        });
+        showToast(`Category "${newCat.name}" added successfully.`);
+      } else {
+        await MasterDataService.createSubCategory({
+          name: newCat.name,
+          description: newCat.description || '',
+          categoryId: newCat.parentId
+        });
+        showToast(`Subcategory "${newCat.name}" added under parent successfully.`);
+      }
+      await reloadAllData();
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to add category node.', 'info');
     }
   };
 
   // Toggle Category Status (Archive/Restore)
-  const handleToggleCategoryStatus = (id: string, targetStatus: 'Active' | 'Inactive') => {
-    if (targetStatus === 'Active') {
-      if (!window.confirm(`Are you sure you want to mark this category as ${targetStatus}?`)) return;
-    }
-
-    let targetCategoryName = '';
-    setCategories((prev) => prev.map((c) => {
-      if (c.id === id) {
-        targetCategoryName = c.name;
-        return {
-          ...c,
-          status: targetStatus,
-          children: c.children.map(sub => ({ ...sub, status: targetStatus }))
-        };
+  const handleToggleCategoryStatus = async (id: string, targetStatus: 'Active' | 'Inactive') => {
+    const action = async () => {
+      try {
+        await MasterDataService.updateCategory(id, { isActive: targetStatus === 'Active' });
+        showToast(`Category marked as ${targetStatus} successfully.`, 'info');
+        await reloadAllData();
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to toggle category status.', 'info');
       }
-      return c;
-    }));
+    };
 
-    if (targetCategoryName) {
-      setProducts((prev) => prev.map((p) => p.category === targetCategoryName ? { ...p, status: targetStatus } : p));
+    if (targetStatus === 'Active') {
+      showConfirm(
+        'Restore Category',
+        'Are you sure you want to mark this category as Active?',
+        action
+      );
+    } else {
+      action();
     }
-    showToast(`Category marked as ${targetStatus} successfully.`, 'info');
   };
 
   // Toggle Subcategory Status (Archive/Restore)
-  const handleToggleSubcategoryStatus = (parentId: string, subId: string, targetStatus: 'Active' | 'Inactive') => {
-    if (targetStatus === 'Active') {
-      if (!window.confirm(`Are you sure you want to mark this subcategory as ${targetStatus}?`)) return;
-    }
-
-    let targetSubName = '';
-    setCategories((prev) => prev.map((c) => {
-      if (c.id === parentId) {
-        return {
-          ...c,
-          children: c.children.map(sub => {
-            if (sub.id === subId) {
-              targetSubName = sub.name;
-              return { ...sub, status: targetStatus };
-            }
-            return sub;
-          })
-        };
+  const handleToggleSubcategoryStatus = async (parentId: string, subId: string, targetStatus: 'Active' | 'Inactive') => {
+    const action = async () => {
+      try {
+        await MasterDataService.updateSubCategory(subId, { isActive: targetStatus === 'Active' });
+        showToast(`Subcategory marked as ${targetStatus} successfully.`, 'info');
+        await reloadAllData();
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to toggle subcategory status.', 'info');
       }
-      return c;
-    }));
+    };
 
-    if (targetSubName) {
-      setProducts((prev) => prev.map((p) => p.subcategory === targetSubName ? { ...p, status: targetStatus } : p));
+    if (targetStatus === 'Active') {
+      showConfirm(
+        'Restore Subcategory',
+        'Are you sure you want to mark this subcategory as Active?',
+        action
+      );
+    } else {
+      action();
     }
-    showToast(`Subcategory marked as ${targetStatus} successfully.`, 'info');
   };
 
   // Edit Category node
-  const handleEditCategoryNode = (id: string, updatedName: string, updatedDescription: string, updatedImage?: string | null) => {
-    setCategories((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, name: updatedName, description: updatedDescription, ...(updatedImage !== undefined ? { image: updatedImage || c.image } : {}) } : c))
-    );
-    showToast('Category updated successfully.');
+  const handleEditCategoryNode = async (id: string, updatedName: string, updatedDescription: string, updatedImage?: string | null) => {
+    try {
+      await MasterDataService.updateCategory(id, {
+        name: updatedName,
+        description: updatedDescription,
+        categoryImageUrl: updatedImage || null
+      });
+      showToast('Category updated successfully.');
+      await reloadAllData();
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to update category.', 'info');
+    }
   };
 
   // Edit Subcategory node
-  const handleEditSubcategoryNode = (parentId: string, subId: string, updatedName: string) => {
-    setCategories((prev) =>
-      prev.map((c) => {
-        if (c.id === parentId) {
-          return {
-            ...c,
-            children: c.children.map((sub) => sub.id === subId ? { ...sub, name: updatedName } : sub)
-          };
-        }
-        return c;
-      })
-    );
-    showToast('Subcategory updated successfully.');
+  const handleEditSubcategoryNode = async (parentId: string, subId: string, updatedName: string) => {
+    try {
+      await MasterDataService.updateSubCategory(subId, {
+        name: updatedName
+      });
+      showToast('Subcategory updated successfully.');
+      await reloadAllData();
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to update subcategory.', 'info');
+    }
   };
 
   // Brand registry handlers
-  const handleAddBrand = (newBrand: Omit<BrandItem, 'id' | 'status'>) => {
-    const added = { ...newBrand, id: `b_${Date.now()}`, status: 'Active' as const };
-    setBrands((prev) => [...prev, added]);
-    showToast(`Brand "${newBrand.name}" added successfully.`);
+  const handleAddBrand = async (newBrand: Omit<BrandItem, 'id' | 'status'>) => {
+    try {
+      const res = await MasterDataService.createBrand({
+        name: newBrand.name,
+        description: newBrand.description || null
+      });
+      if (res.success) {
+        showToast(`Brand "${newBrand.name}" added successfully.`);
+        await reloadAllData();
+      } else {
+        showToast('Failed to add brand.', 'info');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to add brand.', 'info');
+    }
   };
 
-  const handleEditBrand = (id: string, updatedFields: Partial<BrandItem>) => {
-    setBrands((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, ...updatedFields } : b))
-    );
-    showToast('Brand updated successfully.');
+  const handleEditBrand = async (id: string, updatedFields: Partial<BrandItem>) => {
+    try {
+      const res = await MasterDataService.updateBrand(id, {
+        name: updatedFields.name,
+        description: updatedFields.description !== undefined ? (updatedFields.description || null) : undefined
+      });
+      if (res.success) {
+        showToast('Brand updated successfully.');
+        await reloadAllData();
+      } else {
+        showToast('Failed to update brand.', 'info');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to update brand.', 'info');
+    }
   };
 
-  const handleToggleBrandStatus = (id: string, targetStatus: 'Active' | 'Inactive') => {
+  const handleToggleBrandStatus = async (id: string, targetStatus: 'Active' | 'Inactive') => {
     const brand = brands.find(b => b.id === id);
     if (!brand) return;
-    if (!window.confirm(`Are you sure you want to mark the brand "${brand.name}" as ${targetStatus}?`)) return;
 
-    setBrands((prev) => prev.map((b) => (b.id === id ? { ...b, status: targetStatus } : b)));
-    showToast(`Brand marked as ${targetStatus}.`, 'info');
+    const action = async () => {
+      try {
+        const res = await MasterDataService.updateBrand(id, {
+          state: targetStatus === 'Active' ? 'ACTIVE' : 'INACTIVE'
+        });
+        if (res.success) {
+          showToast(`Brand marked as ${targetStatus}.`, 'info');
+          await reloadAllData();
+        } else {
+          showToast('Failed to update brand status.', 'info');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to update brand status.', 'info');
+      }
+    };
+
+    if (targetStatus === 'Inactive') {
+      const brandProducts = products.filter(p => p.brand === brand.name);
+      
+      const messageNode = (
+        <div className="space-y-3">
+          <p className="text-xs text-outline">
+            Are you sure you want to mark the brand <strong className="text-on-surface font-extrabold">"{brand.name}"</strong> as Inactive?
+          </p>
+          {brandProducts.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-bold text-rose-600">This will also mark the following products as Inactive:</p>
+              <div className="max-h-36 overflow-y-auto border border-rose-100 bg-rose-50/30 rounded-xl p-3 space-y-1.5 scrollbar-thin scrollbar-thumb-rose-200">
+                {brandProducts.map((p) => (
+                  <div key={p.id} className="text-[11px] text-slate-700 flex justify-between items-center border-b border-rose-100/30 pb-1.5 last:border-0 last:pb-0">
+                    <span className="truncate font-semibold pr-2">{p.name}</span>
+                    <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 font-mono font-bold shrink-0">{p.sku}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+
+      showConfirm(
+        'Archive Brand',
+        messageNode,
+        action
+      );
+    } else {
+      showConfirm(
+        'Restore Brand',
+        `Are you sure you want to mark the brand "${brand.name}" as Active?`,
+        action
+      );
+    }
   };
 
-  // Save product (handles both Create and Edit)
-  const handleSaveProduct = (formData: any) => {
+  const handleSaveProduct = async (formData: any) => {
     setLoading(true);
-    window.setTimeout(() => {
+    try {
       const existingProduct = editingProduct || products.find((product) => product.id === formData.id);
-      const variantProducts = Array.isArray(formData.variants) ? formData.variants : [];
-      const representativeVariant = variantProducts[0];
-      const variantStock = variantProducts.reduce((sum: number, variant: { stock?: number }) => sum + Number(variant.stock || 0), 0);
-      const variantReorderLevel = variantProducts.length
-        ? Math.min(...variantProducts.map((variant: { reorderLevel?: number }) => Number(variant.reorderLevel || 0)))
-        : 0;
-      const productRecord: ProductItem = {
-        id: existingProduct?.id || String(formData.id || `prod_${Date.now()}`),
+      
+      const parentCat = categories.find(c => c.name === formData.category);
+      const categoryId = parentCat?.id || categories[0]?.id;
+      const subCategoryId = parentCat?.children.find(sub => sub.name === formData.subcategory)?.id || null;
+      
+      const brandId = brands.find(b => b.name === formData.brand)?.id || brands[0]?.id;
+      const supplierId = suppliers.find(s => s.name === formData.supplier)?.id || suppliers[0]?.id;
+
+      const payload = {
+        productStructure: formData.productStructure || 'single',
         name: String(formData.name || existingProduct?.name || 'Untitled Product'),
-        sku: existingProduct?.sku || String(formData.sku || representativeVariant?.sku || buildSku(formData.name || existingProduct?.name || 'Untitled Product', formData.category || existingProduct?.category || 'Uncategorized')),
-        barcode: String(
-          formData.barcode ||
-          representativeVariant?.barcode ||
-          existingProduct?.barcode ||
-          `479${Math.floor(1000000000 + Math.random() * 9000000000)}`
-        ),
-        category: String(formData.category || existingProduct?.category || 'Uncategorized'),
-        subcategory: String(formData.subcategory || existingProduct?.subcategory || ''),
-        supplier: String(formData.supplier || existingProduct?.supplier || 'Unassigned Supplier'),
-        brand: String(formData.brand || existingProduct?.brand || 'Unbranded'),
-        unitType: String(
-          formData.unitType ||
-          representativeVariant?.unit ||
-          existingProduct?.unitType ||
-          'Piece'
-        ),
-        stock: formData.productStructure === 'variant' ? variantStock : Number(formData.stock ?? existingProduct?.stock ?? 0),
-        reorderLevel: formData.productStructure === 'variant'
-          ? variantReorderLevel
-          : Number(formData.reorderLevel ?? existingProduct?.reorderLevel ?? 0),
-        targetCapacity: formData.productStructure === 'variant'
-          ? (representativeVariant?.targetCapacity || 100)
-          : Number(formData.targetCapacity ?? existingProduct?.targetCapacity ?? 100),
-        costPrice: formData.productStructure === 'variant'
-          ? Number(representativeVariant?.costPrice ?? existingProduct?.costPrice ?? 0)
-          : Number(formData.costPrice ?? existingProduct?.costPrice ?? 0),
-        sellingPrice: formData.productStructure === 'variant'
-          ? Number(representativeVariant?.sellingPrice ?? existingProduct?.sellingPrice ?? 0)
-          : Number(formData.sellingPrice ?? existingProduct?.sellingPrice ?? 0),
-        status: formData.status || existingProduct?.status || 'Active',
-        lastUpdated: formatUpdatedAt(),
-        imageUrl: formData.frontImageUrl || formData.imageUrl || existingProduct?.imageUrl || null,
-        description: String(formData.description || existingProduct?.description || ''),
-        mfgDate: String(formData.mfgDate || existingProduct?.mfgDate || ''),
-        expiryDate: String(formData.expiryDate || existingProduct?.expiryDate || '')
+        categoryId,
+        subCategoryId,
+        brandId,
+        supplierId,
+        imageUrl: formData.frontImageUrl || formData.imageUrl || existingProduct?.imageUrl || '',
+        status: formData.status || 'Active',
+        
+        // Single product specifics
+        sku: formData.sku ? String(formData.sku) : undefined,
+        barcode: formData.barcode ? String(formData.barcode) : undefined,
+        mfgDate: formData.mfgDate || undefined,
+        expiryDate: formData.expiryDate || undefined,
+        batchNumber: formData.batchNumber || undefined,
+        unitType: formData.unitType ? String(formData.unitType) : undefined,
+        costPrice: formData.costPrice !== undefined ? Number(formData.costPrice) : undefined,
+        sellingPrice: formData.sellingPrice !== undefined ? Number(formData.sellingPrice) : undefined,
+        currentStock: formData.stock !== undefined ? Number(formData.stock) : undefined,
+        reorderLevel: formData.reorderLevel !== undefined ? Number(formData.reorderLevel) : undefined,
+        targetCapacity: formData.targetCapacity !== undefined ? Number(formData.targetCapacity) : undefined,
+
+        // Variants array
+        variants: formData.variants || []
       };
 
-      if (editingProduct) {
-        // Edit flow
-        setProducts((prev) =>
-          prev.map((p) => (p.id === productRecord.id ? productRecord : p))
-        );
-        showToast(`Product "${productRecord.name}" updated successfully.`);
+      if (existingProduct && !formData.id?.startsWith('prod_')) {
+        const res = await MasterDataService.updateProduct(existingProduct.sku, payload);
+        if (res.success) {
+          showToast('Product updated successfully!');
+          // Reload products
+          const prodRes = await MasterDataService.getProducts();
+          if (prodRes.success) {
+            const mappedProducts = prodRes.data.map(mapBackendProductToFrontend);
+            setProducts(mappedProducts);
+          }
+        } else {
+          showToast('Error updating product', 'info');
+        }
       } else {
-        // Create flow
-        setProducts((prev) => [productRecord, ...prev]);
-        showToast(`Product "${productRecord.name}" created successfully.`);
+        const res = await MasterDataService.createProduct(payload);
+        if (res.success) {
+          showToast('Product added successfully to database!');
+          // Reload products
+          const prodRes = await MasterDataService.getProducts();
+          if (prodRes.success) {
+            const mappedProducts = prodRes.data.map(mapBackendProductToFrontend);
+            setProducts(mappedProducts);
+          }
+        } else {
+          showToast('Error saving product to database', 'info');
+        }
       }
-      setEditingProduct(null);
-      setLoading(false);
+
       setIsNewProductModalOpen(false);
-    }, 400);
+      setEditingProduct(null);
+    } catch (err) {
+      console.error(err);
+      showToast('Error saving product', 'info');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Row Action Handlers
   const handleEditProduct = (product: ProductItem) => {
-    setEditingProduct(product);
+    let formProduct = { ...product };
+    if (product.hasVariant) {
+      // Find all sibling products that have the same masterId
+      const siblings = products.filter((p) => p.masterId === product.masterId);
+      // Map siblings to the VariantItem type expected by NewProductForm.tsx
+      const formVariants = siblings.map((s) => {
+        let attrType = 'Flavor';
+        let attrValue = '';
+        if (s.variantAttributeType) {
+          const parts = s.variantAttributeType.split(':');
+          if (parts.length > 1) {
+            attrType = parts[0].trim();
+            attrValue = parts[1].trim();
+          }
+        }
+        return {
+          id: s.sku,
+          variantName: s.name,
+          attributeType: attrType as any,
+          attributeValue: attrValue,
+          unit: s.unitType,
+          sku: s.sku,
+          barcode: s.barcode,
+          costPrice: s.costPrice,
+          sellingPrice: s.sellingPrice,
+          stock: s.stock,
+          reorderLevel: s.reorderLevel,
+          targetCapacity: s.targetCapacity,
+          imageUrl: s.imageUrl,
+          mfgDate: s.mfgDate,
+          expiryDate: s.expiryDate,
+          batchNumber: s.batchNumber
+        };
+      });
+      formProduct.variants = formVariants;
+    }
+    setEditingProduct(formProduct);
     setIsNewProductModalOpen(true);
   };
 
-
-
-  // Function to handle moving a product to archive (or mark Inactive)
   const handleArchiveProduct = (id: string, name: string) => {
     setProducts((prev) =>
       prev.map((p) => (p.id === id ? { ...p, status: 'Inactive' } : p))
     );
     showToast(`Product "${name}" has been marked as Inactive`, 'info');
   };
-
-
-
 
 
 
@@ -618,15 +849,7 @@ export default function ProductManagement() {
         {/* Page Content View Scroll container */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden bg-background px-4 py-6 sm:px-6 lg:px-8 relative">
 
-          {/* Dynamic Toast popup */}
-          {toast && (
-            <div className="fixed top-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-lg animate-in fade-in slide-in-from-top-4 duration-200">
-              <span className={`material-symbols-outlined ${toast.type === 'success' ? 'text-primary' : 'text-blue-600'}`}>
-                {toast.type === 'success' ? 'check_circle' : 'info'}
-              </span>
-              <span className="text-xs font-extrabold text-on-surface">{toast.message}</span>
-            </div>
-          )}
+
 
           <div className="space-y-6 max-w-7xl mx-auto">
             {/* Header controls section */}
@@ -702,6 +925,7 @@ export default function ProductManagement() {
                 initialSearch={initialSearch}
                 initialCategory={initialCategory}
                 initialBrand={initialBrand}
+                showConfirm={showConfirm}
               />
             )}
 
@@ -741,6 +965,7 @@ export default function ProductManagement() {
               <DiscountRegistry
                 products={products}
                 showToast={showToast}
+                showConfirm={showConfirm}
               />
             )}
 
@@ -787,6 +1012,45 @@ export default function ProductManagement() {
                 </div>
               </div>
             )}
+
+            {confirmConfig && confirmConfig.isOpen && (() => {
+              const isDeleteAction = /delete|archive|remove/i.test(confirmConfig.title) || /delete|archive|remove/i.test(confirmConfig.message);
+              const iconColor = isDeleteAction ? 'text-rose-600 bg-rose-50' : 'text-primary bg-primary-50';
+              const iconName = isDeleteAction ? 'warning' : 'help';
+              const confirmBtnBg = isDeleteAction ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-primary text-white';
+              
+              return (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-150">
+                  <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+                    <div className="p-6 flex gap-4">
+                      <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${iconColor}`}>
+                        <span className="material-symbols-outlined text-[28px]">{iconName}</span>
+                      </div>
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <h3 className="text-sm font-extrabold text-on-surface leading-6">{confirmConfig.title}</h3>
+                        <div className="text-xs text-outline leading-relaxed">{confirmConfig.message}</div>
+                      </div>
+                    </div>
+                    <div className="bg-slate-50/80 px-6 py-4 flex justify-end gap-2 border-t border-outline-variant/60">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmConfig(null)}
+                        className="px-4 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={confirmConfig.onConfirm}
+                        className={`px-5 py-2 rounded-lg text-xs font-bold hover:opacity-90 transition-all shadow-sm ${confirmBtnBg}`}
+                      >
+                        Confirm
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
           </div>
 

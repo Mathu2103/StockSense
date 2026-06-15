@@ -1,22 +1,21 @@
 import 'dotenv/config'
 import { Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
-import { Pool } from 'pg'
-import { PrismaPg } from '@prisma/adapter-pg'
-import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt.js'
 import { AuthRequest } from '../middlewares/authMiddleware.js'
-
-const connectionString = process.env.DATABASE_URL!
-const pool = new Pool({ connectionString })
-const adapter = new PrismaPg(pool)
-const prisma = new PrismaClient({ adapter })
+import { prisma } from '../config/prisma.js'
 
 // ─── Zod Schemas ────────────────────────────────────────────────────
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters')
+})
+
+const updateProfileSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Invalid email address'),
+  phone: z.string().nullable().optional()
 })
 
 const REFRESH_TOKEN_COOKIE = 'stocksense_refresh'
@@ -131,7 +130,7 @@ export async function me(req: AuthRequest, res: Response): Promise<void> {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user!.id },
-      select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, phone: true, isActive: true, createdAt: true },
     })
 
     if (!user) {
@@ -142,6 +141,51 @@ export async function me(req: AuthRequest, res: Response): Promise<void> {
     res.status(200).json({ success: true, data: user })
   } catch (err) {
     console.error('[me error]', err)
+    res.status(500).json({ success: false, message: 'Internal server error.' })
+  }
+}
+
+// ─── PUT /api/auth/profile ──────────────────────────────────────────
+export async function updateProfile(req: AuthRequest, res: Response): Promise<void> {
+  try {
+    const parsed = updateProfileSchema.safeParse(req.body)
+    if (!parsed.success) {
+      res.status(400).json({ success: false, message: parsed.error.issues[0].message })
+      return
+    }
+
+    const { name, email, phone } = parsed.data
+    const userId = req.user!.id
+
+    const existing = await prisma.user.findFirst({
+      where: {
+        email,
+        id: { not: userId }
+      }
+    })
+
+    if (existing) {
+      res.status(409).json({ success: false, message: 'Email already in use.' })
+      return
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        name,
+        email,
+        phone
+      },
+      select: { id: true, name: true, email: true, role: true, phone: true, isActive: true, createdAt: true }
+    })
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully.',
+      data: updatedUser
+    })
+  } catch (err) {
+    console.error('[updateProfile error]', err)
     res.status(500).json({ success: false, message: 'Internal server error.' })
   }
 }

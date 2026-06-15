@@ -1,15 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { mockStorage as localStorage } from '../Shared/mockStorage';
 import Sidebar from "../Shared/Sidebar";
 import InventoryHeader from '../Shared/InventoryHeader';
+import { toast } from 'sonner';
 
-import { initialSuppliers, Supplier } from './constants/supplierConstants';
+import { Supplier } from './constants/supplierConstants';
 import SupplierList from './components/SupplierList';
-import SupplierProfile from './components/SupplierProfile';
 import SupplierFormModal from './components/SupplierFormModal';
-
-const SUPPLIERS_STORAGE_KEY = 'stocksense_suppliers_registry';
+import { MasterDataService } from '../../../services/masterDataService';
 
 export default function ProcurementManagement() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -17,28 +15,58 @@ export default function ProcurementManagement() {
   const [returnTo, setReturnTo] = useState<string | null>(null);
 
   // Active Datasets State
-  const [suppliersList, setSuppliersList] = useState<Supplier[]>(() => {
-    const stored = localStorage.getItem(SUPPLIERS_STORAGE_KEY);
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch (e) {
-        return initialSuppliers;
+  const [suppliersList, setSuppliersList] = useState<Supplier[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const loadSuppliersData = async () => {
+    setLoading(true);
+    try {
+      const [supRes, prodRes] = await Promise.all([
+        MasterDataService.getSuppliers(),
+        MasterDataService.getProducts()
+      ]);
+
+      if (supRes.success) {
+        const dbSuppliers = supRes.data;
+        const productsData = prodRes.success ? prodRes.data : [];
+
+        const mapped = dbSuppliers.map((s: any) => {
+          const allocatedProductsCount = productsData.filter((p: any) => p.masterClass?.supplier?.id === s.id).length;
+
+          return {
+            id: s.id,
+            name: s.name,
+            companyName: s.companyName || s.name,
+            email: s.email || '',
+            phone: s.phone || '',
+            address: s.address || '',
+            products: allocatedProductsCount,
+            lastPurchaseDate: new Date(s.createdAt || Date.now()).toISOString().split('T')[0],
+            totalPurchases: 0,
+            totalValue: 'Rs. 0.00',
+            reliability: 100,
+            onTime: 100,
+            rating: 5.0
+          };
+        });
+        setSuppliersList(mapped);
       }
+    } catch (err) {
+      console.error('Failed to load supplier registry data', err);
+    } finally {
+      setLoading(false);
     }
-    return initialSuppliers;
-  });
+  };
 
   useEffect(() => {
-    localStorage.setItem(SUPPLIERS_STORAGE_KEY, JSON.stringify(suppliersList));
-  }, [suppliersList]);
+    loadSuppliersData();
+  }, []);
 
-  // Supplier Profile Page State
-  const [activeProfileSupplier, setActiveProfileSupplier] = useState<Supplier | null>(null);
+  // Supplier Details Popup State
+  const [viewingSupplier, setViewingSupplier] = useState<Supplier | null>(null);
 
   // General Filter State
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
 
   // Modals & Selected details State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -50,35 +78,18 @@ export default function ProcurementManagement() {
   // Forms Field States for Supplier Add/Edit
   const [formData, setFormData] = useState({
     name: '',
-    contact: '',
-    phone: '',
-    contactPhone: '',
-    email: '',
     companyName: '',
-    brn: '',
-    taxNumber: '',
-    street: '',
-    city: '',
-    province: '',
-    categories: '',
-    deliveryDays: [] as string[],
-    paymentTerms: 'Net 30',
-    status: 'Active' as 'Active' | 'Inactive',
+    email: '',
+    phone: '',
+    address: '',
   });
 
   const [formErrors, setFormErrors] = useState({
     name: '',
-    contact: '',
-    phone: '',
-    contactPhone: '',
-    email: '',
     companyName: '',
-    brn: '',
-    taxNumber: '',
-    street: '',
-    city: '',
-    province: '',
-    categories: '',
+    email: '',
+    phone: '',
+    address: '',
   });
 
   // Filtered Suppliers List
@@ -87,34 +98,14 @@ export default function ProcurementManagement() {
       const matchesSearch =
         s.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.contact.toLowerCase().includes(searchTerm.toLowerCase()) ||
         s.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.companyName.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesStatus = statusFilter === 'All' || s.status === statusFilter;
-      return matchesSearch && matchesStatus;
+        s.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        s.address.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesSearch;
     });
-  }, [suppliersList, searchTerm, statusFilter]);
+  }, [suppliersList, searchTerm]);
 
-  // Supplier Profile calculations
-  const supplierProfileData = useMemo(() => {
-    if (!activeProfileSupplier) return null;
 
-    // Purchase Frequency mapping
-    let frequency = 'Monthly';
-    if (activeProfileSupplier.deliveryDays.length >= 3) {
-      frequency = 'Bi-weekly';
-    } else if (activeProfileSupplier.deliveryDays.length >= 1) {
-      frequency = 'Weekly';
-    }
-
-    return {
-      purchasesCount: activeProfileSupplier.totalPurchases,
-      totalPurchaseValueFormatted: activeProfileSupplier.totalValue,
-      lastPurchase: activeProfileSupplier.lastPurchaseDate,
-      averageOrderValueFormatted: 'N/A',
-      frequency,
-    };
-  }, [activeProfileSupplier]);
 
   // Handle Input Changes for Suppliers
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -131,7 +122,11 @@ export default function ProcurementManagement() {
   const validateForm = (ignoreId?: string | null) => {
     let isValid = true;
     const errors = {
-      name: '', contact: '', phone: '', contactPhone: '', email: '', companyName: '', brn: '', taxNumber: '', street: '', city: '', province: '', categories: '',
+      name: '',
+      companyName: '',
+      email: '',
+      phone: '',
+      address: '',
     };
 
     if (!formData.name.trim()) {
@@ -148,22 +143,18 @@ export default function ProcurementManagement() {
       }
     }
 
-    if (!formData.contact.trim()) { errors.contact = 'Contact person is required'; isValid = false; }
-
-    const phoneRegex = /^[+]?[0-9\s-]{7,15}Rs./;
-    if (!formData.phone.trim()) {
-      errors.phone = 'Supplier contact number is required';
-      isValid = false;
-    } else if (!phoneRegex.test(formData.phone)) {
-      errors.phone = 'Enter a valid contact number';
+    if (!formData.companyName.trim()) {
+      errors.companyName = 'Company name is required';
       isValid = false;
     }
 
-    if (!formData.contactPhone.trim()) {
-      errors.contactPhone = 'Contact person number is required';
+    const cleanPhone = formData.phone.trim().replace(/[\s()-]/g, '');
+    const phoneRegex = /^(?:\+94|94|0)?\d{9}$/;
+    if (!formData.phone.trim()) {
+      errors.phone = 'Phone number is required';
       isValid = false;
-    } else if (!phoneRegex.test(formData.contactPhone)) {
-      errors.contactPhone = 'Enter a valid contact person number';
+    } else if (!phoneRegex.test(cleanPhone)) {
+      errors.phone = 'Enter a valid Sri Lankan phone number (e.g. 0771234567)';
       isValid = false;
     }
 
@@ -173,10 +164,10 @@ export default function ProcurementManagement() {
       isValid = false;
     }
 
-    if (!formData.companyName.trim()) { errors.companyName = 'Company name is required'; isValid = false; }
-    if (!formData.street.trim()) { errors.street = 'Street address is required'; isValid = false; }
-    if (!formData.city.trim()) { errors.city = 'City is required'; isValid = false; }
-    if (!formData.province.trim()) { errors.province = 'Province is required'; isValid = false; }
+    if (!formData.address.trim()) {
+      errors.address = 'Warehouse address is required';
+      isValid = false;
+    }
 
     setFormErrors(errors);
     return isValid;
@@ -185,35 +176,49 @@ export default function ProcurementManagement() {
   // CRUD for Suppliers
   const handleOpenAddModal = () => {
     setFormData({
-      name: '', contact: '', phone: '', contactPhone: '', email: '', companyName: '', brn: 'N/A', taxNumber: 'N/A', street: '', city: '', province: '', categories: 'General', deliveryDays: [], paymentTerms: 'COD', status: 'Active',
+      name: '',
+      companyName: '',
+      email: '',
+      phone: '',
+      address: '',
     });
     setFormErrors({
-      name: '', contact: '', phone: '', contactPhone: '', email: '', companyName: '', brn: '', taxNumber: '', street: '', city: '', province: '', categories: '',
+      name: '',
+      companyName: '',
+      email: '',
+      phone: '',
+      address: '',
     });
     setIsAddModalOpen(true);
   };
 
-  const handleAddSupplierSubmit = (e: React.FormEvent) => {
+  const handleAddSupplierSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    const newId = `SUP-00${suppliersList.length + 1}`;
-    const newSupplier: Supplier = {
-      ...formData,
-      id: newId,
-      products: 0,
-      lastPurchaseDate: new Date().toISOString().split('T')[0],
-      totalPurchases: 0,
-      totalValue: 'Rs. 0.00',
-      reliability: 100,
-      onTime: 100,
-      rating: 5.0,
-    };
-    setSuppliersList(prev => [...prev, newSupplier]);
-    setIsAddModalOpen(false);
+    try {
+      const res = await MasterDataService.createSupplier({
+        name: formData.name,
+        companyName: formData.companyName,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address
+      });
 
-    if (returnTo) {
-      navigate(returnTo);
+      if (res.success) {
+        toast.success(`Supplier "${formData.name}" added successfully.`);
+        setIsAddModalOpen(false);
+        await loadSuppliersData();
+
+        if (returnTo) {
+          navigate(returnTo);
+        }
+      } else {
+        toast.error(res.message || 'Failed to add supplier.');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Error saving supplier.');
     }
   };
 
@@ -221,47 +226,65 @@ export default function ProcurementManagement() {
     setSelectedSupplier(supplier);
     setFormData({
       name: supplier.name,
-      contact: supplier.contact,
-      phone: supplier.phone,
-      contactPhone: supplier.contactPhone || '',
-      email: supplier.email,
       companyName: supplier.companyName,
-      brn: supplier.brn,
-      taxNumber: supplier.taxNumber,
-      street: supplier.street,
-      city: supplier.city,
-      province: supplier.province,
-      categories: supplier.categories,
-      deliveryDays: supplier.deliveryDays,
-      paymentTerms: supplier.paymentTerms,
-      status: supplier.status,
+      email: supplier.email,
+      phone: supplier.phone,
+      address: supplier.address,
     });
     setFormErrors({
-      name: '', contact: '', phone: '', contactPhone: '', email: '', companyName: '', brn: '', taxNumber: '', street: '', city: '', province: '', categories: '',
+      name: '',
+      companyName: '',
+      email: '',
+      phone: '',
+      address: '',
     });
     setIsEditModalOpen(true);
   };
 
-  const handleEditSupplierSubmit = (e: React.FormEvent) => {
+  const handleEditSupplierSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm(selectedSupplier?.id)) return;
     if (!selectedSupplier) return;
 
-    setSuppliersList(prev => prev.map(s => {
-      if (s.id === selectedSupplier.id) {
-        const updated = {
-          ...s,
+    try {
+      const res = await MasterDataService.updateSupplier(selectedSupplier.id, {
+        name: formData.name,
+        companyName: formData.companyName,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address
+      });
+
+      if (res.success) {
+        toast.success('Supplier details updated successfully.');
+        setIsEditModalOpen(false);
+        
+        // Reload all data and also refresh active profile if open currently
+        await loadSuppliersData();
+        
+        // Find updated supplier data from backend sync
+        const updatedRaw = {
+          ...selectedSupplier,
           ...formData,
+          id: selectedSupplier.id,
+          products: selectedSupplier.products,
+          lastPurchaseDate: selectedSupplier.lastPurchaseDate,
+          totalPurchases: selectedSupplier.totalPurchases,
+          totalValue: selectedSupplier.totalValue,
+          reliability: selectedSupplier.reliability,
+          onTime: selectedSupplier.onTime,
+          rating: selectedSupplier.rating
         };
-        // Update active profile if open currently
-        if (activeProfileSupplier && activeProfileSupplier.id === s.id) {
-          setActiveProfileSupplier(updated);
+        if (viewingSupplier && viewingSupplier.id === selectedSupplier.id) {
+          setViewingSupplier(updatedRaw);
         }
-        return updated;
+      } else {
+        toast.error(res.message || 'Failed to update supplier.');
       }
-      return s;
-    }));
-    setIsEditModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      toast.error('Error updating supplier.');
+    }
   };
 
   const handleDeleteSupplier = (id: string) => {
@@ -272,23 +295,28 @@ export default function ProcurementManagement() {
     }
   };
 
-  const handleConfirmDeleteSupplier = () => {
+  const handleConfirmDeleteSupplier = async () => {
     if (supplierToDelete) {
-      const id = supplierToDelete.id;
-      setSuppliersList(prev => prev.filter(s => s.id !== id));
-      if (activeProfileSupplier && activeProfileSupplier.id === id) {
-        setActiveProfileSupplier(null);
+      try {
+        const res = await MasterDataService.deleteSupplier(supplierToDelete.id);
+        if (res.success) {
+          toast.success(`Supplier "${supplierToDelete.name}" deleted successfully.`);
+          if (viewingSupplier && viewingSupplier.id === supplierToDelete.id) {
+            setViewingSupplier(null);
+          }
+          setIsDeleteConfirmOpen(false);
+          setSupplierToDelete(null);
+          await loadSuppliersData();
+        } else {
+          toast.error(res.message || 'Failed to delete supplier.');
+        }
+      } catch (err: any) {
+        console.error(err);
+        const errMsg = err.response?.data?.message || 'Error deleting supplier.';
+        toast.error(errMsg);
       }
-      setIsDeleteConfirmOpen(false);
-      setSupplierToDelete(null);
     }
   };
-
-
-
-  useEffect(() => {
-    localStorage.setItem(SUPPLIERS_STORAGE_KEY, JSON.stringify(suppliersList));
-  }, [suppliersList]);
 
   useEffect(() => {
     const action = searchParams.get('action');
@@ -317,49 +345,27 @@ export default function ProcurementManagement() {
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-background">
           <div className="max-w-[1400px] mx-auto space-y-6 animate-in fade-in duration-300">
 
-            {/* Page Header (Render back button if profile view is active) */}
+            {/* Page Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                {activeProfileSupplier ? (
-                  <button
-                    onClick={() => setActiveProfileSupplier(null)}
-                    className="mb-2 text-xs font-black text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
-                  >
-                    <span className="material-symbols-outlined text-sm font-black">arrow_back</span>
-                    Back to Suppliers Directory
-                  </button>
-                ) : null}
-                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-on-surface">
-                  {activeProfileSupplier ? 'Supplier Profile Dashboard' : 'Procurement Management'}
+                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-on-surface">
+                  Procurement Management
                 </h1>
-                <p className="text-sm text-outline mt-1">
-                  {activeProfileSupplier ? `Enterprise-level view of ${activeProfileSupplier.name}` : 'Manage your partner suppliers and supply chain directory.'}
+                <p className="text-xs text-outline mt-1 font-medium">
+                  Manage your partner suppliers and supply chain directory.
                 </p>
               </div>
             </div>
 
-            {/* RENDER ENTERPRISE SUPPLIER PROFILE VIEW PAGE */}
-            {activeProfileSupplier && supplierProfileData ? (
-              <SupplierProfile
-                supplier={activeProfileSupplier}
-                profileData={supplierProfileData}
-                onEditClick={() => handleOpenEditModal(activeProfileSupplier)}
-                onDeleteClick={() => handleDeleteSupplier(activeProfileSupplier.id)}
-              />
-            ) : (
-              <SupplierList
-                suppliersList={suppliersList}
-                filteredSuppliers={filteredSuppliers}
-                searchTerm={searchTerm}
-                onSearchChange={setSearchTerm}
-                statusFilter={statusFilter}
-                onStatusFilterChange={setStatusFilter}
-                onSupplierClick={setActiveProfileSupplier}
-                onEditClick={handleOpenEditModal}
-                onDeleteClick={handleDeleteSupplier}
-                onAddClick={handleOpenAddModal}
-              />
-            )}
+            <SupplierList
+              suppliersList={suppliersList}
+              filteredSuppliers={filteredSuppliers}
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              onSupplierClick={setViewingSupplier}
+              onEditClick={handleOpenEditModal}
+              onAddClick={handleOpenAddModal}
+            />
 
           </div>
         </main>
@@ -418,6 +424,88 @@ export default function ProcurementManagement() {
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Supplier Details Popup Modal */}
+      {viewingSupplier && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh]">
+            {/* Header */}
+            <div className="px-6 py-4 bg-slate-50 border-b border-outline-variant/60 flex justify-between items-center">
+              <div className="flex items-center gap-2.5">
+                <span className="material-symbols-outlined text-primary text-[24px]">local_shipping</span>
+                <div>
+                  <h2 className="text-base font-extrabold text-on-surface">Supplier Details</h2>
+                  <p className="text-[10px] text-outline font-semibold uppercase tracking-wider">{viewingSupplier.companyName}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingSupplier(null)}
+                className="p-1 text-outline hover:text-on-surface hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            
+            {/* Body */}
+            <div className="p-6 overflow-y-auto space-y-5">
+              {/* Main Info Card */}
+              <div className="bg-slate-50 border border-outline-variant/40 rounded-xl p-4 flex justify-between items-start gap-4">
+                <div>
+                  <h3 className="text-sm font-extrabold text-on-surface">{viewingSupplier.name}</h3>
+                  <p className="text-xs text-outline mt-0.5">{viewingSupplier.companyName}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-outline">Products Supplied</p>
+                  <p className="text-lg font-black text-primary mt-1">{viewingSupplier.products} items</p>
+                </div>
+              </div>
+
+              {/* Details Grid */}
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-outline">Phone Number</p>
+                  <p className="mt-1 font-semibold text-slate-700">{viewingSupplier.phone || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-outline">Email Address</p>
+                  <p className="mt-1 font-semibold text-slate-700 truncate">{viewingSupplier.email || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-outline">Last Purchase Date</p>
+                  <p className="mt-1 font-semibold text-slate-700">{viewingSupplier.lastPurchaseDate}</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-outline mb-1.5">Warehouse Address</p>
+                <div className="bg-slate-50 border border-outline-variant/30 rounded-xl p-3 text-xs text-slate-600 font-semibold leading-relaxed">
+                  {viewingSupplier.address || '—'}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-outline-variant/60 flex justify-end gap-2.5">
+              <button
+                onClick={() => {
+                  setViewingSupplier(null);
+                  handleOpenEditModal(viewingSupplier);
+                }}
+                className="px-4 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+              >
+                <span className="material-symbols-outlined text-[15px]">edit</span>
+                Edit Details
+              </button>
+              <button
+                onClick={() => setViewingSupplier(null)}
+                className="px-5 py-2 bg-primary text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all shadow-sm"
+              >
+                Close
               </button>
             </div>
           </div>

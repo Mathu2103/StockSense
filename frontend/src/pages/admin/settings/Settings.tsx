@@ -1,9 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import Sidebar from "../Shared/Sidebar";
-import AdminHeader from "../Shared/AdminHeader";
+import { useAuth } from '@/hooks/useAuth';
 
+import AdminSidebar from "../Shared/Sidebar";
+import ManagerSidebar from "../../inventory/Shared/Sidebar";
+import AdminHeader from "../Shared/AdminHeader";
+import ManagerHeader from "../../inventory/Shared/InventoryHeader";
+
+import SettingsProfile from "./SettingComponent/SettingsProfile";
+import SettingsAccount from "./SettingComponent/SettingsAccount";
 import SettingsStockRules from "./SettingComponent/SettingsStockRules";
 import SettingsAlerts from "./SettingComponent/SettingsAlerts";
 import { StockRulesConfig } from "./SettingComponent/types";
@@ -27,8 +33,9 @@ const DEFAULT_RULES: StockRulesConfig = {
 };
 
 export default function Settings() {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'Stock Rules';
+  const activeTab = searchParams.get('tab') || 'My Profile';
 
   const [rules, setRules] = useState<StockRulesConfig>(DEFAULT_RULES);
 
@@ -55,6 +62,8 @@ export default function Settings() {
   };
 
   const tabs = [
+    { id: 'My Profile', icon: 'person' },
+    { id: 'Account Settings', icon: 'settings' },
     { id: 'Stock Rules', icon: 'rule' },
     { id: 'Alerts', icon: 'notifications' },
   ];
@@ -63,11 +72,13 @@ export default function Settings() {
     setSearchParams({ tab: tabId });
   };
 
+  const isAdmin = user?.role === 'ADMIN';
+
   return (
     <div className="flex h-screen bg-[#f8f9fa] text-slate-800 font-sans overflow-hidden">
-      <Sidebar />
+      {isAdmin ? <AdminSidebar /> : <ManagerSidebar />}
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        <AdminHeader />
+        {isAdmin ? <AdminHeader /> : <ManagerHeader />}
 
         <main className="flex-1 overflow-y-auto bg-[#f8f9fa] p-6 md:p-8">
           <div className="max-w-[1200px] mx-auto space-y-6 h-full flex flex-col">
@@ -100,7 +111,12 @@ export default function Settings() {
               <div className="flex-1 flex flex-col bg-white overflow-hidden">
                 <div className="p-8 flex-1 overflow-y-auto bg-slate-50/30">
 
-
+                  {activeTab === 'My Profile' && (
+                    <SettingsProfile />
+                  )}
+                  {activeTab === 'Account Settings' && (
+                    <SettingsAccount />
+                  )}
                   {activeTab === 'Stock Rules' && (
                     <SettingsStockRules rules={rules} onChange={(updated) => setRules(updated)} />
                   )}
@@ -111,23 +127,25 @@ export default function Settings() {
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between flex-shrink-0">
-                  <p className="text-sm text-slate-500 italic">Unsaved changes will be lost.</p>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={resetSettings}
-                      className="px-6 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold text-sm rounded-lg shadow-sm hover:bg-slate-50 transition-colors"
-                    >
-                      Reset
-                    </button>
-                    <button
-                      onClick={saveSettings}
-                      className="px-6 py-2.5 bg-[#0b8252] text-white font-bold text-sm rounded-lg shadow-sm hover:bg-[#096b43] transition-colors"
-                    >
-                      Save Changes
-                    </button>
+                {['Stock Rules', 'Alerts'].includes(activeTab) && (
+                  <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between flex-shrink-0">
+                    <p className="text-sm text-slate-500 italic">Unsaved changes will be lost.</p>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={resetSettings}
+                        className="px-6 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold text-sm rounded-lg shadow-sm hover:bg-slate-50 transition-colors"
+                      >
+                        Reset
+                      </button>
+                      <button
+                        onClick={saveSettings}
+                        className="px-6 py-2.5 bg-[#0b8252] text-white font-bold text-sm rounded-lg shadow-sm hover:bg-[#096b43] transition-colors"
+                      >
+                        Save Changes
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 

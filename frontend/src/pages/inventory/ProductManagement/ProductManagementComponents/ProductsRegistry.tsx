@@ -1,6 +1,30 @@
 import React, { useMemo, useState } from 'react';
 import ProductFilters from './SubComponents/ProductFilters';
 export type ProductStatus = 'Active' | 'Inactive' | 'Disconnected';
+
+// ── Category colour palette (cycles via hash so every category gets a unique, consistent colour) ──
+const CATEGORY_PALETTES = [
+  { bg: 'bg-sky-50',     text: 'text-sky-700',     dot: 'from-sky-400 to-blue-500' },
+  { bg: 'bg-teal-50',    text: 'text-teal-700',    dot: 'from-teal-400 to-emerald-500' },
+  { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'from-emerald-400 to-green-600' },
+  { bg: 'bg-violet-50',  text: 'text-violet-700',  dot: 'from-violet-400 to-purple-600' },
+  { bg: 'bg-amber-50',   text: 'text-amber-700',   dot: 'from-amber-400 to-orange-500' },
+  { bg: 'bg-rose-50',    text: 'text-rose-700',    dot: 'from-rose-400 to-pink-500' },
+  { bg: 'bg-indigo-50',  text: 'text-indigo-700',  dot: 'from-indigo-400 to-blue-600' },
+  { bg: 'bg-cyan-50',    text: 'text-cyan-700',    dot: 'from-cyan-400 to-sky-600' },
+  { bg: 'bg-orange-50',  text: 'text-orange-700',  dot: 'from-orange-400 to-red-500' },
+  { bg: 'bg-lime-50',    text: 'text-lime-700',    dot: 'from-lime-400 to-green-500' },
+];
+
+function hashCategory(name: string): number {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return h % CATEGORY_PALETTES.length;
+}
+
+function getCategoryStyle(name: string) {
+  return CATEGORY_PALETTES[hashCategory(name)];
+}
 export type StockStatus = 'In Stock' | 'Low Stock' | 'Out of Stock';
 
 export type ProductItem = {
@@ -24,6 +48,11 @@ export type ProductItem = {
   description?: string;
   mfgDate?: string;
   expiryDate?: string;
+  masterId?: string;
+  hasVariant?: boolean;
+  variantAttributeType?: string | null;
+  batchNumber?: string;
+  variants?: any[];
 };
 
 type ProductsRegistryProps = {
@@ -36,6 +65,7 @@ type ProductsRegistryProps = {
   initialSearch?: string;
   initialCategory?: string;
   initialBrand?: string;
+  showConfirm?: (title: string, message: React.ReactNode, onConfirm: () => void) => void;
 };
 
 export default function ProductsRegistry({
@@ -48,6 +78,7 @@ export default function ProductsRegistry({
   initialSearch = '',
   initialCategory = 'All Categories',
   initialBrand = '',
+  showConfirm,
 }: ProductsRegistryProps) {
   // Details view state
   const [viewingProduct, setViewingProduct] = useState<ProductItem | null>(null);
@@ -58,6 +89,7 @@ export default function ProductsRegistry({
   const [supplierFilter, setSupplierFilter] = useState('All Suppliers');
   const [statusFilter, setStatusFilter] = useState('All Statuses');
   const [brandFilter, setBrandFilter] = useState(initialBrand);
+  const [typeFilter, setTypeFilter] = useState('All Types');
   const [quickFilter, setQuickFilter] = useState<'All' | 'Active' | 'Low Stock' | 'Out of Stock'>('All');
 
   const [reorderPercent, setReorderPercent] = useState<number>(25);
@@ -78,15 +110,21 @@ export default function ProductsRegistry({
   };
 
   const handleArchive = (product: ProductItem) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${product.name}" from the catalog?`
-    );
+    const action = () => {
+      onArchive(product.id, product.name);
+    };
 
-    if (!confirmed) {
-      return;
+    if (showConfirm) {
+      showConfirm(
+        'Delete Product',
+        `Are you sure you want to delete "${product.name}" from the catalog?`,
+        action
+      );
+    } else {
+      if (window.confirm(`Are you sure you want to delete "${product.name}" from the catalog?`)) {
+        action();
+      }
     }
-
-    onArchive(product.id, product.name);
   };
 
   // Sync initial props if they update (e.g. from Categories View link redirect)
@@ -129,6 +167,11 @@ export default function ProductsRegistry({
       const matchesBrand =
         !brandFilter || p.brand.toLowerCase() === brandFilter.toLowerCase();
 
+      const matchesType =
+        typeFilter === 'All Types' ||
+        (typeFilter === 'Original' && !p.hasVariant) ||
+        (typeFilter === 'Variant' && p.hasVariant);
+
       // 3. Quick Chips Filters
       let matchesQuick = true;
       if (quickFilter === 'Active') {
@@ -139,9 +182,9 @@ export default function ProductsRegistry({
         matchesQuick = p.stock === 0;
       }
 
-      return matchesSearch && matchesCategory && matchesSupplier && matchesStatus && matchesBrand && matchesQuick;
+      return matchesSearch && matchesCategory && matchesSupplier && matchesStatus && matchesBrand && matchesQuick && matchesType;
     });
-  }, [products, search, categoryFilter, supplierFilter, statusFilter, brandFilter, quickFilter, reorderPercent]);
+  }, [products, search, categoryFilter, supplierFilter, statusFilter, brandFilter, typeFilter, quickFilter, reorderPercent]);
 
   // Reactive KPI Calculations
   const kpis = useMemo(() => {
@@ -260,6 +303,8 @@ export default function ProductsRegistry({
           setSupplierFilter={setSupplierFilter}
           statusFilter={statusFilter}
           setStatusFilter={setStatusFilter}
+          typeFilter={typeFilter}
+          setTypeFilter={setTypeFilter}
           quickFilter={quickFilter}
           setQuickFilter={setQuickFilter}
           categories={categories}
@@ -306,6 +351,7 @@ export default function ProductsRegistry({
                   setCategoryFilter('All Categories');
                   setSupplierFilter('All Suppliers');
                   setStatusFilter('All Statuses');
+                  setTypeFilter('All Types');
                   setQuickFilter('All');
                 }}
                 className="px-5 py-2 bg-secondary-container text-primary rounded-lg text-xs font-bold hover:bg-secondary-container/80 transition-colors shadow-sm"
@@ -316,11 +362,11 @@ export default function ProductsRegistry({
           </div>
         ) : (
           /* High-Fidelity Products Table Registry */
-          <div className="w-full">
-            <table className="w-full text-left border-collapse text-xs">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-[900px] text-left border-collapse text-xs">
               <thead className="bg-slate-50/80 border-b border-outline-variant/60 text-[10px] font-bold text-outline uppercase tracking-wider">
                 <tr>
-                  <th className="px-5 py-3.5 text-left min-w-[220px]">Product Details</th>
+                  <th className="px-5 py-3.5 text-left min-w-[230px]">Product Details</th>
                   <th className="px-4 py-3.5 text-left">SKU / Barcode</th>
                   <th className="px-4 py-3.5 text-center">Category</th>
                   <th className="px-4 py-3.5 text-left">Supplier</th>
@@ -331,9 +377,8 @@ export default function ProductsRegistry({
                   <th className="px-5 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-on-surface-variant">
+              <tbody className="divide-y divide-slate-100 text-on-surface-variant">
                 {filteredProducts.map((p) => {
-                  // Determine stock alert styles
                   const isOutOfStock = p.stock === 0;
                   const isLowStock = p.stock > 0 && p.stock <= getReorderLimit(p);
 
@@ -341,113 +386,109 @@ export default function ProductsRegistry({
                     <tr
                       key={p.id}
                       onClick={() => setViewingProduct(p)}
-                      className="hover:bg-primary/5 transition-all duration-200 cursor-pointer group border-l-4 border-l-transparent hover:border-l-primary"
+                      className="hover:bg-slate-50/60 transition-colors duration-150 cursor-pointer group"
                       title="Click row to view details"
                     >
-                      {/* Name Card */}
-                      <td className="px-5 py-4.5 min-w-[220px] text-left">
+                      {/* Product Details: Image + Name + Brand • Sub */}
+                      <td className="px-5 py-3.5 min-w-[230px]">
                         <div className="flex items-center gap-3">
                           {p.imageUrl ? (
                             <img
                               src={p.imageUrl}
                               alt={p.name}
-                              className="w-10 h-10 rounded-xl object-cover border border-slate-200/80 shadow-sm shrink-0 bg-white group-hover:scale-105 transition-transform"
+                              className="w-9 h-9 rounded-lg object-cover border border-slate-200 shrink-0 bg-white"
                             />
                           ) : (
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-xs uppercase shrink-0 shadow-sm group-hover:scale-105 transition-transform bg-gradient-to-tr ${
-                              p.category.includes('Beverage') ? 'from-indigo-500 to-purple-600' :
-                              p.category.includes('Dairy') ? 'from-teal-400 to-emerald-600' :
-                              p.category.includes('Grocery') ? 'from-emerald-500 to-green-600' :
-                              p.category.includes('Snacks') || p.category.includes('Bakery') ? 'from-amber-400 to-orange-600' : 
-                              p.category.includes('Household') ? 'from-cyan-400 to-blue-600' : 'from-slate-400 to-slate-600'
-                            }`}>
+                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-white font-black text-xs uppercase shrink-0 bg-gradient-to-br ${getCategoryStyle(p.category).dot}`}>
                               {p.name.charAt(0)}
                             </div>
                           )}
                           <div className="min-w-0">
-                            <span className="block font-extrabold text-on-surface text-sm truncate group-hover:text-primary transition-colors">{p.name}</span>
-                            <span className="block text-[10px] text-outline mt-0.5 font-semibold">
-                              {p.brand ? `${p.brand} • ` : ''}{p.subcategory || 'General'}
-                            </span>
+                            <p className="font-bold text-[13px] text-on-surface truncate leading-tight group-hover:text-primary transition-colors">
+                              {p.name}
+                            </p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              {[p.brand, p.subcategory].filter(Boolean).join(' • ')}
+                            </p>
                           </div>
                         </div>
                       </td>
 
                       {/* SKU / Barcode */}
-                      <td className="px-4 py-4.5 whitespace-nowrap text-left">
-                        <span className="block font-bold text-on-surface text-xs">{p.sku}</span>
-                        <span className="block text-[10px] text-outline mt-0.5">{p.barcode}</span>
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <p className="font-bold text-[12px] text-on-surface">{p.sku}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5 font-mono tracking-wide">{p.barcode}</p>
                       </td>
 
-                      {/* Category */}
-                      <td className="px-4 py-4.5 whitespace-nowrap text-center">
-                        <span className={`inline-block px-2.5 py-1 rounded-md font-bold text-[10px] border ${
-                          p.category.includes('Beverage') ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
-                          p.category.includes('Dairy') ? 'bg-teal-50 text-teal-700 border-teal-100' :
-                          p.category.includes('Grocery') ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                          p.category.includes('Snacks') || p.category.includes('Bakery') ? 'bg-amber-50 text-amber-700 border-amber-100' : 
-                          p.category.includes('Household') ? 'bg-cyan-50 text-cyan-700 border-cyan-100' : 'bg-slate-50 text-slate-700 border-slate-100'
-                        }`}>
-                          {p.category}
-                        </span>
+                      {/* Category Badge — hash-based unique colour per category */}
+                      <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                        {(() => {
+                          const s = getCategoryStyle(p.category);
+                          return (
+                            <span className={`inline-block px-3 py-1 rounded-md font-bold text-[11px] ${s.bg} ${s.text}`}>
+                              {p.category}
+                            </span>
+                          );
+                        })()}
                       </td>
 
                       {/* Supplier */}
-                      <td className="px-4 py-4.5 whitespace-nowrap text-left">
-                        <div className="flex items-center gap-1 text-outline font-semibold text-xs">
-                          <span className="material-symbols-outlined text-[13px] text-outline-variant">local_shipping</span>
-                          <span>{p.supplier}</span>
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
+                          <span className="material-symbols-outlined text-[14px] text-slate-400">local_shipping</span>
+                          {p.supplier}
                         </div>
                       </td>
 
-                      {/* Unit Type */}
-                      <td className="px-4 py-4.5 whitespace-nowrap text-center font-bold text-xs text-on-surface-variant">
-                        {p.unitType}
+                      {/* Unit Type — centered */}
+                      <td className="px-4 py-3.5 text-center">
+                        <span className="text-[12px] font-bold text-on-surface uppercase tracking-wide">{p.unitType}</span>
                       </td>
 
-                      {/* Current Stock */}
-                      <td className="px-4 py-4.5 text-right whitespace-nowrap">
-                        <div className="inline-flex flex-col items-end">
-                          <span className={`text-xs font-black ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-[#d97706]' : 'text-on-surface'}`}>
-                            {p.stock.toLocaleString()} / {(p.targetCapacity || 100).toLocaleString()}
-                          </span>
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-black tracking-wide mt-1.5 shadow-sm ${
-                            isOutOfStock ? 'bg-red-50 text-red-700 border-red-100' :
-                            isLowStock ? 'bg-amber-50 text-[#d97706] border-amber-100' :
-                            'bg-emerald-50 text-emerald-700 border-emerald-100'
-                          }`}>
-                            <span className={`w-1 h-1 rounded-full ${isOutOfStock ? 'bg-red-600' : isLowStock ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}></span>
-                            <span>{isOutOfStock ? 'OUT OF STOCK' : isLowStock ? 'LOW STOCK' : 'IN STOCK'}</span>
-                          </span>
-                        </div>
+                      {/* Stock / Capacity — right aligned */}
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                        <p className={`text-[12px] font-bold ${
+                          isOutOfStock ? 'text-red-600' :
+                          isLowStock ? 'text-amber-600' :
+                          'text-on-surface'
+                        }`}>
+                          {p.stock} / {p.targetCapacity || 100}
+                        </p>
+                        <p className={`text-[10px] font-bold mt-0.5 flex items-center justify-end gap-1 ${
+                          isOutOfStock ? 'text-red-500' :
+                          isLowStock ? 'text-amber-500' :
+                          'text-emerald-600'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full inline-block ${
+                            isOutOfStock ? 'bg-red-500' :
+                            isLowStock ? 'bg-amber-400 animate-pulse' :
+                            'bg-emerald-500'
+                          }`} />
+                          {isOutOfStock ? 'OUT OF STOCK' : isLowStock ? 'LOW STOCK' : 'IN STOCK'}
+                        </p>
                       </td>
 
-                      {/* Reorder Level */}
-                      <td className="px-4 py-4.5 text-right whitespace-nowrap font-bold text-xs text-outline">
-                        {getReorderLimit(p).toLocaleString()} ({reorderPercent}%)
+                      {/* Reorder Limit — right aligned */}
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                        <span className="text-[12px] font-bold text-slate-500">
+                          {getReorderLimit(p)} ({reorderPercent}%)
+                        </span>
                       </td>
 
-                      {/* Selling Price */}
-                      <td className="px-4 py-4.5 text-right whitespace-nowrap font-black text-sm text-primary">
-                        Rs. {p.sellingPrice.toFixed(2)}
+                      {/* Selling Price — right aligned */}
+                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
+                        <span className="text-[13px] font-black text-primary">Rs. {p.sellingPrice.toFixed(2)}</span>
                       </td>
 
                       {/* Actions */}
-                      <td className="px-5 py-4.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className="px-5 py-3.5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => onEdit(p)}
-                            title="Edit Product"
-                            className="p-1.5 text-outline-variant hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
+                            title="Edit"
+                            className="p-1.5 rounded-md text-slate-400 hover:text-primary hover:bg-primary/5 transition-colors"
                           >
-                            <span className="material-symbols-outlined text-[18px]">edit</span>
-                          </button>
-                          <button
-                            onClick={() => handleArchive(p)}
-                            title="Delete Product"
-                            className="p-1.5 text-outline-variant hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                            <span className="material-symbols-outlined text-[17px]">edit</span>
                           </button>
                         </div>
                       </td>

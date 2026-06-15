@@ -9,6 +9,8 @@ type ProductFiltersProps = {
   setSupplierFilter: (val: string) => void;
   statusFilter: string;
   setStatusFilter: (val: string) => void;
+  typeFilter: string;
+  setTypeFilter: (val: string) => void;
   quickFilter: 'All' | 'Active' | 'Low Stock' | 'Out of Stock';
   setQuickFilter: (val: 'All' | 'Active' | 'Low Stock' | 'Out of Stock') => void;
   categories: string[];
@@ -24,6 +26,8 @@ export default function ProductFilters({
   setSupplierFilter,
   statusFilter,
   setStatusFilter,
+  typeFilter,
+  setTypeFilter,
   quickFilter,
   setQuickFilter,
   categories,
@@ -32,7 +36,7 @@ export default function ProductFilters({
   return (
     <div className="space-y-4">
       {/* Primary Search & Standard Select Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         
         {/* Search Field */}
         <div className="relative">
@@ -101,6 +105,22 @@ export default function ProductFilters({
             <option value="Active">Active</option>
             <option value="Inactive">Inactive</option>
             <option value="Disconnected">Disconnected</option>
+          </select>
+          <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant text-[20px] pointer-events-none">
+            expand_more
+          </span>
+        </div>
+
+        {/* Product Type Filter (Variant vs Original) */}
+        <div className="relative">
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="w-full appearance-none pl-4 pr-10 py-2.5 bg-background border border-outline-variant rounded-lg text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+          >
+            <option value="All Types">All Product Types</option>
+            <option value="Original">Original Products</option>
+            <option value="Variant">Variants Only</option>
           </select>
           <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant text-[20px] pointer-events-none">
             expand_more

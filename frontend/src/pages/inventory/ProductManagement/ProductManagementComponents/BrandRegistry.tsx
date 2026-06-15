@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { ProductItem } from './ProductsRegistry';
+import { toast } from 'sonner';
 
 export type BrandItem = {
   id: string;
@@ -87,7 +88,7 @@ export default function BrandRegistry({
     const trimmedName = brandName.trim();
     const trimmedDesc = description.trim();
     if (!trimmedName) {
-      alert('Please enter a valid brand name.');
+      toast.error('Please enter a valid brand name.');
       return;
     }
 

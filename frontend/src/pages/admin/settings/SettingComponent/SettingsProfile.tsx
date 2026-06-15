@@ -1,17 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../../hooks/useAuth';
+import { authService } from '../../../../services/authService';
+import { toast } from 'sonner';
 
 export default function SettingsProfile() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [fullName, setFullName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
-  const [phone, setPhone] = useState('+1 (555) 234-5678');
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (user) {
+      setFullName(user.name || '');
+      setEmail(user.email || '');
+      setPhone(user.phone || '');
+    }
+  }, [user]);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    setIsSaving(true);
+    try {
+      const updatedUser = await authService.updateProfile({
+        name: fullName,
+        email,
+        phone: phone || undefined,
+      });
+      updateUser(updatedUser);
+      setSaved(true);
+      toast.success('Profile settings saved successfully!');
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Failed to save profile settings.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -83,9 +109,16 @@ export default function SettingsProfile() {
           <div className="pt-6 mt-6 border-t border-slate-50 flex justify-end">
             <button
               type="submit"
-              className="px-6 py-2.5 bg-[#0b8252] hover:bg-[#096b43] text-white font-bold text-[14px] rounded-xl shadow-sm active:scale-[0.98] transition-all"
+              disabled={isSaving}
+              className="px-6 py-2.5 bg-[#0b8252] hover:bg-[#096b43] text-white font-bold text-[14px] rounded-xl shadow-sm active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              Save Profile Settings
+              {isSaving && (
+                <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              )}
+              {isSaving ? 'Saving...' : 'Save Profile Settings'}
             </button>
           </div>
         </form>

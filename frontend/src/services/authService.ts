@@ -10,6 +10,7 @@ export interface AuthUser {
   name: string
   email: string
   role: 'ADMIN' | 'CASHIER' | 'INVENTORY_MANAGER'
+  phone?: string
   isActive?: boolean
   createdAt?: string
 }
@@ -52,6 +53,11 @@ export const authService = {
 
   async toggleUserStatus(id: string): Promise<AuthUser> {
     const response = await api.patch<{ success: boolean; data: AuthUser }>(`/auth/users/${id}/toggle`)
+    return response.data.data
+  },
+
+  async updateProfile(profileData: { name: string; email: string; phone?: string }): Promise<AuthUser> {
+    const response = await api.put<{ success: boolean; data: AuthUser }>('/auth/profile', profileData)
     return response.data.data
   }
 }

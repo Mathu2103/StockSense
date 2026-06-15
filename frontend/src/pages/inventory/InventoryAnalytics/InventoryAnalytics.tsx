@@ -85,12 +85,7 @@ export default function InventoryAnalytics() {
         };
       });
     }
-    return products.slice(0, 3).map((p, idx) => ({
-      name: p.name,
-      expiredQty: 5 + idx * 3,
-      lossValue: (5 + idx * 3) * p.costPrice,
-      expiryDate: p.expiryDate || '2026-06-15'
-    }));
+    return [];
   }, [filteredLedger, products]);
 
   const totalExpiryLoss = useMemo(() =>
@@ -100,64 +95,89 @@ export default function InventoryAnalytics() {
   const dynamicFastMoving = useMemo(() => {
     const counts: { [key: string]: { movements: number; qty: number } } = {};
     filteredLedger.filter(l => l.movementType === 'Sale').forEach(s => {
-      if (!counts[s.productName]) counts[s.productName] = { movements: 0, qty: 0 };
-      counts[s.productName].movements += 1;
-      counts[s.productName].qty += Math.abs(s.quantityChange);
+      const prod = products.find(p => p.name === s.productName || p.sku === s.sku);
+      if (!prod) return;
+      if (!counts[prod.sku]) counts[prod.sku] = { movements: 0, qty: 0 };
+      counts[prod.sku].movements += 1;
+      counts[prod.sku].qty += Math.abs(s.quantityChange);
     });
     return products
       .map(p => {
-        const log = counts[p.name] || { movements: 0, qty: 0 };
-        const movs = log.movements > 0 ? log.movements * 15 + 40 : 15;
-        const vol = log.qty > 0 ? log.qty : 10;
+        const log = counts[p.sku] || { movements: 0, qty: 0 };
         return {
           name: p.name,
           category: p.category,
-          movementCount: movs + Math.floor(Math.random() * 5),
-          salesVolume: `Rs. ${(vol * p.sellingPrice).toLocaleString()}`,
+          movementCount: log.movements,
+          salesVolume: `Rs. ${(log.qty * p.sellingPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           stockRemaining: p.stock,
-          rating: movs > 50 ? 'High Demand' : 'Normal'
+          rating: log.movements > 50 ? 'High Demand' : log.movements > 10 ? 'Normal' : 'Low Demand'
         };
       })
+      .filter(item => item.movementCount > 0)
       .sort((a, b) => b.movementCount - a.movementCount)
       .slice(0, 5);
   }, [filteredLedger, products]);
 
-  const dynamicDeadStock = useMemo(() =>
-    products.map((p, idx) => {
-      const days = 30 + idx * 25;
-      const status = days > 60 ? 'Critical' : days > 45 ? 'Slow Moving' : 'Healthy';
+  const dynamicDeadStock = useMemo(() => {
+    return products.map((p) => {
+      const productMovements = ledger.filter(l => l.sku === p.sku || l.productName === p.name);
+      
+      let lastMovementDate = new Date(p.lastUpdated || Date.now());
+      if (productMovements.length > 0) {
+        const times = productMovements.map(m => new Date(m.timestamp).getTime());
+        lastMovementDate = new Date(Math.max(...times));
+      }
+      
+      const diffMs = Date.now() - lastMovementDate.getTime();
+      const days = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+      const status = p.stock === 0 ? 'Healthy' : (days > 60 ? 'Critical' : days > 30 ? 'Slow Moving' : 'Healthy');
+
       return {
         name: p.name,
-        lastMovement: new Date(Date.now() - days * 86400000).toISOString().split('T')[0],
+        lastMovement: lastMovementDate.toISOString().split('T')[0],
         daysInactive: days,
         stock: p.stock,
         costValue: p.stock * p.costPrice,
         status
       };
-    }).sort((a, b) => b.daysInactive - a.daysInactive),
-    [products]);
+    })
+    .filter(item => item.stock > 0 && item.daysInactive > 14)
+    .sort((a, b) => b.daysInactive - a.daysInactive);
+  }, [ledger, products]);
 
   const dynamicCategoryPerformance = useMemo(() => {
     const cats = Array.from(new Set(products.map(p => p.category)));
-    return cats.map((cat, idx) => {
+    const saleMovements = filteredLedger.filter(l => l.movementType === 'Sale');
+
+    return cats.map((cat) => {
       const catProducts = products.filter(p => p.category === cat);
       const stockVal = catProducts.reduce((sum, p) => sum + p.stock * p.costPrice, 0);
-      const rot = ['12.4x', '8.2x', '5.6x', '2.1x'][idx] ?? '2.1x';
-      const perf = idx <= 1 ? 'Best' : idx === 3 ? 'Weak' : 'Normal';
+      
+      let totalSalesVal = 0;
+      catProducts.forEach(p => {
+        const prodSales = saleMovements.filter(l => l.sku === p.sku || l.productName === p.name);
+        const units = prodSales.reduce((sum, l) => sum + Math.abs(l.quantityChange), 0);
+        totalSalesVal += units * p.sellingPrice;
+      });
+      
+      const avgStockVal = stockVal || 1;
+      const rotVal = totalSalesVal / avgStockVal;
+      const rot = `${rotVal.toFixed(1)}x`;
+      const perf = rotVal > 1.5 ? 'Best' : rotVal < 0.2 ? 'Weak' : 'Normal';
+
       return {
         name: cat,
-        totalSales: `Rs. ${(catProducts.length * 342000 + 120000).toLocaleString()}`,
-        stockValue: `Rs. ${stockVal.toLocaleString()}`,
+        totalSales: `Rs. ${totalSalesVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        stockValue: `Rs. ${stockVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         movementRate: rot,
         performance: perf
       };
     });
-  }, [products]);
+  }, [filteredLedger, products]);
 
   const dynamicReorderSuggestions = useMemo(() => {
     const lowItems = products.filter(p => p.stock <= p.reorderLevel);
-    const targetList = lowItems.length > 0 ? lowItems : products;
-    return targetList.map(p => ({
+    return lowItems.map(p => ({
       name: p.name,
       stock: p.stock,
       threshold: p.reorderLevel,
@@ -179,9 +199,9 @@ export default function InventoryAnalytics() {
       healthy: hPct + diff,
       warning: wPct,
       critical: cPct,
-      healthyCount: healthy * 12 + 42,
-      warningCount: lowStock * 10 + 20,
-      criticalCount: outStock * 8 + 5
+      healthyCount: healthy,
+      warningCount: lowStock,
+      criticalCount: outStock
     };
   }, [products]);
 
@@ -228,9 +248,11 @@ export default function InventoryAnalytics() {
     [filteredLedger]);
 
   const turnoverRate = useMemo(() => {
-    if (products.length === 0) return '8.4x';
-    const totalStock = products.reduce((acc, p) => acc + p.stock, 0) || 1;
-    return `${(salesVolumeTotal / (totalStock / products.length) * 10 + 4.2).toFixed(1)}x`;
+    if (products.length === 0) return '0.0x';
+    const totalStock = products.reduce((acc, p) => acc + p.stock, 0);
+    if (totalStock === 0) return '0.0x';
+    const rate = salesVolumeTotal / (totalStock / products.length);
+    return `${rate.toFixed(1)}x`;
   }, [products, salesVolumeTotal]);
 
   const deadStockCount = useMemo(() =>

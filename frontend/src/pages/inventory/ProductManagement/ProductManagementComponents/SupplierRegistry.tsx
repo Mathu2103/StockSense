@@ -1,6 +1,7 @@
-import { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ProductItem } from './ProductsRegistry';
+import { toast } from 'sonner';
 
 export type SupplierItem = {
   id: string;
@@ -17,6 +18,7 @@ type SupplierRegistryProps = {
   onAddSupplier: (supplier: Omit<SupplierItem, 'id'>) => void;
   onEditSupplier: (id: string, updatedFields: Partial<SupplierItem>) => void;
   onDeleteSupplier: (id: string) => void;
+  showConfirm?: (title: string, message: React.ReactNode, onConfirm: () => void) => void;
 };
 
 export default function SupplierRegistry({
@@ -25,6 +27,7 @@ export default function SupplierRegistry({
   onAddSupplier,
   onEditSupplier,
   onDeleteSupplier,
+  showConfirm,
 }: SupplierRegistryProps) {
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -95,7 +98,7 @@ export default function SupplierRegistry({
     const trimmedAddr = address.trim();
 
     if (!trimmedName || !trimmedPhone || !trimmedEmail || !trimmedAddr) {
-      alert('Please fill out all mandatory fields marked with an asterisk (*).');
+      toast.error('Please fill out all mandatory fields marked with an asterisk (*).');
       return;
     }
 
@@ -117,8 +120,20 @@ export default function SupplierRegistry({
   };
 
   const handleDelete = (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete the supplier "${name}"?`)) {
+    const action = () => {
       onDeleteSupplier(id);
+    };
+
+    if (showConfirm) {
+      showConfirm(
+        'Delete Supplier',
+        `Are you sure you want to delete the supplier "${name}"?`,
+        action
+      );
+    } else {
+      if (window.confirm(`Are you sure you want to delete the supplier "${name}"?`)) {
+        action();
+      }
     }
   };
 

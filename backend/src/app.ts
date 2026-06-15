@@ -5,6 +5,11 @@ import helmet from 'helmet'
 import cookieParser from 'cookie-parser'
 import rateLimit from 'express-rate-limit'
 import authRoutes from './routes/authRoutes.js'
+import categoryRoutes from './routes/categoryRoutes.js'
+import brandRoutes from './routes/brandRoutes.js'
+import supplierRoutes from './routes/supplierRoutes.js'
+import productRoutes from './routes/productRoutes.js'
+import inventoryRoutes from './routes/inventoryRoutes.js'
 
 const app = express()
 
@@ -40,6 +45,11 @@ app.get('/', (_req: Request, res: Response) => {
 
 // ── Routes ────────────────────────────────────────────
 app.use('/api/auth', authLimiter, authRoutes)
+app.use('/api/categories', categoryRoutes)
+app.use('/api/brands', brandRoutes)
+app.use('/api/suppliers', supplierRoutes)
+app.use('/api/products', productRoutes)
+app.use('/api/inventory', inventoryRoutes)
 
 // ── 404 Handler ───────────────────────────────────────
 app.use((_req: Request, res: Response) => {

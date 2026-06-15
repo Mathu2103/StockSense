@@ -23,6 +23,7 @@ import ProcurementManagement from '../pages/inventory/ProcurementManagement/Proc
 import InventoryOperations from '../pages/inventory/StockOperations/StockOperations'
 import Alerts from '../pages/inventory/Alerts/Alerts'
 import Reports from '../pages/inventory/Reports/Reports'
+import SettingsPage from '../pages/admin/settings/Settings'
 
 // Protected Route Groups
 import AdminRoutes from './AdminRoutes'
@@ -96,6 +97,9 @@ export default function AppRouter() {
         } />
         <Route path="/reports" element={
           <ProtectedRoute allowedRoles={INVENTORY_ROLES}><Reports /></ProtectedRoute>
+        } />
+        <Route path="/settings" element={
+          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><SettingsPage /></ProtectedRoute>
         } />
 
         {/* ══════════════════════════════════════════════
