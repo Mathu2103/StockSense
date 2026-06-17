@@ -43,10 +43,10 @@ export const getGRNs = async (_req: Request, res: Response): Promise<void> => {
       orderBy: { grnDate: 'desc' }
     });
 
-    const mapped = grns.map((g) => {
+    const mapped = grns.map((g: any) => {
       let totalQty = 0;
       let totalCost = 0;
-      const items = g.items.map((item) => {
+      const items = g.items.map((item: any) => {
         totalQty += item.addedQuantity;
         totalCost += item.addedQuantity * item.unitCost;
         return {
@@ -176,7 +176,7 @@ export const createGRN = async (req: Request, res: Response): Promise<void> => {
         grnNumber: result.grn.grnId,
         supplierName: supplier.name,
         receivedDate: result.grn.grnDate.toISOString().split('T')[0],
-        items: result.items.map(i => ({
+        items: result.items.map((i: any) => ({
           productName: i.product.name,
           sku: i.sku,
           orderedQty: i.addedQuantity,
@@ -185,8 +185,8 @@ export const createGRN = async (req: Request, res: Response): Promise<void> => {
           mfgDate: i.mfd ? i.mfd.toISOString().split('T')[0] : '',
           expiryDate: i.epd ? i.epd.toISOString().split('T')[0] : ''
         })),
-        totalQuantity: result.items.reduce((sum, i) => sum + i.addedQuantity, 0),
-        totalCost: result.items.reduce((sum, i) => sum + i.addedQuantity * i.unitCost, 0),
+        totalQuantity: result.items.reduce((sum: number, i: any) => sum + i.addedQuantity, 0),
+        totalCost: result.items.reduce((sum: number, i: any) => sum + i.addedQuantity * i.unitCost, 0),
         status: 'Completed',
         accuracyScore: 100,
         notes: result.grn.notes || ''
@@ -210,7 +210,7 @@ export const getAdjustments = async (_req: Request, res: Response): Promise<void
       orderBy: { createdAt: 'desc' }
     });
 
-    const mapped = adjs.map((a) => {
+    const mapped = adjs.map((a: any) => {
       return {
         id: a.id,
         adjustmentNumber: `ADJ-${a.id.substring(0, 8).toUpperCase()}`,
@@ -219,7 +219,7 @@ export const getAdjustments = async (_req: Request, res: Response): Promise<void
         qtyChanged: a.qtyChanged,
         reason: mapDbReasonToFrontend(a.reason),
         adjustedBy: a.adjustedBy.name,
-        date: a.createdAt.toISOString().split('T')[0],
+        date: a.createdAt.toISOString(),
         status: 'Approved',
         totalValue: Math.abs(a.qtyChanged * a.product.sellingPrice),
         beforeStock: a.finalQuantity - a.qtyChanged,
@@ -351,7 +351,7 @@ export const getLedger = async (_req: Request, res: Response): Promise<void> => 
     const ledgerEntries: any[] = [];
 
     // Map GRNs
-    grnItems.forEach((item) => {
+    grnItems.forEach((item: any) => {
       ledgerEntries.push({
         id: `grn-item-${item.id}`,
         timestamp: item.grn.grnDate.toISOString(),
@@ -368,7 +368,7 @@ export const getLedger = async (_req: Request, res: Response): Promise<void> => 
     });
 
     // Map Adjustments
-    adjustments.forEach((adj) => {
+    adjustments.forEach((adj: any) => {
       const isExpiry = adj.reason === AdjustmentReason.EXPIRED;
       ledgerEntries.push({
         id: `adj-item-${adj.id}`,
@@ -386,7 +386,7 @@ export const getLedger = async (_req: Request, res: Response): Promise<void> => 
     });
 
     // Map POS Sales
-    billItems.forEach((bi) => {
+    billItems.forEach((bi: any) => {
       ledgerEntries.push({
         id: `bill-item-${bi.id}`,
         timestamp: bi.bill.createdAt.toISOString(),
