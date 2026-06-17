@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ViewState } from '../../inventory/Reports/reports/reportUtils';
 import Sidebar from '../Shared/Sidebar';
 import AdminHeader from '../Shared/AdminHeader';
@@ -11,7 +11,12 @@ import PurchaseReports from '../../inventory/Reports/reports/PurchaseReports';
 import AlertReports from '../../inventory/Reports/reports/AlertReports';
 
 export default function AdminReports() {
-  const [activeView, setActiveView] = useState<ViewState>('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeView = (searchParams.get('view') as ViewState) || 'overview';
+
+  const setActiveView = (view: ViewState) => {
+    setSearchParams({ view });
+  };
 
   const renderView = () => {
     switch (activeView) {

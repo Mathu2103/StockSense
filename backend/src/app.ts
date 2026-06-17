@@ -10,6 +10,7 @@ import brandRoutes from './routes/brandRoutes.js'
 import supplierRoutes from './routes/supplierRoutes.js'
 import productRoutes from './routes/productRoutes.js'
 import inventoryRoutes from './routes/inventoryRoutes.js'
+import dashboardRoutes from './routes/dashboardRoutes.js'
 
 const app = express()
 
@@ -50,6 +51,7 @@ app.use('/api/brands', brandRoutes)
 app.use('/api/suppliers', supplierRoutes)
 app.use('/api/products', productRoutes)
 app.use('/api/inventory', inventoryRoutes)
+app.use('/api/dashboard', dashboardRoutes)
 
 // ── 404 Handler ───────────────────────────────────────
 app.use((_req: Request, res: Response) => {

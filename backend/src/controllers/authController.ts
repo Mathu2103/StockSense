@@ -193,7 +193,7 @@ export async function updateProfile(req: AuthRequest, res: Response): Promise<vo
 // ─── POST /api/auth/users (Admin only — create cashier/manager) ──────
 export async function createUser(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { name, email, password, role } = req.body
+    const { name, email, password, role, phone } = req.body
 
     if (!name || !email || !password || !role) {
       res.status(400).json({ success: false, message: 'name, email, password, and role are required.' })
@@ -219,8 +219,9 @@ export async function createUser(req: AuthRequest, res: Response): Promise<void>
         email,
         passwordHash: hashedPassword,
         role,
+        phone,
       },
-      select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, phone: true, isActive: true, createdAt: true },
     })
 
     res.status(201).json({ success: true, message: 'User created successfully.', data: newUser })
@@ -235,7 +236,7 @@ export async function listUsers(req: AuthRequest, res: Response): Promise<void> 
   try {
     const users = await prisma.user.findMany({
       where: { role: { in: ['CASHIER', 'INVENTORY_MANAGER'] } },
-      select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, phone: true, isActive: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
     })
 

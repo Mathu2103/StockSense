@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
 
 interface AdminHeaderProps {
@@ -307,6 +307,7 @@ export default function AdminHeader({ children }: AdminHeaderProps) {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const location = useLocation();
   const currentPath = location.pathname;
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -321,37 +322,68 @@ export default function AdminHeader({ children }: AdminHeaderProps) {
       );
     }
 
-    let pageLabel = '';
-    if (currentPath.startsWith('/manage-products')) {
-      pageLabel = 'Product Catalog';
-    } else if (currentPath.startsWith('/inventory-analytics')) {
-      pageLabel = 'Analytics';
-    } else if (currentPath.startsWith('/inventory-operations')) {
-      pageLabel = 'Stock Operations';
-    } else if (currentPath.startsWith('/inventory-adjustments')) {
-      pageLabel = 'Adjustments';
-    } else if (currentPath.startsWith('/procurement') || currentPath.startsWith('/suppliers')) {
-      pageLabel = 'Procurement';
-    } else if (currentPath.startsWith('/stock-movements')) {
-      pageLabel = 'Stock Movements';
-    } else if (currentPath.startsWith('/alerts')) {
-      pageLabel = 'Alerts';
-    } else if (currentPath.startsWith('/reports')) {
-      pageLabel = 'Reports';
-    } else if (currentPath.startsWith('/settings')) {
-      pageLabel = 'Settings';
-    } else if (currentPath.startsWith('/categories')) {
-      pageLabel = 'Categories';
+    let parentLabel = '';
+    let parentPath = '';
+    let childLabel = '';
+
+    if (currentPath.includes('/manage-products')) {
+      parentLabel = 'Product Catalog';
+      parentPath = '/admin/manage-products';
+    } else if (currentPath.includes('/inventory-analytics')) {
+      parentLabel = 'Analytics';
+      parentPath = '/admin/inventory-analytics';
+    } else if (currentPath.includes('/inventory-operations')) {
+      parentLabel = 'Stock Operations';
+      parentPath = '/admin/inventory-operations';
+    } else if (currentPath.includes('/inventory-adjustments')) {
+      parentLabel = 'Adjustments';
+      parentPath = '/admin/inventory-adjustments';
+    } else if (currentPath.includes('/procurement') || currentPath.includes('/suppliers')) {
+      parentLabel = 'Procurement';
+      parentPath = currentPath;
+    } else if (currentPath.includes('/stock-movements')) {
+      parentLabel = 'Stock Movements';
+      parentPath = '/admin/stock-movements';
+    } else if (currentPath.includes('/alerts')) {
+      parentLabel = 'Alerts';
+      parentPath = '/admin/alerts';
+      if (searchParams.get('view') === 'settings') {
+        childLabel = 'Settings';
+      }
+    } else if (currentPath.includes('/reports')) {
+      parentLabel = 'Reports & Analytics';
+      parentPath = '/admin/reports';
+      const view = searchParams.get('view');
+      if (view && view !== 'overview') {
+        const viewMap: Record<string, string> = {
+          sales: 'Sales Reports',
+          inventory: 'Inventory Reports',
+          supplier: 'Supplier Reports',
+          activity: 'Activity Reports',
+          purchase: 'Purchase Reports',
+          alert: 'Alert Reports'
+        };
+        childLabel = viewMap[view] || '';
+      }
+    } else if (currentPath.includes('/settings')) {
+      parentLabel = 'Settings';
+      parentPath = '/admin/settings';
+      const tab = searchParams.get('tab');
+      if (tab) childLabel = tab;
+    } else if (currentPath.includes('/categories')) {
+      parentLabel = 'Categories';
+      parentPath = '/admin/categories';
     } else {
       const segments = currentPath.split('/').filter(Boolean);
       if (segments.length > 0) {
-        pageLabel = segments[segments.length - 1]
+        parentLabel = segments[segments.length - 1]
           .replace(/-/g, ' ')
           .replace(/\b\w/g, c => c.toUpperCase());
+        parentPath = currentPath;
       }
     }
 
-    if (!pageLabel) {
+    if (!parentLabel) {
       return <span className="text-[14.5px] font-extrabold text-[#0b8252] tracking-tight">Admin Control</span>;
     }
 
@@ -364,7 +396,21 @@ export default function AdminHeader({ children }: AdminHeaderProps) {
           Admin Control
         </Link>
         <span className="material-symbols-outlined text-[15px] text-slate-400 select-none">chevron_right</span>
-        <span className="text-[#0b8252] font-bold">{pageLabel}</span>
+        
+        {childLabel ? (
+          <>
+            <Link
+              to={parentPath}
+              className="hover:text-[#0b8252] transition-colors cursor-pointer"
+            >
+              {parentLabel}
+            </Link>
+            <span className="material-symbols-outlined text-[15px] text-slate-400 select-none">chevron_right</span>
+            <span className="text-[#0b8252] font-bold">{childLabel}</span>
+          </>
+        ) : (
+          <span className="text-[#0b8252] font-bold">{parentLabel}</span>
+        )}
       </div>
     );
   };

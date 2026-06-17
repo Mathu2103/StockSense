@@ -80,7 +80,7 @@ export default function AccountManagement() {
         email: `${formData.username}@stocksense.com`, // Auto-generated for backend requirements
         password: formData.password,
         role: formData.role,
-        // The backend might not accept phone/username, but we pass them if supported, or they are just UI placeholders
+        phone: formData.phone || undefined,
       });
       // Optionally handle initial status if API allows setting isActive on creation
       setUsers((prev) => [created, ...prev]);
@@ -264,7 +264,7 @@ export default function AccountManagement() {
                           </td>
                           <td className="p-4">
                             <p className="text-sm font-medium text-slate-700">{user.email}</p>
-                            <p className="text-xs text-slate-400 mt-0.5">+94 77 XXX XXXX</p> {/* Mocking phone as it's not in standard model */}
+                            <p className="text-xs text-slate-400 mt-0.5">{user.phone || 'No phone number'}</p>
                           </td>
                           <td className="p-4">
                             <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border ${
