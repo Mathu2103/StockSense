@@ -250,26 +250,12 @@ export default function InventoryReports({ onViewChange }: { onViewChange: (view
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={() => {
-            setLoading(true);
-            Promise.all([
-              inventoryOperationsService.getProducts(),
-              inventoryOperationsService.getLedger(),
-            ]).then(([loadedProducts, loadedLedger]) => {
-              setProducts(loadedProducts);
-              setLedger(loadedLedger);
-              setLoading(false);
-            });
-          }} className="flex items-center gap-2 bg-white border border-slate-200 text-[#0b8252] px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm hover:shadow-md hover:bg-slate-50 hover:-translate-y-0.5 transition-all">
-            <span className="material-symbols-outlined text-[18px]">refresh</span>
-            Refresh Data
-          </button>
-          <button onClick={() => downloadReport(reportName, 'pdf', reportData)} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm hover:shadow-md hover:bg-slate-50 hover:-translate-y-0.5 transition-all">
-            <span className="material-symbols-outlined text-[18px] text-red-500">picture_as_pdf</span>
+          <button onClick={() => downloadReport(reportName, 'pdf', reportData, 'Inventory')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all">
+            <span className="material-symbols-outlined text-[18px] text-slate-500">picture_as_pdf</span>
             Export PDF
           </button>
-          <button onClick={() => downloadReport(reportName, 'excel', reportData)} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm hover:shadow-md hover:bg-slate-50 hover:-translate-y-0.5 transition-all">
-            <span className="material-symbols-outlined text-[18px] text-green-600">table_chart</span>
+          <button onClick={() => downloadReport(reportName, 'excel', reportData, 'Inventory')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all">
+            <span className="material-symbols-outlined text-[18px] text-slate-500">table_chart</span>
             Export Excel
           </button>
         </div>

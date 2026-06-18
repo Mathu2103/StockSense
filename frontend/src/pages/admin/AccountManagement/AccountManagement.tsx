@@ -30,6 +30,20 @@ export default function AccountManagement() {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  // Edit User Form
+  const [editingUser, setEditingUser] = useState<AuthUser | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    role: 'CASHIER' as 'CASHIER' | 'INVENTORY_MANAGER',
+    isActive: true
+  });
+
+  // Password Reset Modal
+  const [passwordResetUser, setPasswordResetUser] = useState<AuthUser | null>(null);
+
   // Load Users (We load backend users and map additional mock fields like phone/username for UI demonstration if needed, but the backend handles name, email, role)
   const loadUsers = async () => {
     setLoading(true);
@@ -92,6 +106,49 @@ export default function AccountManagement() {
       toast.error(msg);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const openEditModal = (user: AuthUser) => {
+    setEditingUser(user);
+    setEditFormData({
+      name: user.name,
+      phone: user.phone || '',
+      email: user.email,
+      role: user.role as 'CASHIER' | 'INVENTORY_MANAGER',
+      isActive: user.isActive !== false,
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    setSubmitting(true);
+    try {
+      const updated = await authService.updateUser(editingUser.id, editFormData);
+      setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+      setShowEditModal(false);
+      toast.success('Account updated successfully!');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to update user.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const confirmResetPassword = async () => {
+    if (!passwordResetUser) return;
+    try {
+      const res = await authService.resetPassword(passwordResetUser.id);
+      if (res.emailSent) {
+        toast.success(`Password reset successful! An email has been sent to ${passwordResetUser.email}.`, { duration: 5000 });
+      } else {
+        toast.success(`Password reset successful! (SMTP not configured, so email skipped). New password is: ${res.newPassword}`, { duration: 10000 });
+      }
+      setPasswordResetUser(null);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to reset password.');
     }
   };
 
@@ -289,9 +346,10 @@ export default function AccountManagement() {
                             {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
                           </td>
                           <td className="p-4">
-                            <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center justify-center gap-2">
                               <button 
                                 title="Edit Account"
+                                onClick={() => openEditModal(user)}
                                 className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                               >
                                 <span className="material-symbols-outlined text-[18px]">edit</span>
@@ -311,15 +369,10 @@ export default function AccountManagement() {
                               </button>
                               <button 
                                 title="Reset Password"
+                                onClick={() => setPasswordResetUser(user)}
                                 className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
                               >
                                 <span className="material-symbols-outlined text-[18px]">key</span>
-                              </button>
-                              <button 
-                                title="Delete Employee"
-                                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                              >
-                                <span className="material-symbols-outlined text-[18px]">delete</span>
                               </button>
                             </div>
                           </td>
@@ -570,6 +623,193 @@ export default function AccountManagement() {
               >
                 {submitting && <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>}
                 {submitting ? 'Creating...' : 'Create Account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Employee Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border border-slate-200">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <span className="material-symbols-outlined">edit</span>
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Edit Employee</h2>
+                  <p className="text-xs text-slate-500">Update account details and role</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowEditModal(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 transition-colors"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              <form id="edit-employee-form" onSubmit={handleUpdateUser} className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                    Personal & Account Details
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Full Name <span className="text-rose-500">*</span></label>
+                      <input 
+                        type="text" 
+                        required
+                        value={editFormData.name}
+                        onChange={(e) => setEditFormData({...editFormData, name: e.target.value})}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Phone Number</label>
+                      <input 
+                        type="tel" 
+                        value={editFormData.phone}
+                        onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Email (Username) <span className="text-rose-500">*</span></label>
+                      <input 
+                        type="email" 
+                        required
+                        value={editFormData.email}
+                        onChange={(e) => setEditFormData({...editFormData, email: e.target.value})}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Account Status</label>
+                      <select 
+                        value={editFormData.isActive ? 'ACTIVE' : 'INACTIVE'}
+                        onChange={(e) => setEditFormData({...editFormData, isActive: e.target.value === 'ACTIVE'})}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 cursor-pointer"
+                      >
+                        <option value="ACTIVE">Active (Can Login)</option>
+                        <option value="INACTIVE">Inactive (Suspended)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                    Assigned Role
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <label className={`relative flex flex-col p-4 cursor-pointer rounded-2xl border-2 transition-all ${
+                      editFormData.role === 'CASHIER' 
+                        ? 'border-blue-600 bg-blue-50/50' 
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}>
+                      <input 
+                        type="radio" 
+                        name="editRole" 
+                        value="CASHIER" 
+                        checked={editFormData.role === 'CASHIER'}
+                        onChange={() => setEditFormData({...editFormData, role: 'CASHIER'})}
+                        className="sr-only" 
+                      />
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
+                          <span className="material-symbols-outlined">point_of_sale</span>
+                        </div>
+                        <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                          editFormData.role === 'CASHIER' ? 'border-blue-600 bg-blue-600' : 'border-slate-300'
+                        }`}>
+                          {editFormData.role === 'CASHIER' && <span className="material-symbols-outlined text-[14px] text-white">check</span>}
+                        </span>
+                      </div>
+                      <h4 className="font-bold text-slate-900">Cashier</h4>
+                    </label>
+
+                    <label className={`relative flex flex-col p-4 cursor-pointer rounded-2xl border-2 transition-all ${
+                      editFormData.role === 'INVENTORY_MANAGER' 
+                        ? 'border-blue-600 bg-blue-50/50' 
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}>
+                      <input 
+                        type="radio" 
+                        name="editRole" 
+                        value="INVENTORY_MANAGER" 
+                        checked={editFormData.role === 'INVENTORY_MANAGER'}
+                        onChange={() => setEditFormData({...editFormData, role: 'INVENTORY_MANAGER'})}
+                        className="sr-only" 
+                      />
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                          <span className="material-symbols-outlined">inventory_2</span>
+                        </div>
+                        <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                          editFormData.role === 'INVENTORY_MANAGER' ? 'border-blue-600 bg-blue-600' : 'border-slate-300'
+                        }`}>
+                          {editFormData.role === 'INVENTORY_MANAGER' && <span className="material-symbols-outlined text-[14px] text-white">check</span>}
+                        </span>
+                      </div>
+                      <h4 className="font-bold text-slate-900">Inventory Manager</h4>
+                    </label>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+              <button 
+                type="button"
+                onClick={() => setShowEditModal(false)}
+                className="px-5 py-2.5 rounded-xl font-bold text-sm text-slate-600 hover:bg-slate-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit"
+                form="edit-employee-form"
+                disabled={submitting}
+                className="px-6 py-2.5 rounded-xl font-bold text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
+              >
+                {submitting && <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>}
+                {submitting ? 'Updating...' : 'Update Account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {passwordResetUser && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden p-6 text-center border border-slate-200 transform transition-all scale-100">
+            <div className="mx-auto w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4 border border-indigo-100">
+              <span className="material-symbols-outlined text-[32px]">lock_reset</span>
+            </div>
+            <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2">Reset Password?</h3>
+            <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+              Are you sure you want to reset the password for <strong className="text-slate-700">{passwordResetUser.name}</strong>? 
+              A new randomly generated password will be sent to their email ({passwordResetUser.email}) and updated in the database.
+            </p>
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => setPasswordResetUser(null)}
+                className="flex-1 px-4 py-2.5 rounded-xl font-bold text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmResetPassword}
+                className="flex-1 px-4 py-2.5 rounded-xl font-bold text-sm text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-sm"
+              >
+                Yes, Reset
               </button>
             </div>
           </div>

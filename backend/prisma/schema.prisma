@@ -360,3 +360,14 @@ model RefundItem {
 
   @@map("sales_refund_items")
 }
+
+model GeneratedReport {
+  id        String   @id @default(uuid())
+  name      String
+  category  String
+  format    String
+  status    String   @default("Ready")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("generated_reports")
+}

@@ -1,15 +1,146 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { downloadReport, ViewState } from './reportUtils';
+import { ReportService, GeneratedReport } from '../../../../services/reportService';
 
 export default function ReportsOverview({ onViewChange }: { onViewChange: (view: ViewState) => void }) {
+  const [reports, setReports] = useState<GeneratedReport[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [clearing, setClearing] = useState(false);
+
+  const fetchReports = async () => {
+    try {
+      setLoading(true);
+      const data = await ReportService.getReportHistory();
+      setReports(data);
+    } catch (err) {
+      console.error('Failed to fetch report history:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+  const handleClearHistory = async () => {
+    setClearing(true);
+    try {
+      await ReportService.clearReportHistory();
+      setReports([]);
+      setShowClearModal(false);
+    } catch (err) {
+      console.error('Failed to clear report history:', err);
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  const getCategoryBadge = (category: string) => {
+    switch (category.toLowerCase()) {
+      case 'sales':
+      case 'purchase':
+        return <span className="px-2.5 py-1 text-[10px] font-bold bg-[#eef8f2] text-[#0b8252] rounded-full">{category}</span>;
+      case 'alerts':
+      case 'activity':
+        return <span className="px-2.5 py-1 text-[10px] font-bold bg-[#fee2e2] text-[#ef4444] rounded-full">{category}</span>;
+      case 'supplier':
+        return <span className="px-2.5 py-1 text-[10px] font-bold bg-[#fef3c7] text-[#d97706] rounded-full">{category}</span>;
+      default:
+        return <span className="px-2.5 py-1 text-[10px] font-bold bg-slate-100 text-slate-700 rounded-full">{category}</span>;
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    }) + ' - ' + date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
 
   return (
     <div className="animate-in fade-in duration-300">
+
+      {/* ── Custom Clear History Confirmation Modal ── */}
+      {showClearModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(15, 23, 42, 0.55)', backdropFilter: 'blur(6px)' }}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+            style={{ animation: 'zoomIn 0.2s ease' }}
+          >
+            {/* Modal Header */}
+            <div className="p-5 flex items-center gap-4 border-b border-slate-100">
+              <div className="w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-red-500 text-[22px]">delete_sweep</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800 text-base leading-tight">Clear Report History</h3>
+                <p className="text-xs text-slate-400 mt-0.5">This action cannot be undone</p>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-5">
+              <p className="text-slate-600 text-sm leading-relaxed">
+                Are you sure you want to clear <span className="font-bold text-slate-800">all {reports.length} report{reports.length !== 1 ? 's' : ''}</span> from your generation history?
+              </p>
+              <div className="mt-4 flex items-start gap-2.5 bg-red-50 border border-red-100 rounded-xl p-3.5">
+                <span className="material-symbols-outlined text-red-400 text-[18px] shrink-0 mt-0.5">info</span>
+                <p className="text-xs text-red-600 font-medium leading-relaxed">
+                  All report generation logs will be permanently deleted. Existing downloaded files will not be affected.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 pb-6 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowClearModal(false)}
+                disabled={clearing}
+                className="px-5 py-2.5 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleClearHistory}
+                disabled={clearing}
+                className="px-5 py-2.5 text-sm font-bold text-white bg-red-500 hover:bg-red-600 rounded-xl transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
+              >
+                {clearing ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                    </svg>
+                    Clearing...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                    Yes, Clear All
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 bg-slate-50 p-6 rounded-2xl border border-slate-100 shadow-sm">
         <div className="flex items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Reports & Analytics</h1>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Reports &amp; Analytics</h1>
             <p className="text-slate-500 text-sm mt-0.5">Detailed insights into Chamson Multi Shop's daily operations and performance.</p>
           </div>
         </div>
@@ -107,7 +238,15 @@ export default function ReportsOverview({ onViewChange }: { onViewChange: (view:
       <div>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-bold text-slate-800">Recently Generated</h2>
-          <button className="text-sm font-bold text-[#0b8252] hover:underline">Clear History</button>
+          {reports.length > 0 && (
+            <button
+              onClick={() => setShowClearModal(true)}
+              className="flex items-center gap-1.5 text-sm font-bold text-red-500 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-all"
+            >
+              <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
+              Clear History
+            </button>
+          )}
         </div>
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -117,35 +256,43 @@ export default function ReportsOverview({ onViewChange }: { onViewChange: (view:
                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Category</th>
                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Date Generated</th>
                 <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
-              <tr>
-                <td className="p-4 font-bold text-slate-700">Weekly Revenue Analysis - Q3</td>
-                <td className="p-4"><span className="px-2.5 py-1 text-[10px] font-bold bg-[#eef8f2] text-[#0b8252] rounded-full">Sales</span></td>
-                <td className="p-4 text-slate-600">Oct 24, 2023 - 09:45 AM</td>
-                <td className="p-4"><div className="flex items-center gap-1.5 font-bold text-[#10b981]"><span className="w-2 h-2 rounded-full bg-[#10b981]"></span> Ready</div></td>
-                <td className="p-4 text-right"><button onClick={() => downloadReport('Weekly_Revenue_Analysis_Q3', 'excel')} className="text-slate-400 hover:text-[#0b8252] transition-colors"><span className="material-symbols-outlined">download</span></button></td>
-              </tr>
-              <tr>
-                <td className="p-4 font-bold text-slate-700">Low Stock Warning Summary</td>
-                <td className="p-4"><span className="px-2.5 py-1 text-[10px] font-bold bg-[#fee2e2] text-[#ef4444] rounded-full">Alerts</span></td>
-                <td className="p-4 text-slate-600">Oct 23, 2023 - 04:12 PM</td>
-                <td className="p-4"><div className="flex items-center gap-1.5 font-bold text-[#10b981]"><span className="w-2 h-2 rounded-full bg-[#10b981]"></span> Ready</div></td>
-                <td className="p-4 text-right"><button onClick={() => downloadReport('Low_Stock_Warning_Summary', 'pdf')} className="text-slate-400 hover:text-[#0b8252] transition-colors"><span className="material-symbols-outlined">download</span></button></td>
-              </tr>
-              <tr>
-                <td className="p-4 font-bold text-slate-700">Supplier Lead Time Optimization</td>
-                <td className="p-4"><span className="px-2.5 py-1 text-[10px] font-bold bg-[#fef3c7] text-[#d97706] rounded-full">Supplier</span></td>
-                <td className="p-4 text-slate-600">Oct 22, 2023 - 11:30 AM</td>
-                <td className="p-4"><div className="flex items-center gap-1.5 font-bold text-[#0b8252]"><span className="w-2 h-2 rounded-full bg-[#0b8252] animate-pulse"></span> Processing</div></td>
-                <td className="p-4 text-right"><button className="text-slate-300 cursor-not-allowed"><span className="material-symbols-outlined">block</span></button></td>
-              </tr>
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="p-8 text-center text-slate-500">Loading history...</td>
+                </tr>
+              ) : reports.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="p-8 text-center text-slate-500">No reports generated recently.</td>
+                </tr>
+              ) : (
+                reports.map((report) => (
+                  <tr key={report.id}>
+                    <td className="p-4 font-bold text-slate-700">{report.name}</td>
+                    <td className="p-4">{getCategoryBadge(report.category)}</td>
+                    <td className="p-4 text-slate-600">{formatDate(report.createdAt)}</td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-1.5 font-bold text-[#10b981]">
+                        <span className="w-2 h-2 rounded-full bg-[#10b981]"></span> {report.status}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Zoom-in animation keyframe */}
+      <style>{`
+        @keyframes zoomIn {
+          from { opacity: 0; transform: scale(0.92); }
+          to   { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
     </div>
   );
 }

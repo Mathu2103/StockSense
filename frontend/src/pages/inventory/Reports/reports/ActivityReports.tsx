@@ -161,21 +161,15 @@ export default function ActivityReports({ onViewChange }: { onViewChange?: (view
             )}
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          <button onClick={() => {
-            setLoading(true);
-            inventoryOperationsService.getAdjustments().then((adjs) => {
-              setAdjustments(adjs);
-              setLoading(false);
-            });
-          }} className="flex items-center gap-2 bg-white border border-slate-200 text-[#0b8252] px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm hover:shadow-md hover:bg-slate-50 transition-all">
-            <span className="material-symbols-outlined text-[18px]">refresh</span>
-            Refresh Data
+        <div className="flex items-center gap-3">
+          <button onClick={() => downloadReport(reportName, 'pdf', reportData, 'Activity')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all">
+            <span className="material-symbols-outlined text-[18px] text-slate-500">picture_as_pdf</span>
+            Export PDF
           </button>
-          <div className="flex bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
-            <button onClick={() => downloadReport(reportName, 'pdf', reportData)} className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 hover:bg-slate-50 rounded text-sm font-bold border-r border-slate-200"><span className="material-symbols-outlined text-[18px] text-red-500">picture_as_pdf</span> PDF</button>
-            <button onClick={() => downloadReport(reportName, 'excel', reportData)} className="flex items-center gap-1.5 px-3 py-1.5 text-slate-600 hover:bg-slate-50 rounded text-sm font-bold"><span className="material-symbols-outlined text-[18px] text-green-600">table_chart</span> Excel</button>
-          </div>
+          <button onClick={() => downloadReport(reportName, 'excel', reportData, 'Activity')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all">
+            <span className="material-symbols-outlined text-[18px] text-slate-500">table_chart</span>
+            Export Excel
+          </button>
         </div>
       </div>
 
