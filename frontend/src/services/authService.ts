@@ -56,6 +56,16 @@ export const authService = {
     return response.data.data
   },
 
+  async updateUser(id: string, userData: any): Promise<AuthUser> {
+    const response = await api.put<{ success: boolean; data: AuthUser }>(`/auth/users/${id}`, userData)
+    return response.data.data
+  },
+
+  async resetPassword(id: string): Promise<{ newPassword: string; emailSent: boolean }> {
+    const response = await api.post<{ success: boolean; message: string; data: { newPassword: string; emailSent: boolean } }>(`/auth/users/${id}/reset-password`)
+    return response.data.data
+  },
+
   async updateProfile(profileData: { name: string; email: string; phone?: string }): Promise<AuthUser> {
     const response = await api.put<{ success: boolean; data: AuthUser }>('/auth/profile', profileData)
     return response.data.data

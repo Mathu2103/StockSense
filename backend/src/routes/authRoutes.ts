@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { login, refreshToken, logout, me, updateProfile, createUser, listUsers, toggleUserStatus } from '../controllers/authController.js'
+import { login, refreshToken, logout, me, updateProfile, createUser, listUsers, toggleUserStatus, updateUser, resetPassword } from '../controllers/authController.js'
 import { authenticate, requireRole } from '../middlewares/authMiddleware.js'
 
 const router = Router()
@@ -17,5 +17,7 @@ router.put('/profile', authenticate, updateProfile)
 router.post('/users', authenticate, requireRole('ADMIN'), createUser)
 router.get('/users', authenticate, requireRole('ADMIN'), listUsers)
 router.patch('/users/:id/toggle', authenticate, requireRole('ADMIN'), toggleUserStatus)
+router.put('/users/:id', authenticate, requireRole('ADMIN'), updateUser)
+router.post('/users/:id/reset-password', authenticate, requireRole('ADMIN'), resetPassword)
 
 export default router

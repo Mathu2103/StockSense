@@ -191,12 +191,12 @@ export default function SalesReports({ onViewChange }: { onViewChange: (view: Vi
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={() => downloadReport(reportName, 'pdf', reportData)} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-lg font-bold text-sm shadow-sm hover:bg-slate-50 transition-colors">
-            <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+          <button onClick={() => downloadReport(reportName, 'pdf', reportData, 'Sales')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all">
+            <span className="material-symbols-outlined text-[18px] text-slate-500">picture_as_pdf</span>
             Export PDF
           </button>
-          <button onClick={() => downloadReport(reportName, 'excel', reportData)} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-lg font-bold text-sm shadow-sm hover:bg-slate-50 transition-colors">
-            <span className="material-symbols-outlined text-[18px]">table_chart</span>
+          <button onClick={() => downloadReport(reportName, 'excel', reportData, 'Sales')} className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all">
+            <span className="material-symbols-outlined text-[18px] text-slate-500">table_chart</span>
             Export Excel
           </button>
         </div>
