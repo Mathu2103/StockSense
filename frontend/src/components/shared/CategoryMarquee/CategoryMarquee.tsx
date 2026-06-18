@@ -1,4 +1,6 @@
 import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { MasterDataService } from '../../../services/masterDataService';
 
 const scrollCategories = [
   { icon: '🥤', name: 'Beverages' },
@@ -13,6 +15,25 @@ const scrollCategories = [
   { icon: '🧽', name: 'Cleaning Supplies' }
 ];
 
+const getCategoryIcon = (name: string): string => {
+  const lower = name.toLowerCase();
+  if (lower.includes('beverage')) return '🥤';
+  if (lower.includes('snack')) return '🍿';
+  if (lower.includes('dairy')) return '🥛';
+  if (lower.includes('bakery') || lower.includes('bread')) return '🥐';
+  if (lower.includes('fruit') || lower.includes('veg') || lower.includes('produce')) return '🥗';
+  if (lower.includes('frozen')) return '🧊';
+  if (lower.includes('household') || lower.includes('home')) return '🏡';
+  if (lower.includes('personal') || lower.includes('care') || lower.includes('beauty')) return '🧴';
+  if (lower.includes('packaged') || lower.includes('food') || lower.includes('canned')) return '🥫';
+  if (lower.includes('clean') || lower.includes('wash')) return '🧽';
+  if (lower.includes('meat') || lower.includes('seafood') || lower.includes('fish')) return '🥩';
+  if (lower.includes('electronics')) return '🔌';
+  if (lower.includes('wearable')) return '⌚';
+  if (lower.includes('accessory')) return '👜';
+  return '📦';
+};
+
 interface CategoryMarqueeProps {
   onCategorySelect?: (categoryName: string) => void;
   activeCategory?: string;
@@ -20,6 +41,28 @@ interface CategoryMarqueeProps {
 
 export default function CategoryMarquee({ onCategorySelect, activeCategory }: CategoryMarqueeProps) {
   const navigate = useNavigate();
+  const [categories, setCategories] = useState<{ icon: string; name: string }[]>(scrollCategories);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await MasterDataService.getCategories();
+        if (res.success) {
+          const activeCategories = res.data.filter((c: any) => c.isActive !== false);
+          const mapped = activeCategories.map((c: any) => ({
+            icon: getCategoryIcon(c.name),
+            name: c.name
+          }));
+          if (mapped.length > 0) {
+            setCategories(mapped);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch categories for marquee:', err);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   return (
     <div className="relative w-full overflow-hidden fade-edges">
@@ -41,7 +84,7 @@ export default function CategoryMarquee({ onCategorySelect, activeCategory }: Ca
         }
       `}</style>
       <div className="animate-infinite-scroll flex gap-2.5 py-2">
-        {[...scrollCategories, ...scrollCategories].map((cat, idx) => {
+        {[...categories, ...categories].map((cat, idx) => {
           const isSelected = activeCategory === cat.name;
           return (
             <div 

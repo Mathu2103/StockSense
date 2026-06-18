@@ -1,25 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ProductItem } from './ProductsRegistry';
 import { toast } from 'sonner';
+import { DiscountService, DiscountPayload } from '../../../../services/discountService';
 
 export interface DiscountItem {
   id: string;
   name: string;
   type: 'SEASONAL' | 'DAILY' | 'COMBO';
-  discountMode: 'PERCENTAGE' | 'FIXED_AMOUNT';
-  discountValue: number;
+  discountValue: number; // percentage (integer) for all types
   label?: string;
   imageUrl?: string;
   startDate?: string;
   endDate?: string;
   dailyStartTime?: string;
   dailyEndTime?: string;
+  applicableDate?: string;
   isActive: boolean;
   productIds: string[];
   comboItems?: {
     productId: string;
     minQty: number;
-    comboPrice?: number;
   }[];
   createdAt: string;
   approvalStatus: 'DRAFT' | 'APPROVED';
@@ -31,70 +31,9 @@ interface DiscountRegistryProps {
   showConfirm?: (title: string, message: React.ReactNode, onConfirm: () => void) => void;
 }
 
-const DISCOUNTS_STORAGE_KEY = 'stocksense_discounts_registry';
-
-const initialDiscounts: DiscountItem[] = [
-  {
-    id: 'd-1',
-    name: 'New Year Mega Sale',
-    type: 'SEASONAL',
-    discountMode: 'PERCENTAGE',
-    discountValue: 30,
-    label: 'New Year 30% Off ⚡',
-    imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=600&auto=format&fit=crop',
-    startDate: '2026-12-25',
-    endDate: '2027-01-05',
-    isActive: true,
-    productIds: ['1'],
-    createdAt: new Date().toISOString(),
-    approvalStatus: 'APPROVED',
-  },
-  {
-    id: 'd-2',
-    name: 'Morning Bakery Deal',
-    type: 'DAILY',
-    discountMode: 'PERCENTAGE',
-    discountValue: 15,
-    label: 'Breakfast Special 🍞',
-    imageUrl: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=600&auto=format&fit=crop',
-    dailyStartTime: '07:00',
-    dailyEndTime: '10:00',
-    isActive: true,
-    productIds: ['1'],
-    createdAt: new Date().toISOString(),
-    approvalStatus: 'APPROVED',
-  },
-  {
-    id: 'd-3',
-    name: 'Morning Ritual Combo',
-    type: 'COMBO',
-    discountMode: 'FIXED_AMOUNT',
-    discountValue: 120,
-    label: 'Morning Ritual ☕',
-    imageUrl: 'https://images.unsplash.com/photo-1559553156-2e97137af16f?q=80&w=600&auto=format&fit=crop',
-    isActive: true,
-    productIds: ['1'],
-    comboItems: [
-      { productId: '1', minQty: 1, comboPrice: 400.00 }
-    ],
-    createdAt: new Date().toISOString(),
-    approvalStatus: 'DRAFT',
-  }
-];
-
 export default function DiscountRegistry({ products, showToast, showConfirm }: DiscountRegistryProps) {
-  const [discounts, setDiscounts] = useState<DiscountItem[]>(() => {
-    const stored = window.localStorage.getItem(DISCOUNTS_STORAGE_KEY);
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch (e) {
-        return initialDiscounts;
-      }
-    }
-    return initialDiscounts;
-  });
-
+  const [discounts, setDiscounts] = useState<DiscountItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDiscount, setEditingDiscount] = useState<DiscountItem | null>(null);
   const [viewingDiscount, setViewingDiscount] = useState<DiscountItem | null>(null);
@@ -102,7 +41,6 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
   // Form Fields State
   const [name, setName] = useState('');
   const [type, setType] = useState<'SEASONAL' | 'DAILY' | 'COMBO'>('SEASONAL');
-  const [discountMode, setDiscountMode] = useState<'PERCENTAGE' | 'FIXED_AMOUNT'>('PERCENTAGE');
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [label, setLabel] = useState('');
   const [imageUrl, setImageUrl] = useState('');
@@ -110,22 +48,69 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
   const [endDate, setEndDate] = useState('');
   const [dailyStartTime, setDailyStartTime] = useState('');
   const [dailyEndTime, setDailyEndTime] = useState('');
+  const [applicableDate, setApplicableDate] = useState('');
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
-  const [comboItems, setComboItems] = useState<{ productId: string; minQty: number; comboPrice?: number }[]>([]);
+  const [comboItems, setComboItems] = useState<{ productId: string; minQty: number }[]>([]);
 
-  // Filtering / Search State
+  // Search/Filter for registry list
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'SEASONAL' | 'DAILY' | 'COMBO'>('ALL');
 
+  // Product search filter inside modal
+  const [productSearch, setProductSearch] = useState('');
+
+  // Fetch discounts on mount
+  const fetchDiscounts = async () => {
+    try {
+      setLoading(true);
+      const res = await DiscountService.getDiscounts();
+      if (res.success) {
+        setDiscounts(res.data);
+      } else {
+        toast.error('Failed to load discount campaigns.');
+      }
+    } catch (err) {
+      console.error('Failed to fetch discounts:', err);
+      toast.error('Server error loading discounts.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    window.localStorage.setItem(DISCOUNTS_STORAGE_KEY, JSON.stringify(discounts));
-  }, [discounts]);
+    fetchDiscounts();
+  }, []);
+
+  // Filtered products for seasonal/daily checkboxes
+  const filteredSearchProducts = useMemo(() => {
+    if (!productSearch.trim()) return products;
+    return products.filter(p => 
+      p.name.toLowerCase().includes(productSearch.toLowerCase()) || 
+      p.sku.toLowerCase().includes(productSearch.toLowerCase())
+    );
+  }, [products, productSearch]);
+
+  // Search products to add to combo list
+  const comboSearchProducts = useMemo(() => {
+    if (!productSearch.trim()) return [];
+    return products.filter(p => 
+      (p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.sku.toLowerCase().includes(productSearch.toLowerCase())) &&
+      !comboItems.some(item => item.productId === p.id)
+    ).slice(0, 5); // limit to top 5 results for UI neatness
+  }, [products, productSearch, comboItems]);
+
+  // Calculate sum of regular prices of all items in the combo
+  const originalComboTotal = useMemo(() => {
+    return comboItems.reduce((sum, item) => {
+      const prod = products.find(p => p.id === item.productId);
+      return sum + (prod ? prod.sellingPrice * item.minQty : 0);
+    }, 0);
+  }, [comboItems, products]);
 
   const handleOpenAddModal = () => {
     setEditingDiscount(null);
     setName('');
     setType('SEASONAL');
-    setDiscountMode('PERCENTAGE');
     setDiscountValue(10);
     setLabel('');
     setImageUrl('');
@@ -133,8 +118,10 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
     setEndDate('');
     setDailyStartTime('');
     setDailyEndTime('');
+    setApplicableDate('');
     setSelectedProductIds([]);
     setComboItems([]);
+    setProductSearch('');
     setIsModalOpen(true);
   };
 
@@ -142,7 +129,6 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
     setEditingDiscount(discount);
     setName(discount.name);
     setType(discount.type);
-    setDiscountMode(discount.discountMode);
     setDiscountValue(discount.discountValue);
     setLabel(discount.label || '');
     setImageUrl(discount.imageUrl || '');
@@ -150,24 +136,36 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
     setEndDate(discount.endDate || '');
     setDailyStartTime(discount.dailyStartTime || '');
     setDailyEndTime(discount.dailyEndTime || '');
+    setApplicableDate(discount.applicableDate || '');
     setSelectedProductIds(discount.productIds || []);
     setComboItems(discount.comboItems || []);
+    setProductSearch('');
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) {
       toast.error('Please enter a discount campaign name.');
       return;
     }
 
+    if (discountValue <= 0) {
+      toast.error('Please enter a valid discount percentage greater than 0.');
+      return;
+    }
+    if (discountValue > 100) {
+      toast.error('Percentage discount cannot exceed 100%.');
+      return;
+    }
+
     if (type !== 'COMBO') {
-      if (discountValue <= 0) {
-        toast.error('Please enter a valid discount value greater than 0.');
+      if (selectedProductIds.length === 0) {
+        toast.error('Please select at least one target product for the campaign.');
         return;
       }
-      if (discountMode === 'PERCENTAGE' && discountValue > 100) {
-        toast.error('Percentage discount must be in the 0 to 100 range.');
+    } else {
+      if (comboItems.length === 0) {
+        toast.error('Please add at least one product to the combo.');
         return;
       }
     }
@@ -177,55 +175,85 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
       return;
     }
 
+    if (type === 'DAILY' && !applicableDate) {
+      toast.error('Please specify the applicable date.');
+      return;
+    }
+
     if (type === 'DAILY' && (!dailyStartTime || !dailyEndTime)) {
       toast.error('Please specify start and end times.');
       return;
     }
 
-    if (type === 'COMBO' && comboItems.length === 0) {
-      toast.error('Please add at least one product to the combo.');
-      return;
-    }
-
-    const newDiscount: DiscountItem = {
-      id: editingDiscount ? editingDiscount.id : `d_${Date.now()}`,
+    const payload: DiscountPayload = {
       name,
       type,
-      discountMode,
-      discountValue: type === 'COMBO' ? 0 : discountValue,
+      discountValue,
       label: label || undefined,
-      imageUrl: imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=600&auto=format&fit=crop',
+      imageUrl: imageUrl || undefined,
       startDate: type === 'SEASONAL' ? startDate : undefined,
       endDate: type === 'SEASONAL' ? endDate : undefined,
       dailyStartTime: type === 'DAILY' ? dailyStartTime : undefined,
       dailyEndTime: type === 'DAILY' ? dailyEndTime : undefined,
-      isActive: editingDiscount ? editingDiscount.isActive : true,
-      productIds: type === 'COMBO' ? comboItems.map(item => item.productId) : selectedProductIds,
-      comboItems: type === 'COMBO' ? comboItems : undefined,
-      createdAt: editingDiscount ? editingDiscount.createdAt : new Date().toISOString(),
-      approvalStatus: editingDiscount ? (editingDiscount.approvalStatus || 'DRAFT') : 'DRAFT',
+      applicableDate: type === 'DAILY' ? applicableDate : undefined,
+      productIds: type !== 'COMBO' ? selectedProductIds : undefined,
+      comboItems: type === 'COMBO' ? comboItems : undefined
     };
 
-    if (editingDiscount) {
-      setDiscounts(prev => prev.map(d => d.id === editingDiscount.id ? newDiscount : d));
-      showToast(`Discount "${name}" updated successfully.`);
-    } else {
-      setDiscounts(prev => [newDiscount, ...prev]);
-      showToast(`Discount "${name}" created successfully.`);
+    try {
+      if (editingDiscount) {
+        const res = await DiscountService.updateDiscount(editingDiscount.id, payload);
+        if (res.success) {
+          showToast(`Discount "${name}" updated successfully.`);
+          fetchDiscounts();
+          setIsModalOpen(false);
+        } else {
+          toast.error(res.message || 'Failed to update discount.');
+        }
+      } else {
+        const res = await DiscountService.createDiscount(payload);
+        if (res.success) {
+          showToast(`Discount "${name}" created in DRAFT state.`);
+          fetchDiscounts();
+          setIsModalOpen(false);
+        } else {
+          toast.error(res.message || 'Failed to create discount.');
+        }
+      }
+    } catch (err: any) {
+      console.error('Error saving discount:', err);
+      toast.error(err.response?.data?.message || 'Server error saving discount.');
     }
-    setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string, name: string) => {
-    const action = () => {
-      setDiscounts(prev => prev.filter(d => d.id !== id));
-      showToast(`Discount "${name}" deleted.`, 'info');
+  const handleDelete = (discount: DiscountItem) => {
+    if (discount.approvalStatus === 'APPROVED') {
+      toast.error(
+        `This is an Admin-Approved discount campaign. You must contact the Admin to change it to Draft first before you can delete it.`,
+        { duration: 6000 }
+      );
+      return;
+    }
+
+    const action = async () => {
+      try {
+        const res = await DiscountService.deleteDiscount(discount.id);
+        if (res.success) {
+          showToast(`Discount "${discount.name}" deleted.`, 'info');
+          fetchDiscounts();
+        } else {
+          toast.error('Failed to delete discount.');
+        }
+      } catch (err: any) {
+        console.error('Error deleting discount:', err);
+        toast.error(err.response?.data?.message || 'Server error deleting discount.');
+      }
     };
 
     if (showConfirm) {
       showConfirm(
         'Delete Discount',
-        `Are you sure you want to delete the discount "${name}"?`,
+        `Are you sure you want to delete the discount "${discount.name}"?`,
         action
       );
     } else {
@@ -234,16 +262,34 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
       }
     }
   };
-  const toggleDiscountStatus = (id: string, currentStatus: boolean) => {
-    setDiscounts(prev => prev.map(d => d.id === id ? { ...d, isActive: !currentStatus } : d));
-    showToast(`Discount status changed.`, 'info');
+
+  const toggleDiscountStatus = async (id: string, currentStatus: boolean) => {
+    try {
+      const res = await DiscountService.toggleStatus(id, { isActive: !currentStatus });
+      if (res.success) {
+        showToast(`Discount status changed.`, 'info');
+        fetchDiscounts();
+      }
+    } catch (err) {
+      console.error('Error toggling active status:', err);
+      toast.error('Failed to update status.');
+    }
   };
 
-  const toggleApprovalStatus = (id: string, currentStatus: 'DRAFT' | 'APPROVED') => {
+  const toggleApprovalStatus = async (id: string, currentStatus: 'DRAFT' | 'APPROVED') => {
     const nextStatus = currentStatus === 'APPROVED' ? 'DRAFT' : 'APPROVED';
-    setDiscounts(prev => prev.map(d => d.id === id ? { ...d, approvalStatus: nextStatus } : d));
-    showToast(`Discount status changed to ${nextStatus}.`, 'info');
+    try {
+      const res = await DiscountService.toggleStatus(id, { approvalStatus: nextStatus });
+      if (res.success) {
+        showToast(`Discount approval status changed to ${nextStatus}.`, 'info');
+        fetchDiscounts();
+      }
+    } catch (err) {
+      console.error('Error toggling approval status:', err);
+      toast.error('Failed to update approval status.');
+    }
   };
+
   const handleProductSelectToggle = (id: string) => {
     setSelectedProductIds(prev =>
       prev.includes(id) ? prev.filter(pId => pId !== id) : [...prev, id]
@@ -252,26 +298,24 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
 
   const handleAddComboItem = (productId: string) => {
     if (comboItems.some(item => item.productId === productId)) return;
-    const prod = products.find(p => p.id === productId);
-    setComboItems(prev => [
-      ...prev,
-      { productId, minQty: 1, comboPrice: prod ? prod.sellingPrice * 0.9 : 0 }
-    ]);
+    setComboItems(prev => [...prev, { productId, minQty: 1 }]);
+    setProductSearch(''); // Reset search input
   };
 
   const handleRemoveComboItem = (productId: string) => {
     setComboItems(prev => prev.filter(item => item.productId !== productId));
   };
 
-  const handleUpdateComboItem = (productId: string, field: 'minQty' | 'comboPrice', val: number) => {
+  const handleUpdateComboItem = (productId: string, val: number) => {
     setComboItems(prev =>
-      prev.map(item => (item.productId === productId ? { ...item, [field]: val } : item))
+      prev.map(item => (item.productId === productId ? { ...item, minQty: val } : item))
     );
   };
 
-  // Filtered List
+  // Filtered List for Dashboard Display
   const filteredDiscounts = discounts.filter(d => {
-    const matchesSearch = d.name.toLowerCase().includes(searchTerm.toLowerCase()) || (d.label && d.label.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesSearch = d.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (d.label && d.label.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesType = typeFilter === 'ALL' || d.type === typeFilter;
     return matchesSearch && matchesType;
   });
@@ -280,7 +324,6 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
     <div className="space-y-6">
       {/* Premium Statistics Overview deck */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Total Campaigns */}
         <div className="bg-white border border-outline-variant/60 p-5 rounded-2xl shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
           <div>
             <p className="text-[10px] font-bold text-outline uppercase tracking-wider mb-1">Total Campaigns</p>
@@ -291,7 +334,6 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
           </div>
         </div>
 
-        {/* Active Campaigns */}
         <div className="bg-white border border-outline-variant/60 p-5 rounded-2xl shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
           <div>
             <p className="text-[10px] font-bold text-outline uppercase tracking-wider mb-1">Active Approved</p>
@@ -304,7 +346,6 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
           </div>
         </div>
 
-        {/* Awaiting Approval (Drafts) */}
         <div className="bg-white border border-outline-variant/60 p-5 rounded-2xl shadow-sm flex items-center justify-between hover:shadow-md transition-shadow">
           <div>
             <p className="text-[10px] font-bold text-outline uppercase tracking-wider mb-1">Awaiting Approval</p>
@@ -316,8 +357,8 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
             <span className="material-symbols-outlined text-[24px]">pending_actions</span>
           </div>
         </div>
-
       </div>
+
       {/* Search and filter header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-surface-container-lowest border border-outline-variant/60 p-4 rounded-2xl shadow-sm">
         <div className="flex flex-1 gap-2.5 items-center">
@@ -356,193 +397,183 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
       </div>
 
       {/* Grid of campaigns */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredDiscounts.map(discount => (
-          <div
-            key={discount.id}
-            className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col"
-          >
-            {/* Clickable Area for Details */}
+      {loading ? (
+        <div className="text-center py-12">
+          <p className="text-sm font-bold text-outline">Loading discount campaigns from database...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredDiscounts.map(discount => (
             <div
-              onClick={() => setViewingDiscount(discount)}
-              className="cursor-pointer hover:bg-slate-50/20 transition-colors flex-1 flex flex-col"
-              title="Click to view details"
+              key={discount.id}
+              className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col"
             >
-              {/* Header image banner */}
-              <div className="h-32 w-full relative bg-slate-100">
-                <img
-                  src={discount.imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=600&auto=format&fit=crop'}
-                  alt={discount.name}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute top-3 right-3 flex gap-1.5">
-                  <span className="bg-white/90 backdrop-blur-sm px-2.5 py-0.5 rounded-full text-[10px] font-black text-primary border border-primary/20">
-                    {discount.type}
-                  </span>
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border backdrop-blur-sm shadow-sm ${
-                    discount.approvalStatus === 'APPROVED'
-                      ? 'bg-emerald-500/90 text-white border-emerald-500/30'
-                      : 'bg-amber-500/95 text-white border-amber-500/30 font-black'
-                  }`}>
-                    {discount.approvalStatus === 'APPROVED' ? 'APPROVED' : 'DRAFT'}
-                  </span>
-                </div>
-                {discount.label && (
-                  <div className="absolute bottom-3 left-3 bg-[#0a3822]/85 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
-                    {discount.label}
+              <div
+                onClick={() => setViewingDiscount(discount)}
+                className="cursor-pointer hover:bg-slate-50/20 transition-colors flex-1 flex flex-col"
+                title="Click to view details"
+              >
+                <div className="h-32 w-full relative bg-slate-100">
+                  <img
+                    src={discount.imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=600&auto=format&fit=crop'}
+                    alt={discount.name}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-3 right-3 flex gap-1.5">
+                    <span className="bg-white/90 backdrop-blur-sm px-2.5 py-0.5 rounded-full text-[10px] font-black text-primary border border-primary/20">
+                      {discount.type}
+                    </span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border backdrop-blur-sm shadow-sm ${
+                      discount.approvalStatus === 'APPROVED'
+                        ? 'bg-emerald-500/90 text-white border-emerald-500/30'
+                        : 'bg-amber-500/95 text-white border-amber-500/30 font-black'
+                    }`}>
+                      {discount.approvalStatus}
+                    </span>
                   </div>
-                )}
+                  {discount.label && (
+                    <div className="absolute bottom-3 left-3 bg-[#0a3822]/85 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
+                      {discount.label}
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
+                  <div>
+                    <div className="flex items-start justify-between">
+                      <h3 className="font-bold text-sm text-on-surface line-clamp-1">{discount.name}</h3>
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${discount.isActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                        <span className="text-[10px] font-bold text-outline uppercase">{discount.isActive ? 'Active' : 'Paused'}</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 text-xs text-outline space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-outline text-[16px]">local_offer</span>
+                        <span>
+                          Discount Value: <strong className="text-on-surface">{discount.discountValue}% Off</strong>
+                        </span>
+                      </div>
+
+                      {discount.type === 'SEASONAL' && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-outline text-[16px]">calendar_month</span>
+                          <span>
+                            Validity: <strong className="text-on-surface">{discount.startDate} to {discount.endDate}</strong>
+                          </span>
+                        </div>
+                      )}
+
+                      {discount.type === 'DAILY' && (
+                        <>
+                          {discount.applicableDate && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-outline text-[16px]">calendar_month</span>
+                              <span>
+                                Date: <strong className="text-on-surface">{discount.applicableDate}</strong>
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-outline text-[16px]">schedule</span>
+                            <span>
+                              Daily Hours: <strong className="text-on-surface">{discount.dailyStartTime} - {discount.dailyEndTime}</strong>
+                            </span>
+                          </div>
+                        </>
+                      )}
+
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-outline text-[16px]">shopping_basket</span>
+                          <span>
+                            Applied to:{' '}
+                            <strong className="text-on-surface">
+                              {discount.type === 'COMBO'
+                                ? `${discount.comboItems?.length || 0} Combo Items`
+                                : `${discount.productIds?.length || 0} Products`}
+                            </strong>
+                          </span>
+                        </div>
+                        {discount.type === 'COMBO' && discount.comboItems && discount.comboItems.length > 0 && (
+                          <div className="mt-1 pl-5 space-y-0.5 border-l border-primary/30 max-h-24 overflow-y-auto">
+                            {discount.comboItems.map((item, idx) => {
+                              const prod = products.find(p => p.id === item.productId || p.sku === item.productId);
+                              return (
+                                <div key={idx} className="text-[10px] text-outline-variant font-medium">
+                                  • {prod ? prod.name : 'Unknown Product'} (x{item.minQty})
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {discount.type !== 'COMBO' && discount.productIds && discount.productIds.length > 0 && (
+                          <div className="mt-1 pl-5 space-y-0.5 border-l border-primary/30 max-h-20 overflow-y-auto">
+                            {discount.productIds.slice(0, 3).map((pId, idx) => {
+                              const prod = products.find(p => p.id === pId || p.sku === pId);
+                              return (
+                                <div key={idx} className="text-[10px] text-outline-variant font-medium truncate">
+                                  • {prod ? prod.name : pId}
+                                </div>
+                              );
+                            })}
+                            {discount.productIds.length > 3 && (
+                              <div className="text-[9px] text-outline font-bold pl-2">
+                                + {discount.productIds.length - 3} more products
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Campaign info */}
-              <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
-                <div>
-                  <div className="flex items-start justify-between">
-                    <h3 className="font-bold text-sm text-on-surface line-clamp-1">{discount.name}</h3>
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${discount.isActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                      <span className="text-[10px] font-bold text-outline uppercase">{discount.isActive ? 'Active' : 'Paused'}</span>
-                    </div>
-                  </div>
+              {/* Action Buttons */}
+              <div className="p-4 border-t border-outline-variant/60 flex items-center justify-between bg-slate-50/50" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => toggleDiscountStatus(discount.id, discount.isActive)}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border ${
+                      discount.isActive
+                        ? 'border-red-200 text-red-700 bg-red-50 hover:bg-red-100'
+                        : 'border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                    }`}
+                  >
+                    {discount.isActive ? 'Pause' : 'Activate'}
+                  </button>
+                </div>
 
-                  <div className="mt-3 text-xs text-outline space-y-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-outline text-[16px]">local_offer</span>
-                      {discount.type === 'COMBO' ? (
-                        <span className="font-semibold text-on-surface">Combo Bundle Price</span>
-                      ) : (
-                        <span>
-                          Value:{' '}
-                          <strong className="text-on-surface">
-                            {discount.discountMode === 'PERCENTAGE'
-                              ? `${discount.discountValue}% Off`
-                              : `Rs. ${discount.discountValue} Off`}
-                          </strong>
-                        </span>
-                      )}
-                    </div>
-
-                    {discount.type === 'SEASONAL' && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-outline text-[16px]">calendar_month</span>
-                        <span>
-                          Validity:{' '}
-                          <strong className="text-on-surface">
-                            {discount.startDate} to {discount.endDate}
-                          </strong>
-                        </span>
-                      </div>
-                    )}
-
-                    {discount.type === 'DAILY' && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-outline text-[16px]">schedule</span>
-                        <span>
-                          Daily Hours:{' '}
-                          <strong className="text-on-surface">
-                            {discount.dailyStartTime} - {discount.dailyEndTime}
-                          </strong>
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-outline text-[16px]">shopping_basket</span>
-                        <span>
-                          Applied to:{' '}
-                          <strong className="text-on-surface">
-                            {discount.type === 'COMBO'
-                              ? `${discount.comboItems?.length || 0} Combo Items`
-                              : `${discount.productIds?.length || 0} Products`}
-                          </strong>
-                        </span>
-                      </div>
-                      {discount.type === 'COMBO' && discount.comboItems && discount.comboItems.length > 0 && (
-                        <div className="mt-1 pl-5 space-y-0.5 border-l border-primary/30 max-h-24 overflow-y-auto">
-                          {discount.comboItems.map((item, idx) => {
-                            const prod = products.find(p => p.id === item.productId);
-                            return (
-                              <div key={idx} className="text-[10px] text-outline-variant font-medium">
-                                • {prod ? prod.name : 'Unknown Product'} (x{item.minQty}) - <strong className="text-primary">Rs. {item.comboPrice}</strong>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {discount.type !== 'COMBO' && discount.productIds && discount.productIds.length > 0 && (
-                        <div className="mt-1 pl-5 space-y-0.5 border-l border-primary/30 max-h-20 overflow-y-auto">
-                          <span className="text-[9px] text-outline font-bold uppercase tracking-wider block">Products:</span>
-                          {discount.productIds.map((pId, idx) => {
-                            const prod = products.find(p => p.id === pId);
-                            return (
-                              <div key={idx} className="text-[10px] text-outline-variant font-medium truncate">
-                                • {prod ? prod.name : 'Unknown Product'}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEditModal(discount)}
+                    className="p-1 text-primary hover:bg-primary/5 rounded-lg transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">edit</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(discount)}
+                    className="p-1 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                  </button>
                 </div>
               </div>
             </div>
-
-            {/* Action Buttons */}
-            <div className="p-4 border-t border-outline-variant/60 flex items-center justify-between bg-slate-50/50" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => toggleDiscountStatus(discount.id, discount.isActive)}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border ${
-                    discount.isActive
-                      ? 'border-red-200 text-red-700 bg-red-50 hover:bg-red-100'
-                      : 'border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
-                  }`}
-                >
-                  {discount.isActive ? 'Pause' : 'Activate'}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => toggleApprovalStatus(discount.id, discount.approvalStatus || 'DRAFT')}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border ${
-                    discount.approvalStatus === 'APPROVED'
-                      ? 'border-orange-200 text-orange-700 bg-orange-50 hover:bg-orange-100'
-                      : 'border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
-                  }`}
-                >
-                  {discount.approvalStatus === 'APPROVED' ? 'Revoke Approval' : 'Approve'}
-                </button>
-              </div>
-
-              <div className="flex gap-1">
-                <button
-                  type="button"
-                  onClick={() => handleOpenEditModal(discount)}
-                  className="p-1 text-primary hover:bg-primary/5 rounded-lg transition-colors"
-                >
-                  <span className="material-symbols-outlined text-[16px]">edit</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(discount.id, discount.name)}
-                  className="p-1 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                >
-                  <span className="material-symbols-outlined text-[16px]">delete</span>
-                </button>
-              </div>
+          ))}
+          {filteredDiscounts.length === 0 && (
+            <div className="col-span-full py-12 text-center bg-surface-container-lowest border border-outline-variant/60 rounded-2xl shadow-sm">
+              <span className="material-symbols-outlined text-[48px] text-outline/30">local_offer</span>
+              <p className="text-sm font-bold text-outline mt-2">No discount campaigns found.</p>
             </div>
-          </div>
-        ))}
-        {filteredDiscounts.length === 0 && (
-          <div className="col-span-full py-12 text-center bg-surface-container-lowest border border-outline-variant/60 rounded-2xl shadow-sm">
-            <span className="material-symbols-outlined text-[48px] text-outline/30">local_offer</span>
-            <p className="text-sm font-bold text-outline mt-2">No discount campaigns found.</p>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Modal Dialog */}
       {isModalOpen && (
@@ -587,11 +618,12 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
                     onChange={(e) => {
                       const nextType = e.target.value as any;
                       setType(nextType);
-                      if (nextType !== 'COMBO' && discountValue === 0) {
+                      setProductSearch('');
+                      if (discountValue === 0) {
                         setDiscountValue(10);
                       }
                     }}
-                    className="w-full px-3 py-2 bg-background border border-outline-variant rounded-lg text-xs text-on-surface outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full px-3 py-2 bg-background border border-outline-variant rounded-lg text-xs text-on-surface outline-none focus:ring-2 focus:ring-primary font-bold"
                   >
                     <option value="SEASONAL">Seasonal Offer (Fixed Date Range)</option>
                     <option value="DAILY">Daily Offer (Recurring Hours)</option>
@@ -600,61 +632,56 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
                 </div>
               </div>
 
-              {type !== 'COMBO' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">
-                      Discount Mode *
-                    </label>
-                    <select
-                      value={discountMode}
-                      onChange={(e) => {
-                        const nextMode = e.target.value as any;
-                        setDiscountMode(nextMode);
-                        if (nextMode === 'PERCENTAGE' && discountValue > 100) {
-                          setDiscountValue(100);
-                        }
-                      }}
-                      className="w-full px-3 py-2 bg-background border border-outline-variant rounded-lg text-xs text-on-surface outline-none focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="PERCENTAGE">Percentage (%)</option>
-                      <option value="FIXED_AMOUNT">Fixed Value (Rs.)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">
-                      Discount Value *
-                    </label>
-                    <input
-                      type="number"
-                      value={discountValue === 0 ? '' : discountValue}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === '') {
-                          setDiscountValue(0);
-                          return;
-                        }
-                        let num = parseFloat(val);
-                        if (isNaN(num)) num = 0;
-                        if (discountMode === 'PERCENTAGE') {
-                          if (num < 0) num = 0;
-                          if (num > 100) num = 100;
-                        } else {
-                          if (num < 0) num = 0;
-                        }
-                        setDiscountValue(num);
-                      }}
-                      min="0"
-                      max={discountMode === 'PERCENTAGE' ? "100" : undefined}
-                      placeholder={discountMode === 'PERCENTAGE' ? 'e.g. 15' : 'e.g. 150'}
-                      className="w-full px-3 py-2 bg-background border border-outline-variant rounded-lg text-xs text-on-surface outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                </div>
-              )}
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">
+                    Discount Value (%) *
+                  </label>
+                  <input
+                    type="number"
+                    value={discountValue === 0 ? '' : discountValue}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setDiscountValue(0);
+                        return;
+                      }
+                      let num = parseInt(val);
+                      if (isNaN(num)) num = 0;
+                      if (num < 0) num = 0;
+                      if (num > 100) num = 100;
+                      setDiscountValue(num);
+                    }}
+                    min="0"
+                    max="100"
+                    placeholder="e.g. 15"
+                    className="w-full px-3 py-2 bg-background border border-outline-variant rounded-lg text-xs text-on-surface outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                {type === 'COMBO' && (
+                  <div className="bg-slate-50 border border-outline-variant/60 rounded-xl p-3 flex flex-col justify-center text-xs">
+                    <div className="flex justify-between font-semibold text-outline text-[10px] uppercase">
+                      <span>Original Total:</span>
+                      <span>Rs. {originalComboTotal.toFixed(2)}</span>
+                    </div>
+                    {discountValue > 0 && originalComboTotal > 0 && (
+                      <>
+                        <div className="flex justify-between font-bold text-emerald-700 mt-1">
+                          <span>Combo Bundle Price:</span>
+                          <span>Rs. {(originalComboTotal * (1 - discountValue / 100)).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-[10px] text-outline font-semibold mt-0.5">
+                          <span>Bundle Savings:</span>
+                          <span>Rs. {(originalComboTotal * (discountValue / 100)).toFixed(2)} ({discountValue}%)</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">
                     Badge Label
@@ -670,15 +697,53 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
 
                 <div>
                   <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">
-                    Promo Image URL
+                    Campaign Promo Image
                   </label>
-                  <input
-                    type="text"
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                    placeholder="https://..."
-                    className="w-full px-3 py-2 bg-background border border-outline-variant rounded-lg text-xs text-on-surface outline-none focus:ring-2 focus:ring-primary"
-                  />
+                  <div className="flex items-center gap-4 p-4 bg-background border border-outline-variant rounded-xl">
+                    {imageUrl ? (
+                      <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-outline-variant shrink-0 bg-slate-50">
+                        <img src={imageUrl} alt="Promo Preview" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setImageUrl('')}
+                          className="absolute top-1 right-1 w-6 h-6 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center shadow-md transition-colors"
+                          title="Remove image"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">close</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-24 h-24 rounded-lg border-2 border-dashed border-outline-variant flex flex-col items-center justify-center text-outline-variant shrink-0 bg-slate-50">
+                        <span className="material-symbols-outlined text-[24px]">add_photo_alternate</span>
+                        <span className="text-[9px] font-semibold mt-1">No Image</span>
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <p className="text-[10px] text-outline font-semibold mb-2">
+                        Select a local image file. It will be converted and saved in the database.
+                      </p>
+                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-[10px] font-bold rounded-lg cursor-pointer hover:opacity-90 transition-all shadow-sm">
+                        <span className="material-symbols-outlined text-[14px]">cloud_upload</span>
+                        Choose Image File
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            
+                            // Convert to Base64
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setImageUrl(reader.result as string);
+                            };
+                            reader.readAsDataURL(file);
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -703,6 +768,22 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full px-3 py-2 bg-background border border-outline-variant rounded-lg text-xs text-on-surface outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {type === 'DAILY' && (
+                <div className="grid grid-cols-1 gap-4 border-t border-outline-variant/60 pt-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1.5">
+                      Applicable Date *
+                    </label>
+                    <input
+                      type="date"
+                      value={applicableDate}
+                      onChange={(e) => setApplicableDate(e.target.value)}
                       className="w-full px-3 py-2 bg-background border border-outline-variant rounded-lg text-xs text-on-surface outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
@@ -738,66 +819,100 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
 
               {/* Products selection section */}
               {type !== 'COMBO' ? (
-                <div className="border-t border-outline-variant/60 pt-4 space-y-2">
-                  <label className="block text-[10px] font-bold text-outline uppercase tracking-wider">
-                    Select Target Products for this Campaign
-                  </label>
-                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-outline-variant/60 rounded-xl p-3 bg-slate-50/50">
-                    {products.map(prod => (
-                      <button
-                        key={prod.id}
-                        type="button"
-                        onClick={() => handleProductSelectToggle(prod.id)}
-                        className={`flex items-center gap-2 p-2 rounded-lg border text-left transition-all ${
-                          selectedProductIds.includes(prod.id)
-                            ? 'border-primary bg-primary/5'
-                            : 'border-outline-variant/60 hover:border-outline bg-white'
-                        }`}
-                      >
-                        <span className={`material-symbols-outlined text-[18px] ${
-                          selectedProductIds.includes(prod.id) ? 'text-primary font-bold' : 'text-outline-variant'
-                        }`}>
-                          {selectedProductIds.includes(prod.id) ? 'check_box' : 'check_box_outline_blank'}
-                        </span>
-                        <div>
-                          <p className="text-[11px] font-bold text-on-surface leading-tight line-clamp-1">{prod.name}</p>
-                          <p className="text-[9px] text-outline font-semibold">SKU: {prod.sku} | Price: Rs. {prod.sellingPrice}</p>
-                        </div>
-                      </button>
-                    ))}
+                <div className="border-t border-outline-variant/60 pt-4 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <label className="block text-[10px] font-black text-outline uppercase tracking-wider">
+                      Select Target Products for this Campaign
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Search products by SKU or Name..."
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                      className="px-3 py-1.5 max-w-xs bg-white border border-outline-variant rounded-lg text-[10px] outline-none focus:ring-2 focus:ring-primary shadow-sm"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-outline-variant/60 rounded-xl p-3 bg-slate-50/50">
+                    {filteredSearchProducts.map(prod => {
+                      const isSelected = selectedProductIds.includes(prod.id) || selectedProductIds.includes(prod.sku);
+                      const finalPrice = prod.sellingPrice * (1 - discountValue / 100);
+                      return (
+                        <button
+                          key={prod.id}
+                          type="button"
+                          onClick={() => handleProductSelectToggle(prod.sku)}
+                          className={`flex items-center gap-2 p-2 rounded-lg border text-left transition-all ${
+                            isSelected
+                              ? 'border-primary bg-primary/5'
+                              : 'border-outline-variant/60 hover:border-outline bg-white'
+                          }`}
+                        >
+                          <span className={`material-symbols-outlined text-[18px] ${
+                            isSelected ? 'text-primary font-bold' : 'text-outline-variant'
+                          }`}>
+                            {isSelected ? 'check_box' : 'check_box_outline_blank'}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-bold text-on-surface leading-tight line-clamp-1">{prod.name}</p>
+                            <p className="text-[9px] text-outline font-semibold mt-0.5">
+                              SKU: {prod.sku} | Price:{' '}
+                              <span className={discountValue > 0 ? 'line-through text-red-500' : ''}>
+                                Rs. {prod.sellingPrice}
+                              </span>
+                              {discountValue > 0 && (
+                                <strong className="text-emerald-700 ml-1">
+                                  ➔ Rs. {finalPrice.toFixed(2)}
+                                </strong>
+                              )}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                    {filteredSearchProducts.length === 0 && (
+                      <p className="col-span-full text-center py-4 text-xs font-bold text-outline">No products match search.</p>
+                    )}
                   </div>
                 </div>
               ) : (
                 /* Combo setup section */
                 <div className="border-t border-outline-variant/60 pt-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-[10px] font-bold text-outline uppercase tracking-wider">
-                      Setup Combo Items & Bundle Prices
+                  <div className="flex flex-col gap-2">
+                    <label className="block text-[10px] font-black text-outline uppercase tracking-wider">
+                      Add Combo Items
                     </label>
                     <div className="relative">
-                      <select
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            handleAddComboItem(e.target.value);
-                            e.target.value = '';
-                          }
-                        }}
-                        className="appearance-none pl-3 pr-8 py-1.5 bg-white border border-outline-variant rounded-lg text-[10px] text-on-surface outline-none focus:ring-1 focus:ring-primary font-bold"
-                      >
-                        <option value="">+ Add Product to Combo</option>
-                        {products.map(prod => (
-                          <option key={prod.id} value={prod.id}>
-                            {prod.name}
-                          </option>
-                        ))}
-                      </select>
-                      <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-outline text-[14px] pointer-events-none">expand_more</span>
+                      <input
+                        type="text"
+                        placeholder="Search product by SKU or Name to add..."
+                        value={productSearch}
+                        onChange={(e) => setProductSearch(e.target.value)}
+                        className="w-full px-3 py-2 bg-background border border-outline-variant rounded-lg text-xs text-on-surface outline-none focus:ring-2 focus:ring-primary shadow-sm"
+                      />
+                      {comboSearchProducts.length > 0 && (
+                        <div className="absolute left-0 right-0 mt-1 bg-white border border-outline-variant/60 rounded-xl shadow-xl z-20 max-h-40 overflow-y-auto divide-y divide-slate-100">
+                          {comboSearchProducts.map(prod => (
+                            <button
+                              key={prod.id}
+                              type="button"
+                              onClick={() => handleAddComboItem(prod.id)}
+                              className="w-full text-left px-4 py-2 hover:bg-slate-50 transition-colors flex items-center justify-between text-xs"
+                            >
+                              <div>
+                                <span className="font-bold text-on-surface">{prod.name}</span>
+                                <span className="block text-[10px] text-outline font-semibold">SKU: {prod.sku} | Price: Rs. {prod.sellingPrice}</span>
+                              </div>
+                              <span className="text-xs font-black text-primary hover:underline">+ Add to Combo</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                  <div className="space-y-2 max-h-48 overflow-y-auto pt-1">
                     {comboItems.map((item) => {
-                      const prod = products.find(p => p.id === item.productId);
+                      const prod = products.find(p => p.id === item.productId || p.sku === item.productId);
                       if (!prod) return null;
                       return (
                         <div
@@ -806,36 +921,27 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
                         >
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-bold text-on-surface truncate">{prod.name}</p>
-                            <p className="text-[10px] text-outline">Normal Price: Rs. {prod.sellingPrice}</p>
+                            <p className="text-[10px] text-outline font-semibold">
+                              SKU: {prod.sku} | Price: Rs. {prod.sellingPrice}
+                            </p>
                           </div>
 
                           <div className="flex items-center gap-3 shrink-0">
                             <div className="flex flex-col">
-                              <span className="text-[8px] font-black text-outline uppercase">Min Qty</span>
+                              <span className="text-[8px] font-black text-outline uppercase mb-0.5">Min Qty</span>
                               <input
                                 type="number"
                                 min="1"
                                 value={item.minQty}
-                                onChange={(e) => handleUpdateComboItem(item.productId, 'minQty', parseInt(e.target.value) || 1)}
-                                className="w-14 px-2 py-1 border border-outline-variant rounded text-xs text-center"
-                              />
-                            </div>
-
-                            <div className="flex flex-col">
-                              <span className="text-[8px] font-black text-outline uppercase">Combo Price (Rs.)</span>
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={item.comboPrice || 0}
-                                onChange={(e) => handleUpdateComboItem(item.productId, 'comboPrice', parseFloat(e.target.value) || 0)}
-                                className="w-20 px-2 py-1 border border-outline-variant rounded text-xs text-center"
+                                onChange={(e) => handleUpdateComboItem(item.productId, parseInt(e.target.value) || 1)}
+                                className="w-14 px-2 py-1 border border-outline-variant rounded text-xs text-center font-bold"
                               />
                             </div>
 
                             <button
                               type="button"
                               onClick={() => handleRemoveComboItem(item.productId)}
-                              className="text-red-500 hover:text-red-700 p-1 mt-3.5"
+                              className="text-red-500 hover:text-red-700 p-1 mt-3"
                             >
                               <span className="material-symbols-outlined text-[18px]">delete</span>
                             </button>
@@ -844,8 +950,8 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
                       );
                     })}
                     {comboItems.length === 0 && (
-                      <div className="text-center py-6 border border-dashed border-outline-variant rounded-xl text-outline text-[11px] font-bold">
-                        No products added to this combo yet. Use selector above to build combo.
+                      <div className="text-center py-6 border border-dashed border-outline-variant rounded-xl text-outline text-[11px] font-bold bg-slate-50/50">
+                        Type product name above to add items to this combo.
                       </div>
                     )}
                   </div>
@@ -866,7 +972,7 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
                 onClick={handleSave}
                 className="px-5 py-2 bg-primary text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all shadow-sm"
               >
-                {editingDiscount ? 'Save Changes' : 'Create Campaign'}
+                {editingDiscount ? 'Save Changes' : 'Create Campaign (Draft)'}
               </button>
             </div>
           </div>
@@ -877,7 +983,6 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
       {viewingDiscount && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
           <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-outline-variant/60 shrink-0">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">local_offer</span>
@@ -891,9 +996,7 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="p-6 space-y-5 overflow-y-auto flex-1 bg-slate-50/30">
-              {/* Campaign Header Details */}
               <div className="flex items-start gap-4 p-4 bg-white border border-outline-variant/60 rounded-xl shadow-sm">
                 {viewingDiscount.imageUrl ? (
                   <img
@@ -916,7 +1019,7 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
                         ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
                         : 'bg-amber-50 text-amber-700 border-amber-100'
                     }`}>
-                      {viewingDiscount.approvalStatus === 'APPROVED' ? 'APPROVED' : 'DRAFT'}
+                      {viewingDiscount.approvalStatus}
                     </span>
                     <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border ${
                       viewingDiscount.isActive
@@ -936,22 +1039,16 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
                 </div>
               </div>
 
-              {/* Campaign Configurations */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white p-4 border border-outline-variant/60 rounded-xl shadow-sm space-y-2">
                   <span className="block text-[10px] font-black text-outline uppercase tracking-wider">Discount Value</span>
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-2xl font-black text-primary">
-                      {viewingDiscount.type === 'COMBO' ? 'Combo Price' : 
-                        viewingDiscount.discountMode === 'PERCENTAGE'
-                          ? `${viewingDiscount.discountValue}%`
-                          : `Rs. ${viewingDiscount.discountValue}`}
+                      {`${viewingDiscount.discountValue}%`}
                     </span>
-                    {viewingDiscount.type !== 'COMBO' && (
-                      <span className="text-xs font-bold text-outline">
-                        {viewingDiscount.discountMode === 'PERCENTAGE' ? 'Off Total Price' : 'Off Original Price'}
-                      </span>
-                    )}
+                    <span className="text-xs font-bold text-outline">
+                      {viewingDiscount.type === 'COMBO' ? 'Off Combo Bundle' : 'Off Original Price'}
+                    </span>
                   </div>
                 </div>
 
@@ -965,9 +1062,17 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
                       </div>
                     )}
                     {viewingDiscount.type === 'DAILY' && (
-                      <div className="flex items-center gap-1.5 mt-1 text-on-surface-variant">
-                        <span className="material-symbols-outlined text-[16px] text-outline">schedule</span>
-                        <span>Daily Hours: {viewingDiscount.dailyStartTime} - {viewingDiscount.dailyEndTime}</span>
+                      <div className="flex flex-col gap-1 mt-1 text-on-surface-variant">
+                        {viewingDiscount.applicableDate && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-[16px] text-outline">calendar_month</span>
+                            <span>Date: {viewingDiscount.applicableDate}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[16px] text-outline">schedule</span>
+                          <span>Daily Hours: {viewingDiscount.dailyStartTime} - {viewingDiscount.dailyEndTime}</span>
+                        </div>
                       </div>
                     )}
                     {viewingDiscount.type === 'COMBO' && (
@@ -984,7 +1089,7 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
               <div className="bg-white border border-outline-variant/60 rounded-xl p-4 shadow-sm space-y-3">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                   <h3 className="text-xs font-black text-outline uppercase tracking-wider">
-                    {viewingDiscount.type === 'COMBO' ? 'Combo Products & Prices' : 'Applied Target Products'}
+                    {viewingDiscount.type === 'COMBO' ? 'Combo Products & Quantities' : 'Applied Target Products'}
                   </h3>
                   <span className="text-[10px] font-bold text-outline-variant">
                     {viewingDiscount.type === 'COMBO'
@@ -997,18 +1102,17 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
                   <div className="divide-y divide-slate-100">
                     {viewingDiscount.comboItems && viewingDiscount.comboItems.length > 0 ? (
                       viewingDiscount.comboItems.map((item, idx) => {
-                        const prod = products.find(p => p.id === item.productId);
+                        const prod = products.find(p => p.id === item.productId || p.sku === item.productId);
                         return (
                           <div key={idx} className="py-2.5 flex items-center justify-between gap-4 first:pt-0 last:pb-0">
                             <div className="min-w-0">
                               <span className="block text-xs font-bold text-on-surface truncate">{prod ? prod.name : 'Unknown Product'}</span>
                               <span className="block text-[10px] text-outline mt-0.5 font-semibold">
-                                SKU: {prod ? prod.sku : 'N/A'} • Original: Rs. {prod ? prod.sellingPrice : 0}
+                                SKU: {prod ? prod.sku : 'N/A'} • Original Price: Rs. {prod ? prod.sellingPrice : 0}
                               </span>
                             </div>
                             <div className="text-right whitespace-nowrap">
-                              <span className="block text-xs font-black text-primary">Rs. {item.comboPrice}</span>
-                              <span className="block text-[9px] text-outline mt-0.5 font-bold">Min Qty: {item.minQty}</span>
+                              <span className="block text-xs font-black text-primary">Qty Required: {item.minQty}</span>
                             </div>
                           </div>
                         );
@@ -1021,11 +1125,9 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
                   <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
                     {viewingDiscount.productIds && viewingDiscount.productIds.length > 0 ? (
                       viewingDiscount.productIds.map((pId, idx) => {
-                        const prod = products.find(p => p.id === pId);
+                        const prod = products.find(p => p.id === pId || p.sku === pId);
                         if (!prod) return null;
-                        const finalPrice = viewingDiscount.discountMode === 'PERCENTAGE'
-                          ? prod.sellingPrice * (1 - viewingDiscount.discountValue / 100)
-                          : Math.max(0, prod.sellingPrice - viewingDiscount.discountValue);
+                        const finalPrice = prod.sellingPrice * (1 - viewingDiscount.discountValue / 100);
                         return (
                           <div key={idx} className="py-2.5 flex items-center justify-between gap-4 first:pt-0 last:pb-0">
                             <div className="min-w-0 flex-1">
@@ -1049,7 +1151,6 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
               </div>
             </div>
 
-            {/* Modal Footer */}
             <div className="bg-slate-50 px-6 py-4 flex justify-end gap-2 border-t border-outline-variant/60 shrink-0">
               <button
                 type="button"

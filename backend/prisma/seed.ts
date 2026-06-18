@@ -28,6 +28,9 @@ function makeSku(brand: string, product: string, size: string, seq: number): str
 
 async function main() {
   console.log('🧹 Clearing inventory data...');
+  await prisma.discountComboItem.deleteMany();
+  await prisma.discountProduct.deleteMany();
+  await prisma.discount.deleteMany();
   await prisma.billItem.deleteMany();
   await prisma.bill.deleteMany();
   await prisma.grnItem.deleteMany();
@@ -592,6 +595,76 @@ async function main() {
   }
 
   console.log('✅ Historical transactions seeded successfully!');
+  console.log('\n🏷️ Seeding discount campaigns...');
+  const nescafe = await prisma.product.findFirst({ where: { name: { contains: 'Nescafe' } } });
+  const bread = await prisma.product.findFirst({ where: { name: { contains: 'Sliced Bread' } } });
+  const lemonPuff = await prisma.product.findFirst({ where: { name: { contains: 'Lemon Puff' } } });
+
+  if (nescafe) {
+    await prisma.discount.create({
+      data: {
+        id: 'd-1',
+        name: 'New Year Mega Sale',
+        type: 'SEASONAL',
+        discountValue: 30,
+        label: 'New Year 30% Off ⚡',
+        imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=600&auto=format&fit=crop',
+        startDate: new Date('2026-12-25'),
+        endDate: new Date('2027-01-05'),
+        isActive: true,
+        approvalStatus: 'APPROVED',
+        discountProducts: {
+          create: [
+            { sku: nescafe.sku }
+          ]
+        }
+      }
+    });
+  }
+
+  if (bread) {
+    await prisma.discount.create({
+      data: {
+        id: 'd-2',
+        name: 'Morning Bakery Deal',
+        type: 'DAILY',
+        discountValue: 15,
+        label: 'Breakfast Special 🍞',
+        imageUrl: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=600&auto=format&fit=crop',
+        dailyStartTime: '07:00',
+        dailyEndTime: '10:00',
+        isActive: true,
+        approvalStatus: 'APPROVED',
+        discountProducts: {
+          create: [
+            { sku: bread.sku }
+          ]
+        }
+      }
+    });
+  }
+
+  if (nescafe && lemonPuff) {
+    await prisma.discount.create({
+      data: {
+        id: 'd-3',
+        name: 'Morning Ritual Combo',
+        type: 'COMBO',
+        discountValue: 20,
+        label: 'Morning Ritual ☕',
+        imageUrl: 'https://images.unsplash.com/photo-1559553156-2e97137af16f?q=80&w=600&auto=format&fit=crop',
+        isActive: true,
+        approvalStatus: 'DRAFT',
+        comboItems: {
+          create: [
+            { sku: nescafe.sku, minQty: 1 },
+            { sku: lemonPuff.sku, minQty: 1 }
+          ]
+        }
+      }
+    });
+  }
+  console.log('✅ Discount campaigns seeded successfully!');
 }
 
 main()

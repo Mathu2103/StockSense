@@ -62,6 +62,7 @@ model User {
   bills            Bill[]
   grns             GoodsReceivingNote[]
   stockAdjustments StockAdjustment[]
+  refunds          Refund[]
 
   @@map("users")
 }
@@ -170,6 +171,9 @@ model Product {
   grnItems         GrnItem[]
   stockAdjustments StockAdjustment[]
   billItems        BillItem[]
+  discountProducts DiscountProduct[]
+  comboItems       DiscountComboItem[]
+  refundItems      RefundItem[]
 
   @@map("products")
 }
@@ -238,6 +242,7 @@ model Bill {
   // Relations
   cashier   User       @relation(fields: [cashierId], references: [id])
   billItems BillItem[]
+  refunds   Refund[]
 
   @@map("sales_bills")
 }
@@ -253,8 +258,105 @@ model BillItem {
   discountValue Float?  @map("discount_value")
 
   // Relations
-  bill    Bill    @relation(fields: [billId], references: [id])
-  product Product @relation(fields: [sku], references: [sku])
+  bill     Bill      @relation(fields: [billId], references: [id])
+  product  Product   @relation(fields: [sku], references: [sku])
+  discount Discount? @relation(fields: [discountId], references: [id])
 
   @@map("sales_bill_items")
+}
+
+enum DiscountType {
+  SEASONAL
+  DAILY
+  COMBO
+  BILL
+}
+
+enum ApprovalStatus {
+  DRAFT
+  APPROVED
+}
+
+model Discount {
+  id             String         @id @default(uuid())
+  name           String
+  type           DiscountType
+  discountValue  Float          @default(0) @map("discount_value")
+  comboPrice     Float?         @map("combo_price")
+  minBillAmount  Float?         @map("min_bill_amount")
+  label          String?
+  imageUrl       String?        @map("image_url")
+  startDate      DateTime?      @map("start_date") @db.Date
+  endDate        DateTime?      @map("end_date") @db.Date
+  dailyStartTime String?        @map("daily_start_time")
+  dailyEndTime   String?        @map("daily_end_time")
+  applicableDate DateTime?      @map("applicable_date") @db.Date
+  isActive       Boolean        @default(true) @map("is_active")
+  approvalStatus ApprovalStatus @default(DRAFT) @map("approval_status")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  discountProducts DiscountProduct[]
+  comboItems       DiscountComboItem[]
+  billItems        BillItem[]
+
+  @@map("discounts")
+}
+
+model DiscountProduct {
+  id         String   @id @default(uuid())
+  discountId String   @map("discount_id")
+  sku        String   @map("sku")
+
+  // Relations
+  discount   Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [sku], references: [sku], onDelete: Cascade)
+
+  @@unique([discountId, sku])
+  @@map("seasonal_or_daily_products")
+}
+
+model DiscountComboItem {
+  id         String   @id @default(uuid())
+  discountId String   @map("discount_id")
+  sku        String   @map("sku")
+  minQty     Int      @default(1) @map("min_qty")
+
+  // Relations
+  discount   Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [sku], references: [sku], onDelete: Cascade)
+
+  @@unique([discountId, sku])
+  @@map("discount_combo_items")
+}
+
+model Refund {
+  id              String       @id @default(uuid())
+  refundNumber    String       @unique @map("refund_number")
+  originalBillId  String       @map("original_bill_id")
+  cashierId       String       @map("cashier_id")
+  refundAmount    Float        @map("refund_amount")
+  createdAt       DateTime     @default(now()) @map("created_at")
+
+  // Relations
+  originalBill    Bill         @relation(fields: [originalBillId], references: [id])
+  cashier         User         @relation(fields: [cashierId], references: [id])
+  refundItems     RefundItem[]
+
+  @@map("sales_refunds")
+}
+
+model RefundItem {
+  id            String   @id @default(uuid())
+  refundId      String   @map("refund_id")
+  sku           String   @map("sku")
+  qty           Int
+  refundValue   Float    @map("refund_value")
+
+  // Relations
+  refund        Refund   @relation(fields: [refundId], references: [id])
+  product       Product  @relation(fields: [sku], references: [sku])
+
+  @@map("sales_refund_items")
 }

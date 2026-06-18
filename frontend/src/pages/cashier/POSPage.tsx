@@ -1,12 +1,17 @@
-import { useState, useMemo, useContext } from 'react';
+import { useState, useMemo, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, ScanLine, ShoppingCart, LogOut,
   Trash2, Plus, Minus, Receipt, FileText, ChevronRight,
-  Filter, Download, TerminalSquare, Banknote
+  Filter, Download, TerminalSquare, Banknote, Gift, Tag
 } from 'lucide-react';
+import { toast } from 'sonner';
 import CategoryMarquee from '../../components/shared/CategoryMarquee/CategoryMarquee';
 import { AuthContext } from '../../context/AuthContext';
+import { MasterDataService } from '../../services/masterDataService';
+import { DiscountService } from '../../services/discountService';
+import { SalesService } from '../../services/salesService';
+import { RefundService } from '../../services/refundService';
 
 // --- MOCK DATA ---
 const MOCK_PRODUCTS = [
@@ -50,7 +55,7 @@ export default function POSPage() {
   const navigate = useNavigate();
   const authContext = useContext(AuthContext);
   const [activeTab, setActiveTab] = useState<'bill' | 'products' | 'discounts' | 'orders' | 'drafts'>('bill');
-  const [draftBills, setDraftBills] = useState<DraftBill[]>([]);
+  const [draftBills, setDraftBills] = useState<any[]>([]);
   const [scannedProduct, setScannedProduct] = useState<any>(null);
   const [scannedProductQty, setScannedProductQty] = useState<number>(1);
   const [showAddProductModal, setShowAddProductModal] = useState<boolean>(false);
@@ -65,11 +70,149 @@ export default function POSPage() {
   const [customerPaidInput, setCustomerPaidInput] = useState<string>('');
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showBarcodeModal, setShowBarcodeModal] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<any>(MOCK_ORDERS[0]);
+  
+  const [completedOrders, setCompletedOrders] = useState<any[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [activeReceipt, setActiveReceipt] = useState<any>(null);
+  const [resumedDraftId, setResumedDraftId] = useState<string | null>(null);
+  const [showRefundModal, setShowRefundModal] = useState<boolean>(false);
+  const [refundQuantities, setRefundQuantities] = useState<Record<string, number>>({});
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'COMPLETED' | 'REFUNDED'>('ALL');
+  const [showRefundInvoiceModal, setShowRefundInvoiceModal] = useState<boolean>(false);
+  const [activeRefundReceipt, setActiveRefundReceipt] = useState<any>(null);
 
-  // --- FILTERED PRODUCTS LOGIC ---
+  // Combo suggestion states
+  const [suggestedCombo, setSuggestedCombo] = useState<any>(null);
+  const [showComboSuggestionModal, setShowComboSuggestionModal] = useState<boolean>(false);
+  const [declinedCombos, setDeclinedCombos] = useState<string[]>([]);
+
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [discounts, setDiscounts] = useState<any[]>([]);
+
+  const loadAllData = async () => {
+    setLoading(true);
+    try {
+      const [prodRes, discRes, draftsRes, historyRes] = await Promise.all([
+        MasterDataService.getProducts(),
+        DiscountService.getDiscounts(),
+        SalesService.getDraftBills(),
+        SalesService.getSalesHistory()
+      ]);
+
+      if (prodRes.success) {
+        const mapped = prodRes.data.map((p: any) => ({
+          id: p.sku,
+          barcode: p.barcode,
+          sku: p.sku,
+          category: p.masterClass?.category?.name || 'Uncategorized',
+          name: p.name,
+          price: p.sellingPrice,
+          discount: p.discount || 0,
+          image: p.imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=400&auto=format&fit=crop',
+          currentStock: p.currentStock
+        }));
+        setProducts(mapped);
+      }
+
+      if (discRes.success) {
+        const activeApproved = discRes.data.filter((d: any) => d.isActive && d.approvalStatus === 'APPROVED');
+        setDiscounts(activeApproved);
+      }
+
+      if (draftsRes.success) {
+        setDraftBills(draftsRes.data);
+      }
+
+      if (historyRes.success) {
+        setCompletedOrders(historyRes.data);
+        if (historyRes.data.length > 0) {
+          setSelectedOrder((prev: any) => {
+            if (prev) {
+              const matched = historyRes.data.find((o: any) => o.id === prev.id);
+              if (matched) return matched;
+            }
+            return historyRes.data[0];
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load data for POS:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAllData();
+
+    // Dynamically load html2pdf script
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    script.async = true;
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
+  const cartWithDiscounts = useMemo(() => {
+    const comboItems = cart.filter(item => item.isCombo);
+    const individualItems = cart.filter(item => !item.isCombo).map(item => ({ ...item, discount: 0, discountId: null }));
+
+    const now = new Date();
+    const tzOffset = now.getTimezoneOffset() * 60000;
+    const localDate = new Date(now.getTime() - tzOffset);
+    const currentDateStr = localDate.toISOString().split('T')[0];
+    const currentTimeStr = now.toTimeString().split(' ')[0].substring(0, 5); // "HH:MM"
+
+    individualItems.forEach(item => {
+      const prod = products.find(p => p.sku === item.sku || p.id === item.id);
+      const defaultDiscount = prod ? (prod.discount || 0) : 0;
+
+      let bestDiscount = defaultDiscount;
+      let bestDiscountId = null;
+
+      discounts.forEach(d => {
+        if (d.type === 'SEASONAL') {
+          const isTarget = d.productIds?.includes(item.sku) || d.productIds?.includes(item.id);
+          if (isTarget && d.startDate && d.endDate) {
+            const startD = d.startDate.split('T')[0];
+            const endD = d.endDate.split('T')[0];
+            if (currentDateStr >= startD && currentDateStr <= endD) {
+              if (d.discountValue > bestDiscount) {
+                bestDiscount = d.discountValue;
+                bestDiscountId = d.id;
+              }
+            }
+          }
+        } else if (d.type === 'DAILY') {
+          const isTarget = d.productIds?.includes(item.sku) || d.productIds?.includes(item.id);
+          if (isTarget) {
+            const appD = d.applicableDate ? d.applicableDate.split('T')[0] : null;
+            const dateMatch = appD ? (currentDateStr === appD) : true;
+            if (dateMatch && d.dailyStartTime && d.dailyEndTime) {
+              if (currentTimeStr >= d.dailyStartTime && currentTimeStr <= d.dailyEndTime) {
+                if (d.discountValue > bestDiscount) {
+                  bestDiscount = d.discountValue;
+                  bestDiscountId = d.id;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      item.discount = bestDiscount;
+      item.discountId = bestDiscountId;
+    });
+
+    return [...comboItems, ...individualItems];
+  }, [cart, discounts]);
+
   const filteredProducts = useMemo(() => {
-    return MOCK_PRODUCTS.filter(product => {
+    return products.filter(product => {
       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
       if (!selectedCategory) return matchesSearch;
 
@@ -91,10 +234,12 @@ export default function POSPage() {
 
       return matchesSearch && matchesCategory;
     });
-  }, [searchQuery, selectedCategory]);
+  }, [products, searchQuery, selectedCategory]);
 
   // --- CART LOGIC ---
   const addToCart = (product: any, quantityToAdd: number = 1) => {
+    // If we add something new, let cashier reconsider declined combos
+    setDeclinedCombos([]);
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
@@ -114,61 +259,857 @@ export default function POSPage() {
     }).filter(item => item.quantity > 0));
   };
 
-  const passBillToDraft = () => {
+  const passBillToDraft = async () => {
     if (cart.length === 0) return;
+    try {
+      const itemsPayload = cartWithDiscounts.map(item => {
+        const itemDisc = discountType === 'bill' ? 0 : (item.discount || 0);
+        if (item.isCombo) {
+          return item.comboItems.map((ci: any) => ({
+            sku: ci.sku,
+            qty: ci.qty,
+            unitPrice: ci.unitPrice,
+            total: ci.unitPrice * ci.qty * (1 - itemDisc / 100),
+            discountId: itemDisc > 0 ? item.discountId : null,
+            discountValue: itemDisc
+          }));
+        } else {
+          const itemTotal = (item.price * item.quantity) * (1 - itemDisc / 100);
+          return {
+            sku: item.sku,
+            qty: item.quantity,
+            unitPrice: item.price,
+            total: itemTotal,
+            discountId: itemDisc > 0 ? (item.discountId || null) : null,
+            discountValue: itemDisc
+          };
+        }
+      }).flat();
 
-    const usedIds = draftBills.map(d => d.id).sort((a, b) => a - b);
-    let nextId = 1;
-    for (const id of usedIds) {
-      if (id === nextId) nextId++;
-      else break;
+      const payload = {
+        subtotal: itemsSubtotal,
+        totalDiscount: totalSavedAmount,
+        totalBill: total,
+        paymentMethod: 'CASH' as const,
+        totalQty: cartWithDiscounts.reduce((sum, item) => sum + (item.isCombo ? item.comboItems.reduce((s: number, ci: any) => s + ci.qty, 0) : item.quantity), 0),
+        draft: true,
+        items: itemsPayload
+      };
+
+      const res = await SalesService.createBill(payload);
+      if (res.success) {
+        toast.success('Bill placed on hold (Draft saved)!');
+        const draftsRes = await SalesService.getDraftBills();
+        if (draftsRes.success) {
+          setDraftBills(draftsRes.data);
+        }
+        setCart([]);
+        setResumedDraftId(null);
+        setActiveTab('drafts');
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Failed to place bill on hold.');
     }
-
-    const newDraft: DraftBill = {
-      id: nextId,
-      cart: [...cart],
-      timestamp: new Date()
-    };
-
-    setDraftBills(prev => [...prev, newDraft].sort((a, b) => a.id - b.id));
-    setCart([]);
-    setActiveTab('drafts');
   };
 
-  const restoreDraftBill = (draftId: number) => {
+  const mapDbBillToCart = (dbBill: any) => {
+    const newCart: any[] = [];
+    const comboGroups: Record<string, any[]> = {};
+
+    dbBill.billItems.forEach((item: any) => {
+      const isComboDiscount = item.discount?.type === 'COMBO' || (discounts.find(d => d.id === item.discountId)?.type === 'COMBO');
+      if (item.discountId && isComboDiscount) {
+        if (!comboGroups[item.discountId]) {
+          comboGroups[item.discountId] = [];
+        }
+        comboGroups[item.discountId].push(item);
+      } else {
+        newCart.push({
+          id: item.sku,
+          sku: item.sku,
+          barcode: item.product?.barcode,
+          category: item.product?.category || 'Uncategorized',
+          name: item.product?.name || item.sku,
+          price: item.unitPrice,
+          quantity: item.qty,
+          discount: item.discountValue || 0,
+          discountId: item.discountId,
+          image: item.product?.imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=400&auto=format&fit=crop',
+          currentStock: item.product?.currentStock || 0
+        });
+      }
+    });
+
+    Object.entries(comboGroups).forEach(([discountId, items]) => {
+      const discount = discounts.find(d => d.id === discountId);
+      const originalTotal = items.reduce((sum, item) => sum + (item.unitPrice * item.qty), 0);
+      const discountVal = items[0]?.discountValue || discount?.discountValue || 0;
+
+      newCart.push({
+        id: `combo-${discountId}-${Date.now()}`,
+        name: `Combo: ${discount?.name || 'Combo Bundle'}`,
+        price: originalTotal,
+        quantity: 1,
+        discount: discountVal,
+        isCombo: true,
+        discountId: discountId,
+        comboItems: items.map(item => ({
+          sku: item.sku,
+          qty: item.qty,
+          unitPrice: item.unitPrice
+        })),
+        image: discount?.imageUrl || 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?q=80&w=800&auto=format&fit=crop'
+      });
+    });
+
+    return newCart;
+  };
+
+  const restoreDraftBill = async (draftId: string) => {
     const draft = draftBills.find(d => d.id === draftId);
     if (draft) {
-      setCart(draft.cart);
-      setDraftBills(prev => prev.filter(d => d.id !== draftId));
+      const cartItems = mapDbBillToCart(draft);
+      setCart(cartItems);
+      setResumedDraftId(draftId);
+
+      try {
+        await SalesService.deleteDraftBill(draftId);
+        setDraftBills(prev => prev.filter(d => d.id !== draftId));
+      } catch (err) {
+        console.error('Failed to delete draft bill upon restore:', err);
+      }
+
       setActiveTab('bill');
+      toast.success(`Resumed hold order: ${draft.billNumber}!`);
     }
   };
+
+  const ungroupCombo = (comboId: string) => {
+    setCart(prev => {
+      const comboItem = prev.find(item => item.id === comboId);
+      if (!comboItem) return prev;
+
+      let updatedCart = prev.filter(item => item.id !== comboId);
+
+      comboItem.comboItems.forEach((ci: any) => {
+        const prod = products.find(p => p.sku === ci.sku || p.id === ci.sku);
+        if (prod) {
+          const existing = updatedCart.find(item => item.id === prod.sku);
+          if (existing) {
+            updatedCart = updatedCart.map(item =>
+              item.id === prod.sku
+                ? { ...item, quantity: item.quantity + ci.qty }
+                : item
+            );
+          } else {
+            updatedCart.push({
+              ...prod,
+              quantity: ci.qty,
+              discount: 0
+            });
+          }
+        }
+      });
+
+      return updatedCart;
+    });
+
+    toast.info('Combo Pack ungrouped back to individual items.');
+  };
+
+  const applySuggestedCombo = (discount: any) => {
+    setCart(prev => {
+      let updatedCart = prev.map(item => {
+        if (item.isCombo) return item;
+
+        const req = discount.comboItems.find((ci: any) => ci.productId === item.sku || ci.productId === item.id);
+        if (req) {
+          return {
+            ...item,
+            quantity: item.quantity - req.minQty
+          };
+        }
+        return item;
+      }).filter(item => item.quantity > 0);
+
+      const originalTotal = discount.comboItems.reduce((sum: number, ci: any) => {
+        const prod = products.find(p => p.sku === ci.productId || p.id === ci.productId);
+        return sum + (prod ? prod.price * ci.minQty : 0);
+      }, 0);
+
+      const comboPack = {
+        id: `combo-${discount.id}-${Date.now()}`,
+        name: `Combo: ${discount.name}`,
+        price: originalTotal,
+        quantity: 1,
+        discount: discount.discountValue,
+        isCombo: true,
+        discountId: discount.id,
+        comboItems: discount.comboItems.map((ci: any) => {
+          const prod = products.find(p => p.sku === ci.productId || p.id === ci.productId);
+          return {
+            sku: ci.productId,
+            qty: ci.minQty,
+            unitPrice: prod ? prod.price : 0
+          };
+        }),
+        image: discount.imageUrl || "https://images.unsplash.com/photo-1497935586351-b67a49e012bf?q=80&w=800&auto=format&fit=crop"
+      };
+
+      return [...updatedCart, comboPack];
+    });
+
+    setShowComboSuggestionModal(false);
+    setSuggestedCombo(null);
+    toast.success(`Grouped items into "${discount.name}" Combo Pack!`);
+  };
+
+  const declineSuggestedCombo = (discountId: string) => {
+    setDeclinedCombos(prev => [...prev, discountId]);
+    setShowComboSuggestionModal(false);
+    setSuggestedCombo(null);
+  };
+
+  const handleCompleteTransaction = async () => {
+    if (cart.length === 0) return;
+
+    try {
+      const itemsPayload = cartWithDiscounts.map(item => {
+        const itemDisc = discountType === 'bill' ? 0 : (item.discount || 0);
+        if (item.isCombo) {
+          return item.comboItems.map((ci: any) => ({
+            sku: ci.sku,
+            qty: ci.qty,
+            unitPrice: ci.unitPrice,
+            total: ci.unitPrice * ci.qty * (1 - itemDisc / 100),
+            discountId: itemDisc > 0 ? item.discountId : null,
+            discountValue: itemDisc
+          }));
+        } else {
+          const itemTotal = (item.price * item.quantity) * (1 - itemDisc / 100);
+          return {
+            sku: item.sku,
+            qty: item.quantity,
+            unitPrice: item.price,
+            total: itemTotal,
+            discountId: itemDisc > 0 ? (item.discountId || null) : null,
+            discountValue: itemDisc
+          };
+        }
+      }).flat();
+
+      const payload = {
+        subtotal: itemsSubtotal,
+        totalDiscount: totalSavedAmount,
+        totalBill: total,
+        paymentMethod: 'CASH' as const, // Default for now
+        totalQty: cartWithDiscounts.reduce((sum, item) => sum + (item.isCombo ? item.comboItems.reduce((s: number, ci: any) => s + ci.qty, 0) : item.quantity), 0),
+        draft: false,
+        items: itemsPayload,
+        resumeDraftId: resumedDraftId
+      };
+
+      const res = await SalesService.createBill(payload);
+      if (res.success) {
+        toast.success('Transaction completed successfully!');
+        setActiveReceipt(res.data);
+        setCart([]);
+        setResumedDraftId(null);
+        setCustomerPaidInput('');
+        setManualDiscount(0);
+
+        // Reload data to reflect decreased stock and fresh history
+        const [prodRes, historyRes, draftsRes] = await Promise.all([
+          MasterDataService.getProducts(),
+          SalesService.getSalesHistory(),
+          SalesService.getDraftBills()
+        ]);
+
+        if (prodRes.success) {
+          const mapped = prodRes.data.map((p: any) => ({
+            id: p.sku,
+            barcode: p.barcode,
+            sku: p.sku,
+            category: p.masterClass?.category?.name || 'Uncategorized',
+            name: p.name,
+            price: p.sellingPrice,
+            discount: p.discount || 0,
+            image: p.imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=400&auto=format&fit=crop',
+            currentStock: p.currentStock
+          }));
+          setProducts(mapped);
+        }
+
+        if (historyRes.success) {
+          setCompletedOrders(historyRes.data);
+          if (historyRes.data.length > 0) {
+            setSelectedOrder(historyRes.data[0]);
+          }
+        }
+
+        if (draftsRes.success) {
+          setDraftBills(draftsRes.data);
+        }
+
+        setShowInvoiceModal(true);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Failed to complete transaction.');
+    }
+  };
+
+  // Check for combo suggestions reactively
+  useEffect(() => {
+    if (cart.length === 0) return;
+
+    const individualItems = cart.filter(item => !item.isCombo);
+
+    for (const d of discounts) {
+      if (d.type !== 'COMBO' || !d.comboItems || d.comboItems.length === 0) continue;
+      if (declinedCombos.includes(d.id)) continue;
+
+      const comboSatisfied = d.comboItems.every((ci: any) => {
+        const cartItem = individualItems.find(item => item.sku === ci.productId || item.id === ci.productId);
+        return cartItem && cartItem.quantity >= ci.minQty;
+      });
+
+      if (comboSatisfied) {
+        setSuggestedCombo(d);
+        setShowComboSuggestionModal(true);
+        break; // suggest one at a time
+      }
+    }
+  }, [cart, discounts, declinedCombos]);
 
   // Calculate total before any discounts
   const grossTotal = useMemo(() => {
-    return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  }, [cart]);
+    return cartWithDiscounts.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  }, [cartWithDiscounts]);
 
   // Calculates subtotal summing up item totals after item discounts are applied (if active)
   const itemsSubtotal = useMemo(() => {
-    return cart.reduce((sum, item) => {
+    return cartWithDiscounts.reduce((sum, item) => {
       const itemDisc = (discountType === 'bill') ? 0 : (item.discount || 0);
       const itemTotal = (item.price * item.quantity) * (1 - itemDisc / 100);
       return sum + itemTotal;
     }, 0);
-  }, [cart, discountType]);
+  }, [cartWithDiscounts, discountType]);
+
+  // Auto-calculate threshold overall bill discount
+  const autoBillDiscount = useMemo(() => {
+    let bestPct = 0;
+    let bestId = null;
+    let bestName = '';
+
+    discounts.forEach(d => {
+      if (d.type === 'BILL' && d.minBillAmount) {
+        if (itemsSubtotal >= d.minBillAmount) {
+          if (d.discountValue > bestPct) {
+            bestPct = d.discountValue;
+            bestId = d.id;
+            bestName = d.name;
+          }
+        }
+      }
+    });
+
+    return { percentage: bestPct, id: bestId, name: bestName };
+  }, [discounts, itemsSubtotal]);
+
+  // Overall bill discount percentage applied (manual input overrides auto threshold discount)
+  const appliedBillDiscountPercentage = useMemo(() => {
+    return manualDiscount > 0 ? manualDiscount : autoBillDiscount.percentage;
+  }, [manualDiscount, autoBillDiscount]);
 
   const billDiscountAmount = useMemo(() => {
     if (discountType === 'bill' || discountType === 'both') {
-      return (itemsSubtotal * manualDiscount) / 100;
+      return (itemsSubtotal * appliedBillDiscountPercentage) / 100;
     }
     return 0;
-  }, [itemsSubtotal, manualDiscount, discountType]);
+  }, [itemsSubtotal, appliedBillDiscountPercentage, discountType]);
 
-  const total = itemsSubtotal - billDiscountAmount;
-  const totalSavedAmount = grossTotal - total;
+  const total = useMemo(() => {
+    return itemsSubtotal - billDiscountAmount;
+  }, [itemsSubtotal, billDiscountAmount]);
+
+  const totalSavedAmount = useMemo(() => {
+    return grossTotal - total;
+  }, [grossTotal, total]);
+
   const isOverallDiscountActive = discountType === 'bill' || discountType === 'both';
 
+
+  const handlePrint = (order: any, paidVal?: number, changeVal?: number) => {
+    if (!order) return;
+    const printWindow = window.open('', '_blank', 'width=450,height=600');
+    if (!printWindow) {
+      toast.error('Failed to open print window. Please allow popups.');
+      return;
+    }
+
+    const returnedQtyMap: Record<string, number> = {};
+    order.refunds?.forEach((r: any) => {
+      r.refundItems?.forEach((ri: any) => {
+        returnedQtyMap[ri.sku] = (returnedQtyMap[ri.sku] || 0) + ri.qty;
+      });
+    });
+    
+    const itemsHtml = order.billItems?.map((item: any) => {
+      const itemTotal = item.qty * item.unitPrice;
+      const itemDiscount = itemTotal - item.total;
+      const returnedQty = returnedQtyMap[item.sku] || 0;
+      const netQty = item.qty - returnedQty;
+
+      let returnLabel = '';
+      if (returnedQty > 0) {
+        returnLabel = `<div style="font-size: 9px; color: #b45309; font-style: italic; padding-left: 10px;">* Returned: ${returnedQty} unit(s)</div>`;
+      }
+
+      return `
+        <tr style="font-size: 11px; font-family: monospace;">
+          <td style="padding: 4px 0; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            ${item.product?.name || item.sku}
+            ${returnLabel}
+          </td>
+          <td align="right" style="padding: 4px 0;">${returnedQty > 0 ? `${netQty} (${item.qty})` : item.qty}</td>
+          <td align="right" style="padding: 4px 0;">Rs. ${item.unitPrice.toFixed(2)}</td>
+          <td align="right" style="padding: 4px 0;">Rs. ${itemDiscount.toFixed(2)}</td>
+          <td align="right" style="padding: 4px 0;">Rs. ${item.total.toFixed(2)}</td>
+        </tr>
+      `;
+    }).join('') || '';
+
+    const paidAmount = paidVal !== undefined ? paidVal : order.totalBill;
+    const changeAmount = changeVal !== undefined ? changeVal : 0;
+
+    let refundedBanner = '';
+    if (order.refunds && order.refunds.length > 0) {
+      refundedBanner = `
+        <div style="text-align: center; margin-top: 10px; margin-bottom: 10px; background-color: #fef3c7; color: #78350f; border: 1px dashed #fcd34d; padding: 6px; border-radius: 4px; font-family: sans-serif; font-size: 10px; font-weight: bold; text-transform: uppercase;">
+          *** REFUNDED ***
+          ${order.refunds.map((r: any) => `
+            <div style="font-size: 9px; font-weight: normal; text-transform: none; margin-top: 2px;">
+              Rs. ${r.refundAmount.toFixed(2)} returned
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Print Receipt - ${order.billNumber}</title>
+          <style>
+            body { font-family: monospace; font-size: 12px; margin: 20px; line-height: 1.4; color: black; }
+            .text-center { text-align: center; }
+            .border-t { border-top: 1px dashed black; }
+            .my-2 { margin-top: 8px; margin-bottom: 8px; }
+            .mb-5 { margin-bottom: 20px; }
+            .font-bold { font-weight: bold; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 10px; }
+            th { border-bottom: 1px dashed black; padding-bottom: 4px; }
+          </style>
+        </head>
+        <body>
+          <div class="text-center mb-5">
+            <div class="font-bold" style="font-size: 15px;">Sales Receipt</div>
+            <div class="font-bold" style="font-size: 16px; margin-top: 2px;">CHAMSON MULTI SHOP</div>
+            <div style="margin-top: 2px;">Hospital road, Mannar</div>
+            <div>0774847867</div>
+          </div>
+          <div style="font-size: 11px; margin-bottom: 8px;">
+            <div>Receipt #: ${order.billNumber}</div>
+            <div>Date: ${new Date(order.createdAt).toLocaleString()}</div>
+            <div>Cashier: ${order.cashier?.name || 'POS System'}</div>
+          </div>
+          ${refundedBanner}
+          <div class="border-t my-2"></div>
+          <table>
+            <thead>
+              <tr style="font-size: 11px; font-weight: bold;">
+                <th align="left">Item</th>
+                <th align="right">Qty</th>
+                <th align="right">Price</th>
+                <th align="right">Disc</th>
+                <th align="right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
+          <div class="border-t my-2"></div>
+          <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0;">
+            <span>Subtotal:</span>
+            <span>Rs. ${order.subtotal.toFixed(2)}</span>
+          </div>
+          ${order.totalDiscount > 0 ? `
+          <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0;">
+            <span>Discount:</span>
+            <span>-Rs. ${order.totalDiscount.toFixed(2)}</span>
+          </div>` : ''}
+          <div class="border-t my-2"></div>
+          <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 13px; padding: 4px 0;">
+            <span>Total:</span>
+            <span>Rs. ${order.totalBill.toFixed(2)}</span>
+          </div>
+          <div class="border-t my-2"></div>
+          <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0;">
+            <span>Paid Amount:</span>
+            <span>Rs. ${paidAmount.toFixed(2)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0;">
+            <span>Change:</span>
+            <span>Rs. ${changeAmount.toFixed(2)}</span>
+          </div>
+          <div class="text-center" style="margin-top: 30px; font-size: 11px; font-weight: bold;">
+            Thank You Come Again!
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              window.close();
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handlePrintRefund = (refund: any) => {
+    if (!refund) return;
+    const printWindow = window.open('', '_blank', 'width=450,height=600');
+    if (!printWindow) {
+      toast.error('Failed to open print window. Please allow popups.');
+      return;
+    }
+    
+    const itemsHtml = refund.refundItems?.map((item: any) => {
+      const itemTotal = item.qty * item.refundValue;
+      return `
+        <tr style="font-size: 11px; font-family: monospace;">
+          <td style="padding: 4px 0; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.product?.name || item.sku}</td>
+          <td align="right" style="padding: 4px 0;">${item.qty.toFixed(0)}</td>
+          <td align="right" style="padding: 4px 0;">Rs. ${item.refundValue.toFixed(2)}</td>
+          <td align="right" style="padding: 4px 0;">Rs. ${itemTotal.toFixed(2)}</td>
+        </tr>
+      `;
+    }).join('') || '';
+
+    const cashierName = authContext?.user?.name || 'POS Cashier';
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Print Refund Receipt - ${refund.refundNumber}</title>
+          <style>
+            body { font-family: monospace; font-size: 12px; margin: 20px; line-height: 1.4; color: black; }
+            .text-center { text-align: center; }
+            .border-t { border-top: 1px dashed black; }
+            .my-2 { margin-top: 8px; margin-bottom: 8px; }
+            .mb-5 { margin-bottom: 20px; }
+            .font-bold { font-weight: bold; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 10px; }
+            th { border-bottom: 1px dashed black; padding-bottom: 4px; }
+          </style>
+        </head>
+        <body>
+          <div class="text-center mb-5">
+            <div class="font-bold" style="font-size: 15px;">REFUND RECEIPT</div>
+            <div class="font-bold" style="font-size: 16px; margin-top: 2px;">CHAMSON MULTI SHOP</div>
+            <div style="margin-top: 2px;">Hospital road, Mannar</div>
+            <div>0774847867</div>
+          </div>
+          <div style="font-size: 11px; margin-bottom: 8px;">
+            <div>Refund #: ${refund.refundNumber}</div>
+            <div>Ref Bill #: ${selectedOrder?.billNumber || ''}</div>
+            <div>Date: ${new Date(refund.createdAt).toLocaleString()}</div>
+            <div>Cashier: ${cashierName}</div>
+          </div>
+          <div class="border-t my-2"></div>
+          <table>
+            <thead>
+              <tr style="font-size: 11px; font-weight: bold;">
+                <th align="left">Returned Item</th>
+                <th align="right">Qty</th>
+                <th align="right">Refund Val</th>
+                <th align="right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+            </tbody>
+          </table>
+          <div class="border-t my-2"></div>
+          <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 13px; padding: 4px 0;">
+            <span>Total Refunded:</span>
+            <span>Rs. ${refund.refundAmount.toFixed(2)}</span>
+          </div>
+          <div class="border-t my-2"></div>
+          <div class="text-center" style="margin-top: 30px; font-size: 11px; font-weight: bold;">
+            Refund Processed Successfully
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              window.close();
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handleDownloadPDF = (order: any) => {
+    if (!order) return;
+    const element = document.createElement('div');
+    element.style.padding = '20px';
+    element.style.fontFamily = 'monospace';
+    element.style.fontSize = '12px';
+    element.style.color = 'black';
+    element.style.width = '340px';
+
+    const returnedQtyMap: Record<string, number> = {};
+    order.refunds?.forEach((r: any) => {
+      r.refundItems?.forEach((ri: any) => {
+        returnedQtyMap[ri.sku] = (returnedQtyMap[ri.sku] || 0) + ri.qty;
+      });
+    });
+
+    const itemsHtml = order.billItems?.map((item: any) => {
+      const itemTotal = item.qty * item.unitPrice;
+      const itemDiscount = itemTotal - item.total;
+      const returnedQty = returnedQtyMap[item.sku] || 0;
+      const netQty = item.qty - returnedQty;
+
+      return `
+        <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">
+          <span style="flex: 1; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.product?.name || item.sku}</span>
+          <span style="width: 30px; text-align: right;">${returnedQty > 0 ? `${netQty} (${item.qty})` : item.qty}</span>
+          <span style="width: 60px; text-align: right;">Rs. ${item.unitPrice.toFixed(2)}</span>
+          <span style="width: 50px; text-align: right;">Rs. ${itemDiscount.toFixed(2)}</span>
+          <span style="width: 60px; text-align: right;">Rs. ${item.total.toFixed(2)}</span>
+        </div>
+        ${returnedQty > 0 ? `<div style="font-size: 9px; color: #b45309; font-style: italic; padding-left: 10px; margin-bottom: 4px;">* Returned: ${returnedQty} unit(s)</div>` : ''}
+      `;
+    }).join('');
+
+    let refundedBanner = '';
+    if (order.refunds && order.refunds.length > 0) {
+      refundedBanner = `
+        <div style="text-align: center; margin-top: 10px; margin-bottom: 10px; background-color: #fef3c7; color: #78350f; border: 1px dashed #fcd34d; padding: 6px; border-radius: 4px; font-family: sans-serif; font-size: 10px; font-weight: bold; text-transform: uppercase;">
+          *** REFUNDED ***
+          ${order.refunds.map((r: any) => `
+            <div style="font-size: 9px; font-weight: normal; text-transform: none; margin-top: 2px;">
+              Rs. ${r.refundAmount.toFixed(2)} returned
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    element.innerHTML = `
+      <div style="text-align: center; margin-bottom: 20px;">
+        <div style="font-weight: bold; font-size: 15px;">Sales Receipt</div>
+        <div style="font-weight: bold; font-size: 16px; margin-top: 2px;">CHAMSON MULTI SHOP</div>
+        <div style="margin-top: 2px;">Hospital road, Mannar</div>
+        <div>0774847867</div>
+      </div>
+      <div style="font-size: 11px; margin-bottom: 8px;">
+        <div>Receipt #: ${order.billNumber}</div>
+        <div>Date: ${new Date(order.createdAt).toLocaleString()}</div>
+        <div>Cashier: ${order.cashier?.name || 'POS System'}</div>
+      </div>
+      ${refundedBanner}
+      <div style="border-top: 1px dashed black; margin: 8px 0;"></div>
+      <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: bold; margin-bottom: 6px;">
+        <span style="flex: 1;">Item</span>
+        <span style="width: 30px; text-align: right;">Qty</span>
+        <span style="width: 60px; text-align: right;">Price</span>
+        <span style="width: 50px; text-align: right;">Disc</span>
+        <span style="width: 60px; text-align: right;">Total</span>
+      </div>
+      ${itemsHtml}
+      <div style="border-top: 1px dashed black; margin: 8px 0;"></div>
+      <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0;">
+        <span>Subtotal:</span>
+        <span>Rs. ${order.subtotal.toFixed(2)}</span>
+      </div>
+      ${order.totalDiscount > 0 ? `
+      <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0;">
+        <span>Discount:</span>
+        <span>-Rs. ${order.totalDiscount.toFixed(2)}</span>
+      </div>` : ''}
+      <div style="border-top: 1px dashed black; margin: 8px 0;"></div>
+      <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 13px; padding: 4px 0;">
+        <span>Total:</span>
+        <span>Rs. ${order.totalBill.toFixed(2)}</span>
+      </div>
+      <div style="border-top: 1px dashed black; margin: 8px 0;"></div>
+      <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0;">
+        <span>Paid Amount:</span>
+        <span>Rs. ${order.totalBill.toFixed(2)}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0;">
+        <span>Change:</span>
+        <span>Rs. 0.00</span>
+      </div>
+      <div style="text-align: center; margin-top: 30px; font-size: 11px; font-weight: bold;">
+        Thank You Come Again!
+      </div>
+    `;
+
+    // @ts-ignore
+    if (window.html2pdf) {
+      // @ts-ignore
+      window.html2pdf()
+        .from(element)
+        .set({
+          margin: 10,
+          filename: `receipt-${order.billNumber}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2 },
+          jsPDF: { unit: 'mm', format: 'a6', orientation: 'portrait' }
+        })
+        .save();
+    } else {
+      toast.error('PDF library is loading, please try again in a moment.');
+    }
+  };
+
+  const handleDownloadRefundPDF = (refund: any) => {
+    if (!refund) return;
+    const element = document.createElement('div');
+    element.style.padding = '20px';
+    element.style.fontFamily = 'monospace';
+    element.style.fontSize = '12px';
+    element.style.color = 'black';
+    element.style.width = '340px';
+
+    const itemsHtml = refund.refundItems?.map((item: any) => {
+      const itemTotal = item.qty * item.refundValue;
+      return `
+        <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">
+          <span style="flex: 1; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.product?.name || item.sku}</span>
+          <span style="width: 30px; text-align: right;">${item.qty.toFixed(0)}</span>
+          <span style="width: 80px; text-align: right;">Rs. ${item.refundValue.toFixed(2)}</span>
+          <span style="width: 80px; text-align: right;">Rs. ${itemTotal.toFixed(2)}</span>
+        </div>
+      `;
+    }).join('');
+
+    const cashierName = authContext?.user?.name || 'POS Cashier';
+
+    element.innerHTML = `
+      <div style="text-align: center; margin-bottom: 20px;">
+        <div style="font-weight: bold; font-size: 15px;">REFUND RECEIPT</div>
+        <div style="font-weight: bold; font-size: 16px; margin-top: 2px;">CHAMSON MULTI SHOP</div>
+        <div style="margin-top: 2px;">Hospital road, Mannar</div>
+        <div>0774847867</div>
+      </div>
+      <div style="font-size: 11px; margin-bottom: 8px;">
+        <div>Refund #: ${refund.refundNumber}</div>
+        <div>Ref Bill #: ${selectedOrder?.billNumber || ''}</div>
+        <div>Date: ${new Date(refund.createdAt).toLocaleString()}</div>
+        <div>Cashier: ${cashierName}</div>
+      </div>
+      <div style="border-top: 1px dashed black; margin: 8px 0;"></div>
+      <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: bold; margin-bottom: 6px;">
+        <span style="flex: 1;">Returned Item</span>
+        <span style="width: 30px; text-align: right;">Qty</span>
+        <span style="width: 80px; text-align: right;">Refund Val</span>
+        <span style="width: 80px; text-align: right;">Total</span>
+      </div>
+      ${itemsHtml}
+      <div style="border-top: 1px dashed black; margin: 8px 0;"></div>
+      <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 13px; padding: 4px 0;">
+        <span>Total Refunded:</span>
+        <span>Rs. ${refund.refundAmount.toFixed(2)}</span>
+      </div>
+      <div style="text-align: center; margin-top: 30px; font-size: 11px; font-weight: bold;">
+        Refund Processed Successfully
+      </div>
+    `;
+
+    // @ts-ignore
+    if (window.html2pdf) {
+      // @ts-ignore
+      window.html2pdf()
+        .from(element)
+        .set({
+          margin: 10,
+          filename: `refund-${refund.refundNumber}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2 },
+          jsPDF: { unit: 'mm', format: 'a6', orientation: 'portrait' }
+        })
+        .save();
+    } else {
+      toast.error('PDF library is loading, please try again in a moment.');
+    }
+  };
+
+  const handleConfirmRefund = async () => {
+    if (!selectedOrder) return;
+    
+    const returnedQtyMap: Record<string, number> = {};
+    selectedOrder.refunds?.forEach((r: any) => {
+      r.refundItems?.forEach((ri: any) => {
+        returnedQtyMap[ri.sku] = (returnedQtyMap[ri.sku] || 0) + ri.qty;
+      });
+    });
+
+    try {
+      const itemsToRefund = selectedOrder.billItems.map((item: any) => {
+        const qty = refundQuantities[item.sku] || 0;
+        if (qty <= 0) return null;
+
+        const alreadyRefunded = returnedQtyMap[item.sku] || 0;
+        const maxRefundable = item.qty - alreadyRefunded;
+        if (qty > maxRefundable) {
+          throw new Error(`Refund quantity for ${item.product?.name || item.sku} exceeds refundable limit.`);
+        }
+
+        const refundValue = item.total / item.qty;
+        
+        return {
+          sku: item.sku,
+          qty,
+          refundValue
+        };
+      }).filter(Boolean);
+
+      if (itemsToRefund.length === 0) {
+        toast.error('Please specify quantities for items to refund.');
+        return;
+      }
+
+      const payload = {
+        originalBillId: selectedOrder.id,
+        refundItems: itemsToRefund
+      };
+
+      const res = await RefundService.createRefund(payload);
+      if (res.success) {
+        toast.success('Refund processed successfully!');
+        setShowRefundModal(false);
+        setRefundQuantities({});
+        
+        setActiveRefundReceipt(res.data);
+        setShowRefundInvoiceModal(true);
+        
+        await loadAllData();
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || err.response?.data?.message || 'Failed to process refund.');
+    }
+  };
 
   // --- RENDER HELPERS ---
   const renderSidebar = () => (
@@ -233,11 +1174,17 @@ export default function POSPage() {
         )}
         <div className="flex items-center gap-3 px-2 py-3 mb-4 border-b border-gray-200 pb-6">
           <div className="w-10 h-10 rounded-full bg-[#047857] text-white flex items-center justify-center font-bold text-sm shrink-0">
-            AM
+            {authContext?.user?.name
+              ? authContext.user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+              : 'AM'}
           </div>
           <div className="flex-1 overflow-hidden">
-            <h4 className="text-[15px] font-bold text-gray-900 leading-tight truncate">Alex Mercer</h4>
-            <p className="text-xs text-gray-500 font-medium mt-0.5">Staff #4209</p>
+            <h4 className="text-[15px] font-bold text-gray-900 leading-tight truncate">
+              {authContext?.user?.name || 'Alex Mercer'}
+            </h4>
+            <p className="text-xs text-gray-500 font-medium mt-0.5">
+              Staff #{authContext?.user?.id ? authContext.user.id.substring(0, 4).toUpperCase() : '4209'}
+            </p>
           </div>
         </div>
         <button
@@ -258,423 +1205,237 @@ export default function POSPage() {
     </div>
   );
 
+  const addComboToCart = (discount: any) => {
+    discount.comboItems.forEach((ci: any) => {
+      const prod = products.find(p => p.sku === ci.productId || p.id === ci.productId);
+      if (prod) {
+        setCart(prev => {
+          const existing = prev.find(item => item.id === prod.id);
+          if (existing) {
+            if (existing.quantity < ci.minQty) {
+              return prev.map(item => item.id === prod.id ? { ...item, quantity: ci.minQty } : item);
+            }
+            return prev;
+          }
+          return [...prev, { ...prod, quantity: ci.minQty, discount: 0 }];
+        });
+      }
+    });
+    toast.success(`Combo "${discount.name}" added to cart!`);
+  };
+
+  const addDiscountProductsToCart = (discount: any) => {
+    if (discount.productIds && discount.productIds.length > 0) {
+      discount.productIds.forEach((sku: string) => {
+        const prod = products.find(p => p.sku === sku || p.id === sku);
+        if (prod) {
+          addToCart(prod, 1);
+        }
+      });
+      toast.success(`Products for "${discount.name}" added to cart!`);
+    }
+  };
+
   const renderRegisterDiscounts = () => {
+    const combos = discounts.filter(d => d.type === 'COMBO');
+    const seasonal = discounts.filter(d => d.type === 'SEASONAL');
+    const daily = discounts.filter(d => d.type === 'DAILY');
+
     return (
       <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-[#f8f9fc] relative">
-        <div className="max-w-7xl mx-auto relative z-10 font-sans pb-16">
-
+        <div className="max-w-7xl mx-auto relative z-10 font-sans pb-16 space-y-12">
+          
           {/* 1. Curated Combos Section */}
-          <section className="mb-12">
+          <section>
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-[#103e2c] mb-1">Curated Combos</h2>
-              <p className="text-gray-500 text-xs">Perfect pairings at a premium price.</p>
+              <h2 className="text-2xl font-black text-[#103e2c] mb-1">Curated Combos</h2>
+              <p className="text-gray-500 text-xs">Buy these products together to unlock bundle deals.</p>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              {/* Left Combo Card */}
-              <div className="bg-white rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] overflow-hidden flex flex-col sm:flex-row border border-gray-100 hover:shadow-lg transition-shadow">
-                <div className="relative w-full sm:w-1/2 h-44 sm:h-auto bg-gray-50">
-                  <img src="https://images.unsplash.com/photo-1497935586351-b67a49e012bf?q=80&w=800&auto=format&fit=crop" alt="Coffee" className="w-full h-full object-cover" />
-                  <div className="absolute top-4 left-4 bg-[#0a3822] text-white text-[9px] font-bold px-3 py-1 rounded-full tracking-wide shadow-sm">
-                    COMBO SAVER
-                  </div>
-                </div>
-                <div className="w-full sm:w-1/2 p-6 flex flex-col justify-center">
-                  <h3 className="text-lg font-extrabold text-gray-900 mb-1">Morning Ritual</h3>
-                  <p className="text-gray-500 text-[11px] mb-3 leading-relaxed">Artisanal Coffee + Handcrafted Cookies</p>
-                  <div className="mb-1 flex items-baseline gap-1.5">
-                    <span className="text-gray-900 font-extrabold text-xl">Rs. 6.49</span>
-                    <span className="text-gray-400 line-through text-xs font-medium">Rs. 8.50</span>
-                  </div>
-                  <div className="flex gap-2 mt-4">
-                    <button
-                      onClick={() => addToCart({
-                        id: 'offer-morning-ritual',
-                        name: 'Morning Ritual Combo',
-                        price: 6.49,
-                        image: 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?q=80&w=800&auto=format&fit=crop',
-                        category: 'COMBO'
-                      })}
-                      className="border border-[#0a3822] text-[#0a3822] hover:bg-emerald-50 px-4 py-1.5 rounded text-xs font-bold transition-colors"
-                    >
-                      Add to Cart
-                    </button>
-                    <button
-                      onClick={() => {
-                        setManualDiscount(24);
-                        setDiscountInput('24');
-                      }}
-                      className="bg-[#0a3822] text-white hover:bg-[#072a19] px-3 py-1.5 rounded text-xs font-bold transition-colors"
-                    >
-                      Apply 24% Off
-                    </button>
-                  </div>
-                </div>
+            {combos.length === 0 ? (
+              <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 text-gray-500 font-bold text-xs shadow-sm">
+                No active combo bundles available.
               </div>
+            ) : (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                {combos.map(discount => {
+                  const originalTotal = discount.comboItems.reduce((sum: number, item: any) => {
+                    const prod = products.find(p => p.sku === item.productId || p.id === item.productId);
+                    return sum + (prod ? prod.price * item.minQty : 0);
+                  }, 0);
+                  const finalTotal = originalTotal * (1 - discount.discountValue / 100);
 
-              {/* Right Combo Card */}
-              <div className="bg-white rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] overflow-hidden flex flex-col sm:flex-row border border-gray-100 hover:shadow-lg transition-shadow">
-                <div className="relative w-full sm:w-1/2 h-44 sm:h-auto bg-gray-50">
-                  <img src="https://images.unsplash.com/photo-1550583724-b2692b85b150?q=80&w=600&auto=format&fit=crop" alt="Milk and Bread" className="w-full h-full object-cover" />
-                  <div className="absolute top-4 left-4 bg-white/95 text-emerald-600 text-[9px] font-bold px-3 py-1 rounded-full tracking-wide shadow-sm backdrop-blur-sm">
-                    DAILY FRESH
-                  </div>
-                </div>
-                <div className="w-full sm:w-1/2 p-6 flex flex-col justify-center">
-                  <h3 className="text-lg font-extrabold text-gray-900 mb-1">Baker's Pick</h3>
-                  <p className="text-gray-500 text-[11px] mb-3 leading-relaxed">Organic Milk + Sourdough Loaf</p>
-                  <div className="mb-1 flex items-baseline gap-1.5">
-                    <span className="text-gray-900 font-extrabold text-xl">Rs. 2.99</span>
-                    <span className="text-gray-400 line-through text-xs font-medium">Rs. 4.20</span>
-                  </div>
-                  <div className="flex gap-2 mt-4">
-                    <button
-                      onClick={() => addToCart({
-                        id: 'offer-bakers-pick',
-                        name: "Baker's Pick Combo",
-                        price: 2.99,
-                        image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?q=80&w=600&auto=format&fit=crop',
-                        category: 'COMBO'
-                      })}
-                      className="border border-[#0a3822] text-[#0a3822] hover:bg-emerald-50 px-4 py-1.5 rounded text-xs font-bold transition-colors"
-                    >
-                      Add to Cart
-                    </button>
-                    <button
-                      onClick={() => {
-                        setManualDiscount(29);
-                        setDiscountInput('29');
-                      }}
-                      className="bg-[#0a3822] text-white hover:bg-[#072a19] px-3 py-1.5 rounded text-xs font-bold transition-colors"
-                    >
-                      Apply 29% Off
-                    </button>
-                  </div>
-                </div>
+                  return (
+                    <div key={discount.id} className="bg-white rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] overflow-hidden flex flex-col sm:flex-row border border-gray-100 hover:shadow-lg transition-shadow">
+                      <div className="relative w-full sm:w-1/2 h-44 sm:h-auto bg-gray-50 shrink-0">
+                        <img 
+                          src={discount.imageUrl || "https://images.unsplash.com/photo-1497935586351-b67a49e012bf?q=80&w=800&auto=format&fit=crop"} 
+                          alt={discount.name} 
+                          className="w-full h-full object-cover" 
+                        />
+                        <div className="absolute top-4 left-4 bg-[#0a3822] text-white text-[9px] font-bold px-3 py-1 rounded-full tracking-wide shadow-sm">
+                          {discount.label || 'COMBO SAVER'}
+                        </div>
+                      </div>
+                      <div className="w-full sm:w-1/2 p-6 flex flex-col justify-between">
+                        <div>
+                          <h3 className="text-base font-extrabold text-gray-900 mb-1 leading-snug">{discount.name}</h3>
+                          <div className="mt-2 space-y-1">
+                            <p className="text-gray-400 text-[9px] font-bold uppercase tracking-wider">Required Items:</p>
+                            {discount.comboItems.map((item: any, idx: number) => {
+                              const prod = products.find(p => p.sku === item.productId || p.id === item.productId);
+                              return (
+                                <div key={idx} className="text-xs text-gray-700 font-bold flex justify-between">
+                                  <span className="truncate pr-1">• {prod ? prod.name : 'Unknown Product'}</span>
+                                  <span className="text-[#0a3822] shrink-0">Qty: {item.minQty}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div className="mt-4 border-t border-gray-100 pt-3 flex flex-col justify-end">
+                          <div className="mb-3 flex items-baseline gap-1.5 justify-between">
+                            <span className="text-gray-500 text-[10px] font-bold">Bundle Price:</span>
+                            <div className="text-right">
+                              <span className="text-gray-900 font-extrabold text-lg block">Rs. {finalTotal.toFixed(2)}</span>
+                              <span className="text-gray-400 line-through text-xs font-medium">Rs. {originalTotal.toFixed(2)}</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => addComboToCart(discount)}
+                            className="w-full bg-[#0a3822] text-white hover:bg-[#072a19] py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                          >
+                            <ShoppingCart className="w-4 h-4" />
+                            Add Combo to Cart
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
+            )}
           </section>
 
           {/* 2. Seasonal Specials Section */}
-          <section className="mb-16">
-            <div className="mb-8 text-center">
-              <h2 className="text-2xl font-bold text-[#103e2c] mb-1">Seasonal Specials</h2>
+          <section>
+            <div className="mb-6">
+              <h2 className="text-2xl font-black text-[#103e2c] mb-1">Seasonal Deals</h2>
               <p className="text-gray-500 text-xs">Fresh savings for the current season.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-              {/* Item 1 */}
-              <div className="flex flex-col items-center text-center bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                <div className="w-40 h-40 shrink-0 rounded-full overflow-hidden shadow-md border-4 border-gray-50 bg-white mb-4">
-                  <img src="https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?q=80&w=600&auto=format&fit=crop" alt="Terra Mug" className="w-full h-full object-cover" />
-                </div>
-                <span className="inline-block bg-[#475569] text-white text-[9px] font-bold px-2.5 py-0.5 rounded-full tracking-wide mb-2">Summer Special</span>
-                <h3 className="text-lg font-extrabold text-gray-900 mb-1">Handcrafted Terra Mug</h3>
-                <p className="text-gray-500 text-xs mb-3 max-w-xs leading-relaxed">Sip your favorite beverages in a vessel carved by tradition.</p>
-                <div className="flex items-center justify-center gap-2 mb-4">
-                  <span className="text-[#103e2c] font-extrabold text-2xl">Rs. 8.99</span>
-                  <span className="text-gray-400 line-through text-xs font-medium">Rs. 12.50</span>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => addToCart({
-                      id: 'offer-terra-mug',
-                      name: 'Handcrafted Terra Mug',
-                      price: 8.99,
-                      image: 'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?q=80&w=600&auto=format&fit=crop',
-                      category: 'SPECIAL'
-                    })}
-                    className="border border-[#0a3822] text-[#0a3822] hover:bg-emerald-50 px-4 py-1.5 rounded text-xs font-bold transition-colors"
-                  >
-                    Add to Cart
-                  </button>
-                  <button
-                    onClick={() => {
-                      setManualDiscount(28);
-                      setDiscountInput('28');
-                    }}
-                    className="bg-[#0a3822] text-white hover:bg-[#072a19] px-3 py-1.5 rounded text-xs font-bold transition-colors"
-                  >
-                    Apply 28% Off
-                  </button>
-                </div>
+            {seasonal.length === 0 ? (
+              <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 text-gray-500 font-bold text-xs shadow-sm">
+                No active seasonal deals available.
               </div>
-
-              {/* Item 2 */}
-              <div className="flex flex-col items-center text-center bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                <div className="w-40 h-40 shrink-0 rounded-full overflow-hidden shadow-md border-4 border-gray-50 bg-white mb-4">
-                  <img src="https://images.unsplash.com/photo-1517673132405-a56a62b18caf?q=80&w=600&auto=format&fit=crop" alt="Granola" className="w-full h-full object-cover mix-blend-multiply" />
-                </div>
-                <span className="inline-block bg-[#16a34a] text-white text-[9px] font-bold px-2.5 py-0.5 rounded-full tracking-wide mb-2">Festival Offer</span>
-                <h3 className="text-lg font-extrabold text-gray-900 mb-1">Organic Granola</h3>
-                <p className="text-gray-500 text-xs mb-3 max-w-xs leading-relaxed">Start your day with wholesome crunch and naturally sweet ingredients.</p>
-                <div className="flex items-center justify-center gap-2 mb-4">
-                  <span className="text-[#103e2c] font-extrabold text-2xl">Rs. 4.50</span>
-                  <span className="text-gray-400 line-through text-xs font-medium">Rs. 6.00</span>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => addToCart({
-                      id: 'offer-granola',
-                      name: 'Organic Granola',
-                      price: 4.50,
-                      image: 'https://images.unsplash.com/photo-1517673132405-a56a62b18caf?q=80&w=600&auto=format&fit=crop',
-                      category: 'SPECIAL'
-                    })}
-                    className="border border-[#0a3822] text-[#0a3822] hover:bg-emerald-50 px-4 py-1.5 rounded text-xs font-bold transition-colors"
-                  >
-                    Add to Cart
-                  </button>
-                  <button
-                    onClick={() => {
-                      setManualDiscount(25);
-                      setDiscountInput('25');
-                    }}
-                    className="bg-[#0a3822] text-white hover:bg-[#072a19] px-3 py-1.5 rounded text-xs font-bold transition-colors"
-                  >
-                    Apply 25% Off
-                  </button>
-                </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {seasonal.map(discount => (
+                  <div key={discount.id} className="bg-white rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] overflow-hidden border border-gray-100 hover:shadow-lg transition-shadow flex flex-col">
+                    <div className="h-40 w-full relative bg-gray-50 shrink-0">
+                      <img 
+                        src={discount.imageUrl || "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?q=80&w=600&auto=format&fit=crop"} 
+                        alt={discount.name} 
+                        className="w-full h-full object-cover" 
+                      />
+                      <div className="absolute top-4 right-4 bg-emerald-500/90 backdrop-blur-sm text-white text-[10px] font-black px-3 py-1 rounded-full shadow-sm">
+                        {discount.discountValue}% OFF
+                      </div>
+                      <div className="absolute bottom-4 left-4 bg-black/70 text-white text-[9px] font-bold px-3 py-1 rounded shadow-sm">
+                        VALIDITY: {discount.startDate} TO {discount.endDate}
+                      </div>
+                    </div>
+                    <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+                      <div>
+                        <h3 className="text-base font-extrabold text-gray-900 mb-1 leading-snug">{discount.name}</h3>
+                        {discount.label && <p className="text-emerald-700 text-xs font-bold flex items-center gap-1">★ {discount.label}</p>}
+                        <div className="mt-3 space-y-1 border-t border-gray-50 pt-2">
+                          <p className="text-gray-400 text-[9px] font-bold uppercase tracking-wider">Applicable to Products:</p>
+                          {discount.productIds?.map((skuId: string, idx: number) => {
+                            const prod = products.find(p => p.sku === skuId || p.id === skuId);
+                            return (
+                              <div key={idx} className="text-xs text-gray-700 font-bold truncate flex flex-wrap gap-x-2">
+                                <span>• {prod ? prod.name : skuId}</span>
+                                <span className="text-gray-400 line-through font-semibold">(Original: Rs. {prod ? prod.price.toFixed(2) : '0.00'})</span>
+                                <span className="text-emerald-700 font-extrabold">(Offer: Rs. {prod ? (prod.price * (1 - discount.discountValue / 100)).toFixed(2) : '0.00'})</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => addDiscountProductsToCart(discount)}
+                        className="w-full bg-[#0a3822] text-white hover:bg-[#072a19] py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                        Add Products to Cart
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
+            )}
           </section>
 
-          {/* 3. Flash Sales Section */}
-          <section className="mb-12">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-6 gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-[#103e2c] mb-1 flex items-center gap-2">Flash Sales <span className="text-emerald-400">⚡</span></h2>
-                <p className="text-gray-500 text-xs">Limited time offers. Act fast!</p>
-              </div>
-              <div className="bg-white px-3 py-1.5 rounded-xl border border-gray-100 shadow-sm flex items-center gap-2.5">
-                <span className="text-[9px] font-bold tracking-wider text-gray-500 uppercase">ENDS IN:</span>
-                <span className="font-mono font-bold text-base text-gray-900 tracking-wider">04 : 31 : 53</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              {/* Flash Sale Card 1 */}
-              <div className="relative h-[280px] rounded-2xl overflow-hidden group shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300">
-                <img src="https://images.unsplash.com/photo-1559553156-2e97137af16f?q=80&w=800&auto=format&fit=crop" alt="Sparkling Water" className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#436f5b]/95 via-[#436f5b]/40 to-transparent"></div>
-
-                <div className="absolute bottom-0 left-0 w-full p-5 pb-[70px]">
-                  <h3 className="text-white text-lg font-bold mb-0.5">Pure Alpine Sparkling</h3>
-                  <div className="flex items-center gap-2">
-                    <span className="text-white font-extrabold text-2xl">Rs. 1.80</span>
-                    <span className="text-white/60 line-through text-xs font-medium">Rs. 3.20</span>
-                  </div>
-                </div>
-
-                <div className="absolute bottom-[75px] right-5 w-12 h-12 rounded-full bg-[#bbf7d0] text-[#166534] flex flex-col items-center justify-center shadow-lg">
-                  <span className="text-[7px] font-bold uppercase leading-none mb-0.5">Save</span>
-                  <span className="text-xs font-extrabold leading-none">40%</span>
-                </div>
-
-                <div className="absolute bottom-4 left-4 right-4 flex gap-2">
-                  <button
-                    onClick={() => addToCart({
-                      id: 'offer-alpine-sparkling',
-                      name: 'Pure Alpine Sparkling',
-                      price: 1.80,
-                      image: 'https://images.unsplash.com/photo-1559553156-2e97137af16f?q=80&w=800&auto=format&fit=crop',
-                      category: 'FLASH'
-                    })}
-                    className="flex-1 bg-white text-gray-900 py-2 rounded font-bold text-xs hover:bg-gray-50 transition-colors shadow-sm text-center"
-                  >
-                    Claim Offer
-                  </button>
-                  <button
-                    onClick={() => {
-                      setManualDiscount(40);
-                      setDiscountInput('40');
-                    }}
-                    className="bg-emerald-600 text-white hover:bg-emerald-700 px-4 py-2 rounded font-bold text-xs transition-colors"
-                  >
-                    Apply 40% Off
-                  </button>
-                </div>
-              </div>
-
-              {/* Flash Sale Card 2 */}
-              <div className="relative h-[280px] rounded-2xl overflow-hidden group shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300">
-                <img src="https://images.unsplash.com/photo-1549007994-cb92caebd54b?q=80&w=800&auto=format&fit=crop" alt="Chocolate Bar" className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#3f5144]/95 via-[#3f5144]/40 to-transparent"></div>
-
-                <div className="absolute bottom-0 left-0 w-full p-5 pb-[70px]">
-                  <h3 className="text-white text-lg font-bold mb-0.5">Artisanal Cocoa Cru</h3>
-                  <div className="flex items-center gap-2">
-                    <span className="text-white font-extrabold text-2xl">Rs. 3.49</span>
-                    <span className="text-white/60 line-through text-xs font-medium">Rs. 5.69</span>
-                  </div>
-                </div>
-
-                <div className="absolute bottom-[75px] right-5 w-12 h-12 rounded-full bg-[#bbf7d0] text-[#166534] flex flex-col items-center justify-center shadow-lg">
-                  <span className="text-[7px] font-bold uppercase leading-none mb-0.5">Off</span>
-                  <span className="text-xs font-extrabold leading-none tracking-tight">Rs. 2.20</span>
-                </div>
-
-                <div className="absolute bottom-4 left-4 right-4 flex gap-2">
-                  <button
-                    onClick={() => addToCart({
-                      id: 'offer-cocoa-cru',
-                      name: 'Artisanal Cocoa Cru',
-                      price: 3.49,
-                      image: 'https://images.unsplash.com/photo-1549007994-cb92caebd54b?q=80&w=800&auto=format&fit=crop',
-                      category: 'FLASH'
-                    })}
-                    className="flex-1 bg-white text-gray-900 py-2 rounded font-bold text-xs hover:bg-gray-50 transition-colors shadow-sm text-center"
-                  >
-                    Claim Offer
-                  </button>
-                  <button
-                    onClick={() => {
-                      setManualDiscount(39);
-                      setDiscountInput('39');
-                    }}
-                    className="bg-emerald-600 text-white hover:bg-emerald-700 px-4 py-2 rounded font-bold text-xs transition-colors"
-                  >
-                    Apply 39% Off
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* 4. Daily Essentials Section */}
-          <section className="mb-12">
+          {/* 3. Daily Specials Section */}
+          <section>
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-[#103e2c] mb-1">Daily Essentials</h2>
-              <p className="text-gray-500 text-xs">Everyday value on your retail favorites.</p>
+              <h2 className="text-2xl font-black text-[#103e2c] mb-1 flex items-center gap-1.5">Daily Offers ⚡</h2>
+              <p className="text-gray-500 text-xs">Happy hour value deals active today.</p>
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-              {/* Essential Card 1 */}
-              <div
-                onClick={() => addToCart({
-                  id: 'offer-botanical-defense',
-                  name: 'Botanical Defense',
-                  price: 2.25,
-                  image: 'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?q=80&w=400&auto=format&fit=crop',
-                  category: 'ESSENTIAL'
-                })}
-                className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.03)] border border-gray-100 overflow-hidden hover:shadow-lg transition-all flex flex-col cursor-pointer group"
-              >
-                <div className="relative h-36 bg-[#eef1eb] p-4 flex items-center justify-center">
-                  <div className="absolute top-3 left-3 z-10 bg-[#dc2626] text-white text-[8px] font-bold px-2 py-0.5 rounded shadow-sm">
-                    10% OFF
-                  </div>
-                  <img src="https://images.unsplash.com/photo-1556228578-0d85b1a4d571?q=80&w=400&auto=format&fit=crop" alt="Botanical Defense" className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform" />
-                </div>
-                <div className="p-4 flex flex-col justify-between flex-grow">
-                  <div>
-                    <h3 className="text-gray-900 font-bold text-xs mb-1 truncate">Botanical Defense</h3>
-                    <div className="flex items-baseline gap-2 mb-3">
-                      <span className="text-gray-900 font-extrabold text-sm">Rs. 2.25</span>
-                      <span className="text-gray-400 line-through text-[10px] font-medium">Rs. 2.50</span>
+            {daily.length === 0 ? (
+              <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 text-gray-500 font-bold text-xs shadow-sm">
+                No active daily specials available.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {daily.map(discount => (
+                  <div key={discount.id} className="bg-white rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] overflow-hidden border border-gray-100 hover:shadow-lg transition-shadow flex flex-col">
+                    <div className="h-40 w-full relative bg-gray-50 shrink-0">
+                      <img 
+                        src={discount.imageUrl || "https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=600&auto=format&fit=crop"} 
+                        alt={discount.name} 
+                        className="w-full h-full object-cover" 
+                      />
+                      <div className="absolute top-4 right-4 bg-emerald-500/90 backdrop-blur-sm text-white text-[10px] font-black px-3 py-1 rounded-full shadow-sm">
+                        {discount.discountValue}% OFF
+                      </div>
+                      <div className="absolute bottom-4 left-4 bg-black/70 text-white text-[9px] font-bold px-3 py-1 rounded shadow-sm flex flex-col gap-0.5">
+                        {discount.applicableDate && <span>DATE: {discount.applicableDate}</span>}
+                        <span>HOURS: {discount.dailyStartTime} - {discount.dailyEndTime}</span>
+                      </div>
+                    </div>
+                    <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+                      <div>
+                        <h3 className="text-base font-extrabold text-gray-900 mb-1 leading-snug">{discount.name}</h3>
+                        {discount.label && <p className="text-emerald-700 text-xs font-bold flex items-center gap-1">★ {discount.label}</p>}
+                        <div className="mt-3 space-y-1 border-t border-gray-50 pt-2">
+                          <p className="text-gray-400 text-[9px] font-bold uppercase tracking-wider">Applicable to Products:</p>
+                          {discount.productIds?.map((skuId: string, idx: number) => {
+                            const prod = products.find(p => p.sku === skuId || p.id === skuId);
+                            return (
+                              <div key={idx} className="text-xs text-gray-700 font-bold truncate flex flex-wrap gap-x-2">
+                                <span>• {prod ? prod.name : skuId}</span>
+                                <span className="text-gray-400 line-through font-semibold">(Original: Rs. {prod ? prod.price.toFixed(2) : '0.00'})</span>
+                                <span className="text-emerald-700 font-extrabold">(Offer: Rs. {prod ? (prod.price * (1 - discount.discountValue / 100)).toFixed(2) : '0.00'})</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => addDiscountProductsToCart(discount)}
+                        className="w-full bg-[#0a3822] text-white hover:bg-[#072a19] py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                        Add Products to Cart
+                      </button>
                     </div>
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setManualDiscount(10);
-                      setDiscountInput('10');
-                    }}
-                    className="w-full bg-red-50 hover:bg-red-100 text-red-700 font-bold text-[10px] py-1 rounded transition-colors text-center"
-                  >
-                    Apply 10% Off
-                  </button>
-                </div>
+                ))}
               </div>
-
-              {/* Essential Card 2 */}
-              <div
-                onClick={() => addToCart({
-                  id: 'offer-olive-oil',
-                  name: 'Artisan Olive Oil',
-                  price: 14.50,
-                  image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?q=80&w=400&auto=format&fit=crop',
-                  category: 'ESSENTIAL'
-                })}
-                className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.03)] border border-gray-100 overflow-hidden hover:shadow-lg transition-all flex flex-col cursor-pointer group"
-              >
-                <div className="relative h-36 bg-[#f1f4ed] overflow-hidden">
-                  <div className="absolute top-3 left-3 z-10 bg-[#0a3822] text-white text-[8px] font-bold px-2 py-0.5 rounded shadow-sm">
-                    Rs. 0.50 OFF
-                  </div>
-                  <img src="https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?q=80&w=400&auto=format&fit=crop" alt="Artisan Olive Oil" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                </div>
-                <div className="p-4 flex flex-col justify-between flex-grow">
-                  <div>
-                    <h3 className="text-gray-900 font-bold text-xs mb-1 truncate">Artisan Olive Oil</h3>
-                    <div className="flex items-baseline gap-2 mb-3">
-                      <span className="text-gray-900 font-extrabold text-sm">Rs. 14.50</span>
-                      <span className="text-gray-400 line-through text-[10px] font-medium">Rs. 15.00</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setManualDiscount(3);
-                      setDiscountInput('3');
-                    }}
-                    className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] py-1 rounded transition-colors text-center"
-                  >
-                    Apply 3% Off
-                  </button>
-                </div>
-              </div>
-
-              {/* Essential Card 3 */}
-              <div
-                onClick={() => addToCart({
-                  id: 'offer-terra-mug-pair',
-                  name: 'Terra Mug (Pair)',
-                  price: 12.50,
-                  image: 'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?q=80&w=400&auto=format&fit=crop',
-                  category: 'ESSENTIAL'
-                })}
-                className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.03)] border border-gray-100 overflow-hidden hover:shadow-lg transition-all flex flex-col cursor-pointer group"
-              >
-                <div className="relative h-36 bg-gray-50 overflow-hidden">
-                  <div className="absolute top-3 left-3 z-10 bg-[#dc2626] text-white text-[8px] font-bold px-2 py-0.5 rounded shadow-sm">
-                    BOGO
-                  </div>
-                  <img src="https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?q=80&w=400&auto=format&fit=crop" alt="Terra Mug (Pair)" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                </div>
-                <div className="p-4 flex flex-col justify-between flex-grow">
-                  <div>
-                    <h3 className="text-gray-900 font-bold text-xs mb-1 truncate">Terra Mug (Pair)</h3>
-                    <div className="flex items-baseline gap-2 mb-3">
-                      <span className="text-gray-900 font-extrabold text-sm">Rs. 12.50</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setManualDiscount(50);
-                      setDiscountInput('50');
-                    }}
-                    className="w-full bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold text-[10px] py-1 rounded transition-colors text-center"
-                  >
-                    Apply 50% Off (BOGO)
-                  </button>
-                </div>
-              </div>
-
-              {/* Essential Card 4 (Placeholder) */}
-              <div
-                onClick={() => setActiveTab('products')}
-                className="bg-[#e2e8f0] rounded-xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:shadow-lg hover:bg-[#cbd5e1] transition-all flex flex-col items-center justify-center p-6 text-center h-full min-h-[170px] relative cursor-pointer border border-transparent"
-              >
-                <div className="absolute top-3 left-3 z-10 bg-[#0a3822] text-white text-[8px] font-bold px-2 py-0.5 rounded shadow-sm tracking-wider">
-                  VIEW ALL
-                </div>
-                <h3 className="text-gray-900 font-bold text-xs mb-1">Explore Products</h3>
-                <p className="text-gray-500 text-[9px] font-medium">Return to active catalog</p>
-              </div>
-
-            </div>
+            )}
           </section>
 
         </div>
@@ -723,41 +1484,55 @@ export default function POSPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => (
-              <div
-                key={product.id}
-                onClick={() => addToCart(product)}
-                className="bg-white rounded-[20px] p-3 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-gray-100 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] transition-all duration-300 group cursor-pointer"
-              >
-                {/* Image Container */}
-                <div className="bg-[#f4f6f8] rounded-[14px] h-48 relative overflow-hidden mb-4">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  />
-                  {product.category && (
-                    <span className="absolute top-3 left-3 px-3 py-1 text-[10px] font-bold rounded-full shadow-sm z-10 bg-[#1b4332] text-white">
-                      {product.category}
-                    </span>
-                  )}
+            {loading ? (
+              Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="bg-white rounded-[20px] p-3 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-gray-100 animate-pulse">
+                  <div className="bg-gray-100 rounded-[14px] h-48 mb-4"></div>
+                  <div className="h-4 bg-gray-100 rounded w-2/3 mb-2"></div>
+                  <div className="h-4 bg-gray-100 rounded w-1/3"></div>
                 </div>
+              ))
+            ) : filteredProducts.length === 0 ? (
+              <div className="col-span-full py-12 text-center text-gray-500 font-medium">
+                No products found in category.
+              </div>
+            ) : (
+              filteredProducts.map((product) => (
+                <div
+                  key={product.id}
+                  onClick={() => addToCart(product)}
+                  className="bg-white rounded-[20px] p-3 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-gray-100 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] transition-all duration-300 group cursor-pointer"
+                >
+                  {/* Image Container */}
+                  <div className="bg-[#f4f6f8] rounded-[14px] h-48 relative overflow-hidden mb-4">
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    />
+                    {product.category && (
+                      <span className="absolute top-3 left-3 px-3 py-1 text-[10px] font-bold rounded-full shadow-sm z-10 bg-[#1b4332] text-white">
+                        {product.category}
+                      </span>
+                    )}
+                  </div>
 
-                {/* Product Info */}
-                <div className="px-2 pb-2">
-                  <h3 className="text-[13px] font-bold text-gray-800 mb-1.5 truncate">
-                    {product.name}
-                  </h3>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-gray-600 text-[15px] font-semibold">Rs. {product.price.toFixed(2)}
-                    </span>
-                    <button className="w-7 h-7 rounded-full bg-[#eff6ff] text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors">
-                      <span className="text-[16px] leading-none font-medium mb-[1px]">+</span>
-                    </button>
+                  {/* Product Info */}
+                  <div className="px-2 pb-2">
+                    <h3 className="text-[13px] font-bold text-gray-800 mb-1.5 truncate">
+                      {product.name}
+                    </h3>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-gray-600 text-[15px] font-semibold">Rs. {product.price.toFixed(2)}
+                      </span>
+                      <button className="w-7 h-7 rounded-full bg-[#eff6ff] text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors">
+                        <span className="text-[16px] leading-none font-medium mb-[1px]">+</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -790,7 +1565,7 @@ export default function POSPage() {
               const val = e.target.value;
               setSearchQuery(val);
               if (val.length > 1) {
-                const matches = MOCK_PRODUCTS.filter(p =>
+                const matches = products.filter(p =>
                   p.name.toLowerCase().includes(val.toLowerCase()) ||
                   (p.barcode && p.barcode.includes(val))
                 ).slice(0, 5);
@@ -949,37 +1724,70 @@ export default function POSPage() {
 
           {/* Cart Items List */}
           <div className="flex-1 overflow-y-auto py-2">
-            {cart.length === 0 ? (
+            {cartWithDiscounts.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-gray-400">
                 <ShoppingCart className="w-12 h-12 opacity-20 mb-3" />
                 <p className="font-medium">Cart is empty</p>
               </div>
             ) : (
               <div className="space-y-6 pt-4">
-                {cart.map(item => {
+                {cartWithDiscounts.map(item => {
                   const itemDisc = discountType === 'bill' ? 0 : (item.discount || 0);
                   const itemTotal = (item.price * item.quantity) * (1 - itemDisc / 100);
                   return (
                     <div key={item.id} className="grid grid-cols-12 gap-4 items-center">
                       <div className="col-span-3 flex items-center gap-3">
                         <img src={item.image} alt={item.name} className="w-10 h-10 rounded bg-white object-cover border border-gray-100 shrink-0" />
-                        <div className="overflow-hidden">
-                          <h4 className="text-[13px] font-bold text-gray-900 truncate">{item.name}</h4>
-                          <p className="text-[11px] text-gray-500 font-medium mt-0.5 truncate">SKU: {item.barcode || `PRD-${item.id}`}</p>
+                        <div className="overflow-hidden w-full">
+                          <h4 className="text-[13px] font-bold text-gray-900 truncate flex items-center gap-1.5">
+                            {item.isCombo && <span className="bg-emerald-100 text-emerald-800 text-[9px] font-black px-1.5 py-0.5 rounded shrink-0">COMBO</span>}
+                            <span className="truncate">{item.name}</span>
+                          </h4>
+                          {item.isCombo ? (
+                            <div className="text-[10px] text-gray-500 font-semibold mt-1 space-y-0.5 max-w-full">
+                              {item.comboItems?.map((ci: any, idx: number) => {
+                                const prod = products.find(p => p.sku === ci.sku || p.id === ci.sku);
+                                return (
+                                  <div key={idx} className="truncate">
+                                    • {prod ? prod.name : ci.sku} (x{ci.qty})
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="text-[11px] text-gray-500 font-medium mt-0.5 truncate">SKU: {item.barcode || `PRD-${item.id}`}</p>
+                              {itemDisc > 0 && (
+                                <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                                  <Tag className="w-3 h-3 shrink-0" />
+                                  {itemDisc}% OFF
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="col-span-2 text-center font-semibold text-gray-700 text-[14px]">
                         Rs. {item.price.toFixed(2)}
                       </div>
                       <div className="col-span-2 flex justify-center">
-                        <div className="flex items-center bg-[#f0f4f8] rounded-lg p-1">
-                          <button onClick={() => updateQuantity(item.id, -1)} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-white text-gray-600 hover:shadow-sm transition-all"><Minus className="w-3 h-3" /></button>
-                          <span className="w-10 text-center text-sm font-bold text-gray-800">{item.quantity}</span>
-                          <button onClick={() => updateQuantity(item.id, 1)} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-white text-gray-600 hover:shadow-sm transition-all"><Plus className="w-3 h-3" /></button>
-                        </div>
+                        {item.isCombo ? (
+                          <button
+                            onClick={() => ungroupCombo(item.id)}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-bold transition-all border border-blue-100 shadow-sm"
+                          >
+                            Ungroup
+                          </button>
+                        ) : (
+                          <div className="flex items-center bg-[#f0f4f8] rounded-lg p-1">
+                            <button onClick={() => updateQuantity(item.id, -1)} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-white text-gray-600 hover:shadow-sm transition-all"><Minus className="w-3 h-3" /></button>
+                            <span className="w-10 text-center text-sm font-bold text-gray-800">{item.quantity}</span>
+                            <button onClick={() => updateQuantity(item.id, 1)} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-white text-gray-600 hover:shadow-sm transition-all"><Plus className="w-3 h-3" /></button>
+                          </div>
+                        )}
                       </div>
                       <div className="col-span-2 text-center font-medium text-gray-600 text-[14px]">
-                        {item.discount || 0}%
+                        {itemDisc}%
                       </div>
                       <div className="col-span-1 flex justify-center">
                         <button onClick={() => setCart(prev => prev.filter(p => p.id !== item.id))} className="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded transition-colors" title="Remove item">
@@ -992,11 +1800,6 @@ export default function POSPage() {
                     </div>
                   );
                 })}
-                {/* Subtotal Row */}
-                <div className="border-t border-gray-100 pt-4 mt-6 flex justify-between items-center bg-[#f8fafc] p-4 rounded-xl">
-                  <span className="text-sm font-bold text-gray-600 uppercase tracking-wider">Subtotal</span>
-                  <span className="text-xl font-extrabold text-[#047857]">Rs. {itemsSubtotal.toFixed(2)}</span>
-                </div>
               </div>
             )}
           </div>
@@ -1025,13 +1828,20 @@ export default function POSPage() {
                 </div>
               </div>
               <div className={`transition-all duration-300 ${!isOverallDiscountActive ? 'opacity-40 blur-[0.75px] pointer-events-none select-none' : ''}`}>
-                <label className="block text-xs font-bold text-gray-900 mb-2 tracking-wide">Overall Discount (%)</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-bold text-gray-900 tracking-wide">Overall Discount (%)</label>
+                  {autoBillDiscount.percentage > 0 && (
+                    <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 animate-pulse">
+                      Auto Offer: {autoBillDiscount.percentage}% OFF ({autoBillDiscount.name})
+                    </span>
+                  )}
+                </div>
                 <div className="relative">
                   <input
                     type="number"
                     min="0"
                     max="100"
-                    placeholder="Enter discount (%)"
+                    placeholder={autoBillDiscount.percentage > 0 ? `Auto applied: ${autoBillDiscount.percentage}%` : "Enter discount (%)"}
                     value={manualDiscount || ''}
                     onChange={(e) => {
                       const val = parseFloat(e.target.value);
@@ -1053,50 +1863,53 @@ export default function POSPage() {
                 />
               </div>
             </div>
-            {/* Row 2: Totals & Payment action */}
-            <div className="flex flex-wrap lg:flex-nowrap items-center justify-between gap-6 pt-4 border-t border-gray-100 w-full">
-              <div className="flex flex-wrap lg:flex-nowrap items-center gap-4 flex-1 w-full mr-4">
-                {/* Items Subtotal Box */}
-                <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 flex-1 min-w-[200px]">
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Items Subtotal</span>
-                  <div className="w-32 h-10 flex items-center justify-center bg-white border border-gray-300 rounded-lg text-sm font-extrabold text-gray-800 shrink-0">
-                    Rs. {grossTotal.toFixed(2)}
-                  </div>
+            
+            {/* Totals Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full mb-6 pt-4 border-t border-gray-100">
+              {/* Items Subtotal Box */}
+              <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Items Subtotal</span>
+                <div className="w-28 h-10 flex items-center justify-center bg-white border border-gray-300 rounded-lg text-sm font-extrabold text-gray-800 shrink-0">
+                  Rs. {grossTotal.toFixed(2)}
                 </div>
-
-                {/* Total Discount Box */}
-                <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 flex-1 min-w-[200px]">
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Total Discount</span>
-                  <div className="w-32 h-10 flex items-center justify-center bg-white border border-gray-300 rounded-lg text-sm font-extrabold text-gray-800 shrink-0">
-                    -Rs. {totalSavedAmount.toFixed(2)}
-                  </div>
-                </div>
-
-                {/* Bill Total Box */}
-                <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 flex-1 min-w-[200px]">
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill Total</span>
-                  <div className="w-32 h-10 flex items-center justify-center bg-white border border-gray-300 rounded-lg text-sm font-extrabold text-gray-800 shrink-0">
-                    Rs. {total.toFixed(2)}
-                  </div>
-                </div>
-
-                {/* Change Due Box */}
-                {customerPaidInput && (
-                  <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 flex-1 min-w-[200px]">
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Change Due</span>
-                    <div className="w-32 h-10 flex items-center justify-center bg-white border border-gray-300 rounded-lg text-sm font-extrabold text-gray-800 shrink-0">
-                      Rs. {(Math.max(0, (parseFloat(customerPaidInput) || 0) - total)).toFixed(2)}
-                    </div>
-                  </div>
-                )}
               </div>
 
-              {/* Complete Transaction Button */}
+              {/* Total Discount Box */}
+              <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Total Discount</span>
+                <div className="w-28 h-10 flex items-center justify-center bg-white border border-gray-300 rounded-lg text-sm font-extrabold text-gray-800 shrink-0">
+                  -Rs. {totalSavedAmount.toFixed(2)}
+                </div>
+              </div>
+
+              {/* Bill Total Box */}
+              <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Bill Total</span>
+                <div className="w-28 h-10 flex items-center justify-center bg-white border border-gray-300 rounded-lg text-sm font-extrabold text-gray-800 shrink-0">
+                  Rs. {total.toFixed(2)}
+                </div>
+              </div>
+
+              {/* Change Due Box */}
+              <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Change Due</span>
+                <div className="w-28 h-10 flex items-center justify-center bg-white border border-gray-300 rounded-lg text-sm font-extrabold text-gray-800 shrink-0">
+                  Rs. {(() => {
+                    const paid = parseFloat(customerPaidInput);
+                    if (isNaN(paid) || paid <= 0) return '0.00';
+                    return Math.max(0, paid - total).toFixed(2);
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* Complete Transaction Action Row */}
+            <div className="flex justify-end w-full">
               <button
-                onClick={() => setShowInvoiceModal(true)}
-                disabled={cart.length === 0 || !customerPaidInput}
-                className={`px-8 h-12 rounded-xl font-bold text-base flex items-center justify-center transition-all shadow-sm shrink-0 w-full lg:w-auto ${
-                  cart.length > 0 && customerPaidInput
+                onClick={handleCompleteTransaction}
+                disabled={cartWithDiscounts.length === 0 || !customerPaidInput}
+                className={`px-8 h-12 rounded-xl font-bold text-base flex items-center justify-center transition-all shadow-sm shrink-0 w-full sm:w-auto ${
+                  cartWithDiscounts.length > 0 && customerPaidInput
                     ? 'bg-[#047857] hover:bg-[#065f46] text-white shadow-md cursor-pointer'
                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 }`}
@@ -1128,15 +1941,16 @@ export default function POSPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {draftBills.map(draft => {
-                  const draftGross = draft.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                {draftBills.map((draft, index) => {
+                  const draftDate = new Date(draft.createdAt);
                   return (
                     <div key={draft.id} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
                       <div className="absolute top-0 left-0 w-1 h-full bg-orange-400"></div>
                       <div className="flex justify-between items-start mb-4">
                         <div>
-                          <h3 className="text-lg font-bold text-gray-900">Order {draft.id}</h3>
-                          <p className="text-xs text-gray-500 font-medium mt-1">{draft.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                          <h3 className="text-lg font-bold text-gray-900">Token #{index + 1}</h3>
+                          <p className="text-xs text-gray-500 font-semibold mt-1">{draft.billNumber}</p>
+                          <p className="text-[10px] text-gray-400 font-medium mt-0.5">{draftDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                         </div>
                         <span className="bg-orange-50 text-orange-700 font-bold text-xs px-2 py-1 rounded">Hold</span>
                       </div>
@@ -1144,11 +1958,11 @@ export default function POSPage() {
                       <div className="space-y-3 mb-6">
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-500 font-medium">Items</span>
-                          <span className="text-gray-900 font-bold">{draft.cart.reduce((sum, item) => sum + item.quantity, 0)} items</span>
+                          <span className="text-gray-900 font-bold">{draft.totalQty} items</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-500 font-medium">Est. Value</span>
-                          <span className="text-[#047857] font-bold">Rs. {draftGross.toFixed(2)}</span>
+                          <span className="text-[#047857] font-bold">Rs. {draft.totalBill.toFixed(2)}</span>
                         </div>
                       </div>
 
@@ -1168,18 +1982,40 @@ export default function POSPage() {
       </div>
       );
 
-  const renderOrdersView = () => (
+  const renderOrdersView = () => {
+    const totalOrdersCount = completedOrders.length;
+    const netSales = completedOrders.reduce((sum, o) => sum + o.totalBill, 0);
+    const cashPayments = completedOrders.filter(o => o.paymentMethod === 'CASH').reduce((sum, o) => sum + o.totalBill, 0);
+    const avgTicket = totalOrdersCount > 0 ? netSales / totalOrdersCount : 0;
+
+    const filteredCompletedOrders = completedOrders.filter(order => {
+      const hasRefund = order.refunds && order.refunds.length > 0;
+      if (statusFilter === 'COMPLETED') return !hasRefund;
+      if (statusFilter === 'REFUNDED') return hasRefund;
+      return true;
+    });
+
+    return (
       <div className="flex-1 flex bg-[#f8f9fc] overflow-hidden h-screen">
         <div className="flex-1 flex flex-col p-8 overflow-y-auto">
           <div className="flex justify-between items-end mb-8">
             <div>
               <h1 className="text-3xl font-extrabold text-gray-900">Order History</h1>
-              <p className="text-gray-500 mt-2 font-medium">Thursday, Oct 24 • {MOCK_ORDERS.length} Transactions Today</p>
+              <p className="text-gray-500 mt-2 font-medium">Today • {totalOrdersCount} Transactions</p>
             </div>
-            <div className="flex gap-3">
-              <button className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-colors">
-                <Filter className="w-4 h-4 mr-2" /> Filter
-              </button>
+            <div className="flex gap-3 items-center">
+              <div className="relative">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                  className="bg-white border border-gray-300 rounded-xl pl-4 pr-10 py-2 text-sm font-semibold text-gray-700 focus:outline-none cursor-pointer appearance-none hover:bg-gray-50 transition-colors"
+                >
+                  <option value="ALL">All Orders</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="REFUNDED">Refunded</option>
+                </select>
+                <Filter className="w-3.5 h-3.5 text-gray-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
               <button className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-colors">
                 <Download className="w-4 h-4 mr-2" /> Export CSV
               </button>
@@ -1189,23 +2025,23 @@ export default function POSPage() {
           <div className="grid grid-cols-3 gap-4 mb-8">
             <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
               <p className="text-xs font-bold text-gray-500 tracking-wider mb-2">NET SALES</p>
-              <h2 className="text-3xl font-extrabold text-[#166534]">Rs. 4,280.50</h2>
+              <h2 className="text-3xl font-extrabold text-[#166534]">Rs. {netSales.toFixed(2)}</h2>
               <p className="text-xs text-green-600 font-semibold mt-2 flex items-center">
-                <span className="mr-1">↗</span> +12% vs yesterday
+                <span className="mr-1">↗</span> Live from Database
               </p>
             </div>
             <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
               <p className="text-xs font-bold text-gray-500 tracking-wider mb-2">TOTAL ORDERS</p>
-              <h2 className="text-3xl font-extrabold text-gray-900">128</h2>
+              <h2 className="text-3xl font-extrabold text-gray-900">{totalOrdersCount}</h2>
               <p className="text-xs text-gray-500 font-semibold mt-2 flex items-center">
-                <FileText className="w-3 h-3 mr-1" /> Average Rs. 33.44/ticket
+                <FileText className="w-3 h-3 mr-1" /> Average Rs. {avgTicket.toFixed(2)}/ticket
               </p>
             </div>
             <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
               <p className="text-xs font-bold text-gray-500 tracking-wider mb-2">CASH PAYMENTS</p>
-              <h2 className="text-3xl font-extrabold text-gray-900">Rs. 1,120.00</h2>
+              <h2 className="text-3xl font-extrabold text-gray-900">Rs. {cashPayments.toFixed(2)}</h2>
               <p className="text-xs text-gray-500 font-semibold mt-2 flex items-center">
-                <Banknote className="w-3 h-3 mr-1" /> 26% of transactions
+                <Banknote className="w-3 h-3 mr-1" /> Payment Type breakdown
               </p>
             </div>
           </div>
@@ -1217,30 +2053,44 @@ export default function POSPage() {
                   <th className="py-4 px-6">ORDER ID</th>
                   <th className="py-4 px-6">TIME</th>
                   <th className="py-4 px-6">ITEMS</th>
+                  <th className="py-4 px-6">METHOD</th>
                   <th className="py-4 px-6">STATUS</th>
                   <th className="py-4 px-6 text-right">TOTAL</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {MOCK_ORDERS.map(order => (
-                  <tr
-                    key={order.id}
-                    onClick={() => setSelectedOrder(order)}
-                    className={`hover:bg-gray-50 cursor-pointer transition-colors ${selectedOrder?.id === order.id ? 'bg-[#f0fdf4]' : ''}`}
-                  >
-                    <td className="py-4 px-6 font-bold text-gray-900">{order.id}</td>
-                    <td className="py-4 px-6 text-gray-500 font-medium">{order.time}</td>
-                    <td className="py-4 px-6 text-gray-600 font-medium">{order.items} {order.items === 1 ? 'Item' : 'Items'}</td>
-                    <td className="py-4 px-6">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${order.status === 'Completed' ? 'bg-[#dcfce7] text-[#166534]' : 'bg-[#fee2e2] text-[#991b1b]'}`}>
-                        {order.status}
-                      </span>
-                    </td>
-                    <td className={`py-4 px-6 text-right font-extrabold text-lg ${order.total < 0 ? 'text-red-600' : 'text-gray-900'}`}>
-                      {order.total < 0 ? '-' : ''}Rs.{Math.abs(order.total).toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
+                {filteredCompletedOrders.map(order => {
+                  const orderDate = new Date(order.createdAt);
+                  const isRefunded = order.refunds && order.refunds.length > 0;
+                  return (
+                    <tr
+                      key={order.id}
+                      onClick={() => setSelectedOrder(order)}
+                      className={`hover:bg-gray-50 cursor-pointer transition-colors ${selectedOrder?.id === order.id ? 'bg-[#f0fdf4]' : ''}`}
+                    >
+                      <td className="py-4 px-6 font-bold text-gray-900">{order.billNumber}</td>
+                      <td className="py-4 px-6 text-gray-500 font-medium">
+                        {orderDate.toLocaleDateString()} {orderDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td className="py-4 px-6 text-gray-600 font-medium">{order.totalQty} {order.totalQty === 1 ? 'Item' : 'Items'}</td>
+                      <td className="py-4 px-6 font-semibold text-gray-500">{order.paymentMethod}</td>
+                      <td className="py-4 px-6">
+                        {isRefunded ? (
+                          <span className="px-2.5 py-1 text-[11px] font-bold rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                            Refunded
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Completed
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-4 px-6 text-right font-extrabold text-lg text-gray-900">
+                        Rs. {order.totalBill.toFixed(2)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             <div className="p-4 text-center border-t border-gray-100 bg-[#f8f9fc]">
@@ -1253,25 +2103,37 @@ export default function POSPage() {
         {selectedOrder && (
           <div className="w-[400px] bg-white border-l border-gray-200 flex flex-col shadow-[-4px_0_24px_rgba(0,0,0,0.02)]">
             <div className="p-6 border-b border-gray-100">
-              <h2 className="text-2xl font-extrabold text-gray-900">Order {selectedOrder.id}</h2>
-              <p className="text-sm text-gray-500 font-medium mt-1">Today at {selectedOrder.time} • Counter 1</p>
+              <h2 className="text-2xl font-extrabold text-gray-900">Order {selectedOrder.billNumber}</h2>
+              <p className="text-sm text-gray-500 font-medium mt-1">
+                {new Date(selectedOrder.createdAt).toLocaleDateString()} {new Date(selectedOrder.createdAt).toLocaleTimeString()} • Counter 1
+              </p>
             </div>
             <div className="flex-1 overflow-y-auto p-8 bg-[#f8f9fc]">
               {/* Receipt Preview */}
               <div className="bg-white border border-gray-200 rounded shadow-sm mx-auto max-w-[340px] p-6 flex flex-col font-mono text-[13px] text-black leading-snug">
                 <div className="text-center mb-5 space-y-0.5">
                   <div className="font-bold text-base">Sales Receipt</div>
-                  <div className="font-bold text-base">Chamson Shop</div>
-                  <div>123 Main Street</div>
-                  <div>City, State 12345</div>
-                  <div>(555) 123-4567</div>
+                  <div className="font-bold text-base">CHAMSON MULTI SHOP</div>
+                  <div>Hospital road, Mannar</div>
+                  <div>0774847867</div>
                 </div>
 
                 <div className="mb-2 space-y-0.5">
-                  <div>Receipt {selectedOrder.id}</div>
-                  <div>Date: {new Date().toLocaleDateString('en-GB')} {selectedOrder.time}</div>
-                  <div>Cashier: POS System</div>
+                  <div>Receipt {selectedOrder.billNumber}</div>
+                  <div>Date: {new Date(selectedOrder.createdAt).toLocaleDateString('en-GB')} {new Date(selectedOrder.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                  <div>Cashier: {selectedOrder.cashier?.name || 'POS System'}</div>
                 </div>
+
+                {selectedOrder.refunds && selectedOrder.refunds.length > 0 && (
+                  <div className="text-center my-2 bg-amber-50 text-amber-800 font-bold border border-dashed border-amber-300 py-1.5 rounded uppercase text-[10px] tracking-wider font-sans">
+                    *** REFUNDED ***
+                    {selectedOrder.refunds.map((r: any, idx: number) => (
+                      <div key={idx} className="text-[9px] font-semibold text-amber-700 capitalize mt-0.5">
+                        Rs. {r.refundAmount.toFixed(2)} returned
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div className="border-t border-dashed border-black my-2"></div>
 
@@ -1283,51 +2145,66 @@ export default function POSPage() {
                   <div className="w-12 text-right">Total</div>
                 </div>
 
-                <div className="flex pb-1 text-[11px]">
-                  <div className="flex-1 truncate pr-1">Organic Coffee Beans</div>
-                  <div className="w-8 text-right">2.00</div>
-                  <div className="w-12 text-right">Rs. 18.50</div>
-                  <div className="w-12 text-right">Rs. 3.70</div>
-                  <div className="w-12 text-right">Rs. 33.30</div>
-                </div>
-                <div className="flex pb-1 text-[11px]">
-                  <div className="flex-1 truncate pr-1">Cold Brew Pitcher</div>
-                  <div className="w-8 text-right">1.00</div>
-                  <div className="w-12 text-right">Rs. 45.00</div>
-                  <div className="w-12 text-right">Rs. 4.50</div>
-                  <div className="w-12 text-right">Rs. 40.50</div>
-                </div>
-                <div className="flex pb-1 text-[11px]">
-                  <div className="flex-1 truncate pr-1">Paper Filters (100ct)</div>
-                  <div className="w-8 text-right">2.00</div>
-                  <div className="w-12 text-right">Rs. 12.50</div>
-                  <div className="w-12 text-right">Rs. 2.50</div>
-                  <div className="w-12 text-right">Rs. 22.50</div>
-                </div>
+                {(() => {
+                  const returnedQtyMap: Record<string, number> = {};
+                  selectedOrder.refunds?.forEach((r: any) => {
+                    r.refundItems?.forEach((ri: any) => {
+                      returnedQtyMap[ri.sku] = (returnedQtyMap[ri.sku] || 0) + ri.qty;
+                    });
+                  });
+
+                  return selectedOrder.billItems?.map((item: any) => {
+                    const itemTotal = item.qty * item.unitPrice;
+                    const itemDiscount = itemTotal - item.total;
+                    const returnedQty = returnedQtyMap[item.sku] || 0;
+                    const netQty = item.qty - returnedQty;
+
+                    return (
+                      <div key={item.id} className="flex flex-col pb-1.5 text-[11px]">
+                        <div className="flex">
+                          <div className="flex-1 truncate pr-1">{item.product?.name || item.sku}</div>
+                          <div className="w-8 text-right">
+                            {returnedQty > 0 ? `${netQty} (${item.qty})` : item.qty}
+                          </div>
+                          <div className="w-12 text-right">Rs. {item.unitPrice.toFixed(2)}</div>
+                          <div className="w-12 text-right">Rs. {itemDiscount.toFixed(2)}</div>
+                          <div className="w-12 text-right">Rs. {item.total.toFixed(2)}</div>
+                        </div>
+                        {returnedQty > 0 && (
+                          <div className="text-[10px] text-amber-700 font-semibold italic pl-2">
+                            * Returned: {returnedQty} unit(s)
+                          </div>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
 
                 <div className="border-t border-dashed border-black my-2"></div>
 
                 <div className="flex justify-between">
                   <span>Subtotal:</span>
-                  <span>Rs. 107.00</span>
+                  <span>Rs. {selectedOrder.subtotal.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Loyalty Discount:</span>
-                  <span>-Rs. 10.70</span>
-                </div>
+                {selectedOrder.totalDiscount > 0 && (
+                  <div className="flex justify-between">
+                    <span>Discount:</span>
+                    <span>-Rs. {selectedOrder.totalDiscount.toFixed(2)}</span>
+                  </div>
+                )}
 
                 <div className="border-t border-dashed border-black my-2"></div>
 
                 <div className="flex justify-between font-bold">
                   <span>Total:</span>
-                  <span>Rs. {selectedOrder.total > 0 ? selectedOrder.total.toFixed(2) : '104.24'}</span>
+                  <span>Rs. {selectedOrder.totalBill.toFixed(2)}</span>
                 </div>
 
                 <div className="border-t border-dashed border-black my-2"></div>
 
                 <div className="flex justify-between">
                   <span>Paid Amount:</span>
-                  <span>Rs. {selectedOrder.total > 0 ? selectedOrder.total.toFixed(2) : '104.24'}</span>
+                  <span>Rs. {selectedOrder.totalBill.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Change:</span>
@@ -1340,29 +2217,36 @@ export default function POSPage() {
               </div>
             </div>
             <div className="p-6 border-t border-gray-200 bg-white space-y-3">
-              <button className="w-full py-3 border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-50 flex items-center justify-center transition-colors">
+              <button 
+                onClick={() => handlePrint(selectedOrder)}
+                className="w-full py-3 border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-50 flex items-center justify-center transition-colors"
+              >
                 <Receipt className="w-5 h-5 mr-2" /> Print Receipt
               </button>
-              <button className="w-full py-4 bg-[#111827] text-white rounded-xl font-bold hover:bg-black flex items-center justify-center transition-colors">
+              <button
+                onClick={() => {
+                  setRefundQuantities({});
+                  setShowRefundModal(true);
+                }}
+                className="w-full py-4 bg-[#111827] text-white rounded-xl font-bold hover:bg-black flex items-center justify-center transition-colors"
+              >
                 <ChevronRight className="w-5 h-5 mr-2 rotate-180" /> Refund Order
               </button>
             </div>
           </div>
         )}
       </div>
-      );
+    );
+  };
 
   const renderInvoiceModal = () => {
-    if (!showInvoiceModal) return null;
+    if (!showInvoiceModal || !activeReceipt) return null;
 
-      const paid = parseFloat(customerPaidInput) || total;
-      const change = Math.max(0, paid - total);
+    const paid = parseFloat(customerPaidInput) || activeReceipt.totalBill;
+    const change = Math.max(0, paid - activeReceipt.totalBill);
+    const dateStr = new Date(activeReceipt.createdAt).toLocaleString();
 
-      // Create formatted date string for the receipt
-      const now = new Date();
-      const dateStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}, ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-
-      return (
+    return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
         <div className="bg-white rounded shadow-2xl w-full max-w-[400px] overflow-hidden flex flex-col max-h-[90vh]">
           <div className="p-8 overflow-y-auto bg-white flex-1 flex justify-center">
@@ -1370,16 +2254,15 @@ export default function POSPage() {
             <div className="font-mono text-[13px] text-black w-full max-w-[320px] mx-auto flex flex-col leading-snug">
               <div className="text-center mb-5 space-y-0.5">
                 <div className="font-bold text-base">Sales Receipt</div>
-                <div className="font-bold text-base">Chamson Shop</div>
-                <div>123 Main Street</div>
-                <div>City, State 12345</div>
-                <div>(555) 123-4567</div>
+                <div className="font-bold text-base">CHAMSON MULTI SHOP</div>
+                <div>Hospital road, Mannar</div>
+                <div>0774847867</div>
               </div>
 
               <div className="mb-2 space-y-0.5">
-                <div>Receipt #: 1000</div>
+                <div>Receipt #: {activeReceipt.billNumber}</div>
                 <div>Date: {dateStr}</div>
-                <div>Cashier: POS System</div>
+                <div>Cashier: {activeReceipt.cashier?.name || 'POS System'}</div>
               </div>
 
               <div className="border-t border-dashed border-black my-2"></div>
@@ -1392,18 +2275,16 @@ export default function POSPage() {
                 <div className="w-12 text-right">Total</div>
               </div>
 
-              {cart.map(item => {
-                const itemTotal = item.quantity * item.price;
-                const itemDiscPercent = discountType === 'bill' ? 0 : (item.discount || 0);
-                const itemDiscount = itemTotal * (itemDiscPercent / 100);
-                const itemNetTotal = itemTotal - itemDiscount;
+              {activeReceipt.billItems?.map((item: any) => {
+                const itemTotal = item.qty * item.unitPrice;
+                const itemDiscount = itemTotal - item.total;
                 return (
                   <div key={item.id} className="flex pb-1 text-[11px]">
-                    <div className="flex-1 truncate pr-1">{item.name}</div>
-                    <div className="w-8 text-right">{item.quantity.toFixed(2)}</div>
-                    <div className="w-12 text-right">Rs. {item.price.toFixed(2)}</div>
+                    <div className="flex-1 truncate pr-1">{item.product?.name || item.sku}</div>
+                    <div className="w-8 text-right">{item.qty.toFixed(2)}</div>
+                    <div className="w-12 text-right">Rs. {item.unitPrice.toFixed(2)}</div>
                     <div className="w-12 text-right">Rs. {itemDiscount.toFixed(2)}</div>
-                    <div className="w-12 text-right">Rs. {itemNetTotal.toFixed(2)}</div>
+                    <div className="w-12 text-right">Rs. {item.total.toFixed(2)}</div>
                   </div>
                 );
               })}
@@ -1412,12 +2293,12 @@ export default function POSPage() {
 
               <div className="flex justify-between">
                 <span>Subtotal:</span>
-                <span>Rs. {itemsSubtotal.toFixed(2)}</span>
+                <span>Rs. {activeReceipt.subtotal.toFixed(2)}</span>
               </div>
-              {billDiscountAmount > 0 && (
+              {activeReceipt.totalDiscount > 0 && (
                 <div className="flex justify-between">
-                  <span>Discount ({manualDiscount}%):</span>
-                  <span>-Rs. {billDiscountAmount.toFixed(2)}</span>
+                  <span>Discount:</span>
+                  <span>-Rs. {activeReceipt.totalDiscount.toFixed(2)}</span>
                 </div>
               )}
 
@@ -1425,7 +2306,7 @@ export default function POSPage() {
 
               <div className="flex justify-between font-bold">
                 <span>Total:</span>
-                <span>Rs. {total.toFixed(2)}</span>
+                <span>Rs. {activeReceipt.totalBill.toFixed(2)}</span>
               </div>
 
               <div className="border-t border-dashed border-black my-2"></div>
@@ -1446,19 +2327,22 @@ export default function POSPage() {
           </div>
 
           <div className="p-4 bg-white border-t border-gray-100 flex gap-2">
-            <button className="flex-1 py-2.5 bg-[#2563eb] text-white rounded font-bold hover:bg-blue-700 transition-colors text-sm">
+            <button 
+              onClick={() => handlePrint(activeReceipt, paid, change)}
+              className="flex-1 py-2.5 bg-[#2563eb] text-white rounded font-bold hover:bg-blue-700 transition-colors text-sm"
+            >
               Print
             </button>
-            <button className="flex-1 py-2.5 bg-[#16a34a] text-white rounded font-bold hover:bg-green-700 transition-colors text-sm">
+            <button 
+              onClick={() => handleDownloadPDF(activeReceipt)}
+              className="flex-1 py-2.5 bg-[#16a34a] text-white rounded font-bold hover:bg-green-700 transition-colors text-sm"
+            >
               Download
             </button>
             <button
               onClick={() => {
                 setShowInvoiceModal(false);
-                setCart([]);
-                setCustomerPaidInput('');
-                setDiscountInput('');
-                setManualDiscount(0);
+                setActiveReceipt(null);
               }}
               className="flex-1 py-2.5 bg-[#4b5563] text-white rounded font-bold hover:bg-gray-700 transition-colors text-sm"
             >
@@ -1467,7 +2351,70 @@ export default function POSPage() {
           </div>
         </div>
       </div>
-      );
+    );
+  };
+
+  const renderComboSuggestionModal = () => {
+    if (!showComboSuggestionModal || !suggestedCombo) return null;
+
+    const originalTotal = suggestedCombo.comboItems.reduce((sum: number, ci: any) => {
+      const prod = products.find(p => p.sku === ci.productId || p.id === ci.productId);
+      return sum + (prod ? prod.price * ci.minQty : 0);
+    }, 0);
+    const finalTotal = originalTotal * (1 - suggestedCombo.discountValue / 100);
+
+    return (
+      <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+        <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 p-8">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Gift className="w-8 h-8 text-emerald-600 animate-bounce" />
+            </div>
+            <h3 className="text-2xl font-extrabold text-gray-900 mb-2">Combo Deal Available! 🎉</h3>
+            <p className="text-sm text-gray-500 font-medium">
+              We noticed you have the items for the <span className="font-bold text-gray-800">"{suggestedCombo.name}"</span> bundle.
+            </p>
+          </div>
+
+          <div className="bg-gray-50 rounded-2xl p-5 mb-6 border border-gray-100">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Bundle Products:</p>
+            <div className="space-y-2 mb-4">
+              {suggestedCombo.comboItems.map((ci: any, idx: number) => {
+                const prod = products.find(p => p.sku === ci.productId || p.id === ci.productId);
+                return (
+                  <div key={idx} className="flex justify-between text-sm font-bold text-gray-700">
+                    <span className="truncate pr-2">• {prod ? prod.name : ci.productId}</span>
+                    <span className="text-emerald-700">Qty: {ci.minQty}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="border-t border-gray-200/60 pt-3 flex justify-between items-center">
+              <span className="text-xs font-bold text-gray-500">Combo Bundle Price:</span>
+              <div className="text-right">
+                <span className="text-gray-900 font-extrabold text-base block">Rs. {finalTotal.toFixed(2)}</span>
+                <span className="text-gray-400 line-through text-xs font-medium">Rs. {originalTotal.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-4">
+            <button
+              onClick={() => declineSuggestedCombo(suggestedCombo.id)}
+              className="flex-1 py-3.5 border border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-colors text-sm"
+            >
+              Keep Individual
+            </button>
+            <button
+              onClick={() => applySuggestedCombo(suggestedCombo)}
+              className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-colors text-sm shadow-md"
+            >
+              Group Combo Pack
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const renderBarcodeModal = () => {
@@ -1581,6 +2528,251 @@ export default function POSPage() {
       );
   };
 
+  const renderRefundModal = () => {
+    if (!showRefundModal || !selectedOrder) return null;
+
+    // Group returned quantities by SKU
+    const returnedQtyMap: Record<string, number> = {};
+    selectedOrder.refunds?.forEach((r: any) => {
+      r.refundItems?.forEach((ri: any) => {
+        returnedQtyMap[ri.sku] = (returnedQtyMap[ri.sku] || 0) + ri.qty;
+      });
+    });
+
+    let totalRefundPreview = 0;
+    let totalItemsToRefund = 0;
+
+    selectedOrder.billItems?.forEach((item: any) => {
+      const qty = refundQuantities[item.sku] || 0;
+      if (qty > 0) {
+        const refundValue = item.total / item.qty;
+        totalRefundPreview += refundValue * qty;
+        totalItemsToRefund += qty;
+      }
+    });
+
+    return (
+      <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+        <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[85vh]">
+          {/* Header */}
+          <div className="p-6 border-b border-gray-100 flex items-start justify-between bg-white shrink-0">
+            <div>
+              <h3 className="text-xl font-extrabold text-gray-900">Process Product Refund</h3>
+              <p className="text-xs text-gray-500 font-medium mt-1">
+                Original Bill: <span className="font-bold text-gray-800">{selectedOrder.billNumber}</span>
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setShowRefundModal(false);
+                setRefundQuantities({});
+              }}
+              className="text-gray-400 hover:text-gray-600 transition-colors text-2xl font-bold leading-none p-1"
+            >
+              &times;
+            </button>
+          </div>
+
+          {/* Item List */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
+            {selectedOrder.billItems?.map((item: any) => {
+              const refundQty = refundQuantities[item.sku] || 0;
+              const refundValue = item.total / item.qty;
+              const alreadyRefunded = returnedQtyMap[item.sku] || 0;
+              const maxRefundable = item.qty - alreadyRefunded;
+              return (
+                <div key={item.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-[13px] font-bold text-gray-900 truncate">
+                      {item.product?.name || item.sku}
+                    </h4>
+                    <p className="text-[11px] text-gray-500 mt-0.5">SKU: {item.sku}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-xs font-semibold text-gray-600">
+                        Paid: Rs. {refundValue.toFixed(2)} / unit
+                      </span>
+                      <span className="text-[10px] text-gray-400 font-medium">
+                        (Purchased: {item.qty})
+                      </span>
+                      {alreadyRefunded > 0 && (
+                        <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-bold">
+                          Already Refunded: {alreadyRefunded}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {maxRefundable <= 0 ? (
+                    <span className="text-[11px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg shrink-0">
+                      Fully Refunded
+                    </span>
+                  ) : (
+                    /* Quantity Counter */
+                    <div className="flex items-center bg-[#f0f4f8] rounded-lg p-1 shrink-0">
+                      <button
+                        onClick={() => {
+                          setRefundQuantities(prev => ({
+                            ...prev,
+                            [item.sku]: Math.max(0, refundQty - 1)
+                          }));
+                        }}
+                        disabled={refundQty <= 0}
+                        className={`w-8 h-8 flex items-center justify-center rounded-md text-gray-600 hover:shadow-sm transition-all ${
+                          refundQty <= 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-white'
+                        }`}
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <span className="w-8 text-center text-sm font-bold text-gray-800">{refundQty}</span>
+                      <button
+                        onClick={() => {
+                          setRefundQuantities(prev => ({
+                            ...prev,
+                            [item.sku]: Math.min(maxRefundable, refundQty + 1)
+                          }));
+                        }}
+                        disabled={refundQty >= maxRefundable}
+                        className={`w-8 h-8 flex items-center justify-center rounded-md text-gray-600 hover:shadow-sm transition-all ${
+                          refundQty >= maxRefundable ? 'opacity-40 cursor-not-allowed' : 'hover:bg-white'
+                        }`}
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Summary & Footer */}
+          <div className="p-6 border-t border-gray-100 bg-white shrink-0 space-y-4">
+            <div className="flex items-center justify-between bg-emerald-50/50 border border-emerald-100 rounded-xl px-4 py-3">
+              <div>
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block">Total Items to Refund</span>
+                <span className="text-sm font-black text-emerald-800 mt-0.5 block">{totalItemsToRefund} unit(s)</span>
+              </div>
+              <div className="text-right">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block">Calculated Refund Total</span>
+                <span className="text-lg font-black text-emerald-700 mt-0.5 block">Rs. {totalRefundPreview.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowRefundModal(false);
+                  setRefundQuantities({});
+                }}
+                className="flex-1 py-3 border border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmRefund}
+                disabled={totalItemsToRefund === 0}
+                className={`flex-1 py-3 rounded-xl font-bold text-sm transition-colors shadow-md flex items-center justify-center ${
+                  totalItemsToRefund > 0
+                    ? 'bg-[#111827] hover:bg-black text-white cursor-pointer'
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+                }`}
+              >
+                Confirm Refund
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderRefundInvoiceModal = () => {
+    if (!showRefundInvoiceModal || !activeRefundReceipt) return null;
+
+    const dateStr = new Date(activeRefundReceipt.createdAt).toLocaleString();
+    const cashierName = authContext?.user?.name || 'POS Cashier';
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+        <div className="bg-white rounded shadow-2xl w-full max-w-[400px] overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="p-8 overflow-y-auto bg-white flex-1 flex justify-center">
+            <div className="font-mono text-[13px] text-black w-full max-w-[320px] mx-auto flex flex-col leading-snug">
+              <div className="text-center mb-5 space-y-0.5">
+                <div className="font-bold text-base">REFUND RECEIPT</div>
+                <div className="font-bold text-base">CHAMSON MULTI SHOP</div>
+                <div>Hospital road, Mannar</div>
+                <div>0774847867</div>
+              </div>
+
+              <div className="mb-2 space-y-0.5">
+                <div>Refund #: {activeRefundReceipt.refundNumber}</div>
+                <div>Ref Bill #: {selectedOrder?.billNumber || ''}</div>
+                <div>Date: {dateStr}</div>
+                <div>Cashier: {cashierName}</div>
+              </div>
+
+              <div className="border-t border-dashed border-black my-2"></div>
+
+              <div className="flex font-bold pb-1 text-[11px]">
+                <div className="flex-1">Returned Item</div>
+                <div className="w-8 text-right">Qty</div>
+                <div className="w-20 text-right">Refund Val</div>
+                <div className="w-20 text-right">Total</div>
+              </div>
+
+              {activeRefundReceipt.refundItems?.map((item: any) => {
+                const itemTotal = item.qty * item.refundValue;
+                return (
+                  <div key={item.id} className="flex pb-1 text-[11px]">
+                    <div className="flex-1 truncate pr-1">{item.product?.name || item.sku}</div>
+                    <div className="w-8 text-right">{item.qty.toFixed(0)}</div>
+                    <div className="w-20 text-right">Rs. {item.refundValue.toFixed(2)}</div>
+                    <div className="w-20 text-right">Rs. {itemTotal.toFixed(2)}</div>
+                  </div>
+                );
+              })}
+
+              <div className="border-t border-dashed border-black my-2"></div>
+
+              <div className="flex justify-between font-bold">
+                <span>Total Refunded:</span>
+                <span>Rs. {activeRefundReceipt.refundAmount.toFixed(2)}</span>
+              </div>
+
+              <div className="text-center mt-6">
+                Refund Processed Successfully
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 bg-white border-t border-gray-100 flex gap-2">
+            <button 
+              onClick={() => handlePrintRefund(activeRefundReceipt)}
+              className="flex-1 py-2.5 bg-[#2563eb] text-white rounded font-bold hover:bg-blue-700 transition-colors text-sm"
+            >
+              Print
+            </button>
+            <button 
+              onClick={() => handleDownloadRefundPDF(activeRefundReceipt)}
+              className="flex-1 py-2.5 bg-[#16a34a] text-white rounded font-bold hover:bg-green-700 transition-colors text-sm"
+            >
+              Download
+            </button>
+            <button
+              onClick={() => {
+                setShowRefundInvoiceModal(false);
+                setActiveRefundReceipt(null);
+              }}
+              className="flex-1 py-2.5 bg-[#4b5563] text-white rounded font-bold hover:bg-gray-700 transition-colors text-sm"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
       return (
       <div className="flex h-screen w-full bg-white font-sans overflow-hidden">
         {renderSidebar()}
@@ -1592,6 +2784,9 @@ export default function POSPage() {
         {renderInvoiceModal()}
         {renderBarcodeModal()}
         {renderAddProductModal()}
+        {renderComboSuggestionModal()}
+        {renderRefundModal()}
+        {renderRefundInvoiceModal()}
       </div>
       );
 }
