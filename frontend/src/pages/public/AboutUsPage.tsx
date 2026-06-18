@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import ownerImg from '../../assets/images/owner.jpeg';
 
 export default function AboutUsPage() {
   const [showPopup, setShowPopup] = useState(false);
@@ -19,7 +20,7 @@ export default function AboutUsPage() {
           <div className="w-full lg:w-[35%] flex-shrink-0">
             <div className="w-full h-[500px] rounded-3xl overflow-hidden shadow-sm">
               <img 
-                src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=800&auto=format&fit=crop" 
+                src={ownerImg} 
                 alt="Store Manager" 
                 className="w-full h-full object-cover object-center"
               />

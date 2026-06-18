@@ -48,41 +48,43 @@ export default function HomePage() {
       <main>
         {/* Hero Section */}
         <section
-          className="hero-gradient relative overflow-hidden min-h-[85vh] flex items-start pt-28"
+          className="relative w-[100vw] h-[100vh] -mt-[72px] ml-[calc(50%-50vw)] flex items-start pt-32 m-0 p-0 overflow-hidden"
           style={{
-            backgroundImage: `linear-gradient(to bottom, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 15%), radial-gradient(ellipse 55% 65% at 20% 45%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.85) 45%, rgba(255, 255, 255, 0) 75%), url(${homeBgImg})`,
+            backgroundImage: `url(${homeBgImg})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
           }}
         >
-          <div className="max-w-7xl mx-auto px-6 md:px-12 w-full grid grid-cols-1 gap-8 items-center relative z-10">
-            <div className="space-y-6 max-w-none pt-4 pb-12">
+          {/* Original White Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/70 to-transparent z-0 pointer-events-none"></div>
+
+          <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 w-full pt-[72px]">
+            <div className="space-y-6 max-w-none">
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-secondary-container text-on-secondary-container rounded-full text-xs font-semibold">
                 <span className="material-symbols-outlined text-[14px]">bolt</span>
                 Next-Gen Retail Intelligence
               </div>
-              <h1 className="text-4xl md:text-5xl font-extrabold text-on-background leading-tight">
+              <h1 className="text-5xl md:text-6xl lg:text-[64px] font-extrabold text-on-background leading-tight">
                 Smart Inventory &amp; Sales Intelligence<br />for Modern Retail
               </h1>
-              <p className="text-lg md:text-xl text-on-surface-variant max-w-3xl leading-relaxed font-medium">
-                Optimize your stock levels, predict demand patterns, and unlock actionable sales insights with StockSense's AI-driven platform.
+              <p className="text-xl md:text-xl lg:text-2xl text-on-surface-variant max-w-4xl leading-relaxed font-medium">
+                Optimize your stock levels, predict demand patterns, and unlock&nbsp;actionable <br />
+                sales insights with StockSense's AI-driven platform.
               </p>
             </div>
           </div>
-          {/* Atmospheric Blurs */}
-          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-secondary-container/20 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/4"></div>
         </section>
 
         {/* Interactive Tabs Section */}
-        <div className="w-full bg-white">
+        <div className="w-full bg-white flex flex-col m-0 p-0">
           <section
-            className="py-16 max-w-7xl mx-auto px-6 md:px-12"
+            className="pt-0 pb-16 max-w-7xl mx-auto px-6 md:px-12 w-full"
             id="interactive-features"
             onMouseEnter={() => setIsPaused(true)}
             onMouseLeave={() => setIsPaused(false)}
           >
-            <div className="text-center mb-12">
+            <div className="text-center mb-12 mt-8">
               <h2 className="text-3xl font-bold text-on-background">
                 Intelligence that moves with your business
               </h2>
@@ -438,7 +440,7 @@ export default function HomePage() {
         {/* Discount Details Section */}
         <section className="py-20 bg-slate-50">
           <div className="max-w-7xl mx-auto px-6 md:px-12">
-            
+
             {/* Header */}
             <div className="text-center mb-12">
               <span className="text-on-surface-variant text-xs font-semibold uppercase tracking-widest block mb-2">
@@ -456,37 +458,37 @@ export default function HomePage() {
             {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
-                { 
-                  discount: 'Save up to 49%', 
-                  title: 'WEEKEND LOYALTY OFFERS', 
-                  desc: '23 products • Ends today', 
+                {
+                  discount: 'Save up to 49%',
+                  title: 'WEEKEND LOYALTY OFFERS',
+                  desc: '23 products • Ends today',
                   img: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=800&h=600' // Groceries flatlay
                 },
-                { 
-                  discount: 'Flat 20% Off', 
-                  title: 'FRESH PRODUCE COMBO', 
-                  desc: '15 products • Ends tomorrow', 
+                {
+                  discount: 'Flat 20% Off',
+                  title: 'FRESH PRODUCE COMBO',
+                  desc: '15 products • Ends tomorrow',
                   img: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&q=80&w=800&h=600' // Veggies/Fruits
                 },
-                { 
-                  discount: 'Buy 1 Get 1 Free', 
-                  title: 'PANTRY ESSENTIALS', 
-                  desc: '42 products • Limited time', 
+                {
+                  discount: 'Buy 1 Get 1 Free',
+                  title: 'PANTRY ESSENTIALS',
+                  desc: '42 products • Limited time',
                   img: 'https://images.unsplash.com/photo-1506617420156-8e4536971650?auto=format&fit=crop&q=80&w=800&h=600' // Pantry/Grains
                 },
               ].map((offer, idx) => (
-                <div 
-                  key={idx} 
+                <div
+                  key={idx}
                   className="group relative block overflow-hidden rounded-2xl aspect-[16/9] lg:aspect-[4/3] cursor-pointer shadow-md transition-shadow hover:shadow-xl"
                   onClick={() => navigate('/offers')}
                 >
                   {/* Background Image */}
-                  <img 
-                    src={offer.img} 
-                    alt={offer.title} 
+                  <img
+                    src={offer.img}
+                    alt={offer.title}
                     className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   />
-                  
+
                   {/* Dark Gradient Overlay for better contrast */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
@@ -502,7 +504,7 @@ export default function HomePage() {
                       {offer.desc}
                     </p>
                   </div>
-                  
+
                   {/* Bottom Right CTA Button */}
                   <div className="absolute bottom-4 right-4 bg-[#00B488] text-white px-5 py-2 rounded-full text-sm font-bold shadow-md transition-transform duration-300 group-hover:scale-105 group-hover:-translate-y-1">
                     View Offer
@@ -516,17 +518,17 @@ export default function HomePage() {
 
         {/* Final CTA */}
         <section className="w-full">
-          <div className="bg-primary p-12 md:p-20 relative overflow-hidden flex flex-col items-center text-center">
+          <div className="bg-[#dce7e0] p-12 md:p-20 relative overflow-hidden flex flex-col items-center text-center">
             <div className="relative z-10 space-y-6 max-w-2xl">
-              <h2 className="text-3xl md:text-4xl font-bold text-on-primary">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
                 Start managing your retail smarter with StockSense
               </h2>
-              <p className="text-secondary-container text-sm md:text-base max-w-lg mx-auto opacity-90">
+              <p className="text-gray-700 text-sm md:text-base max-w-lg mx-auto opacity-90 font-medium">
                 Join 2,000+ modern retailers who have optimized their inventory flow this year.
               </p>
               <Link
                 to="/login"
-                className="bg-surface-container-lowest text-primary px-8 py-4 rounded-xl text-sm font-semibold hover:scale-105 transition-transform duration-200 shadow-lg active:scale-95 inline-block z-50 cursor-pointer"
+                className="bg-primary text-white px-8 py-4 rounded-xl text-sm font-semibold hover:scale-105 transition-transform duration-200 shadow-lg active:scale-95 inline-block z-50 cursor-pointer"
               >
                 Get Started Now
               </Link>
