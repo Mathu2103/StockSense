@@ -2,8 +2,6 @@
 import { StockRulesConfig } from "./types";
 import { Toggle } from './Toggle';
 
-
-
 interface Props {
   rules: StockRulesConfig;
   onChange: (updated: StockRulesConfig) => void;
@@ -21,6 +19,16 @@ export default function SettingsStockRules({ rules, onChange }: Props) {
     <div className="max-w-4xl animate-in fade-in duration-300 space-y-6">
       {/* Top Card */}
       <div className="bg-white border border-slate-100 rounded-xl p-8 shadow-sm">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h3 className="flex items-center text-base font-bold text-slate-800">
+              <span className="material-symbols-outlined text-[#0b8252] mr-2 text-[22px]">inventory_2</span>
+              Global Stock Thresholds
+            </h3>
+            <p className="text-[14px] text-slate-400 mt-1">Set the default percentages based on product target capacity.</p>
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-x-8 gap-y-8">
           {/* Default Reorder Level */}
           <div>

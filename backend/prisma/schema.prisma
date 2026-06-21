@@ -373,3 +373,12 @@ model GeneratedReport {
 
   @@map("generated_reports")
 }
+
+model SystemSetting {
+  id        String   @id @default("global")
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}

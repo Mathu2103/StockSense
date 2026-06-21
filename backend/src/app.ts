@@ -15,6 +15,7 @@ import discountRoutes from './routes/discountRoutes.js'
 import salesRoutes from './routes/salesRoutes.js'
 import refundRoutes from './routes/refundRoutes.js'
 import reportRoutes from './routes/reportRoutes.js'
+import settingsRoutes from './routes/settingsRoutes.js'
 
 const app = express()
 
@@ -60,6 +61,7 @@ app.use('/api/discounts', discountRoutes)
 app.use('/api/sales', salesRoutes)
 app.use('/api/refunds', refundRoutes)
 app.use('/api/reports', reportRoutes)
+app.use('/api/settings', settingsRoutes)
 
 // ── 404 Handler ───────────────────────────────────────
 app.use((_req: Request, res: Response) => {

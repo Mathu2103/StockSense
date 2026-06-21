@@ -13,6 +13,7 @@ import SettingsAccount from "./SettingComponent/SettingsAccount";
 import SettingsStockRules from "./SettingComponent/SettingsStockRules";
 import SettingsAlerts from "./SettingComponent/SettingsAlerts";
 import { StockRulesConfig } from "./SettingComponent/types";
+import { api } from '@/services/axiosInstance';
 
 
 const DEFAULT_RULES: StockRulesConfig = {
@@ -38,27 +39,54 @@ export default function Settings() {
   const activeTab = searchParams.get('tab') || 'My Profile';
 
   const [rules, setRules] = useState<StockRulesConfig>(DEFAULT_RULES);
+  const [applyToAll, setApplyToAll] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem('stocksense_settings_config');
-    if (stored) {
+    const fetchSettings = async () => {
       try {
-        setRules(JSON.parse(stored));
-      } catch (e) {
-        setRules(DEFAULT_RULES);
+        const response = await api.get('/settings/STOCK_RULES');
+        if (response.data && response.data.data) {
+          setRules(response.data.data);
+        }
+      } catch (error: any) {
+        if (error.response && error.response.status === 404) {
+          // Setting not found, use default
+          setRules(DEFAULT_RULES);
+        } else {
+          console.error("Failed to fetch settings:", error);
+          toast.error("Failed to load settings from server.");
+        }
       }
-    }
+    };
+    fetchSettings();
   }, []);
 
-  const saveSettings = () => {
-    localStorage.setItem('stocksense_settings_config', JSON.stringify(rules));
-    toast.success("Settings saved and synchronized successfully!");
+  const saveSettings = async () => {
+    try {
+      await api.put('/settings/STOCK_RULES', { value: rules });
+      
+      if (applyToAll && activeTab === 'Stock Rules') {
+        await api.post('/settings/apply-stock-rules');
+        toast.success("Settings saved and applied to all existing products!");
+        setApplyToAll(false); // reset after applying
+      } else {
+        toast.success("Settings saved successfully!");
+      }
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+      toast.error("Failed to save settings to server.");
+    }
   };
 
-  const resetSettings = () => {
+  const resetSettings = async () => {
     setRules(DEFAULT_RULES);
-    localStorage.setItem('stocksense_settings_config', JSON.stringify(DEFAULT_RULES));
-    toast.success("Settings reset to defaults.");
+    try {
+      await api.put('/settings/STOCK_RULES', { value: DEFAULT_RULES });
+      toast.success("Settings reset to defaults.");
+    } catch (error) {
+      console.error("Failed to reset settings:", error);
+      toast.error("Failed to reset settings on server.");
+    }
   };
 
   const tabs = [
@@ -129,7 +157,20 @@ export default function Settings() {
                 {/* Footer */}
                 {['Stock Rules', 'Alerts'].includes(activeTab) && (
                   <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between flex-shrink-0">
-                    <p className="text-sm text-slate-500 italic">Unsaved changes will be lost.</p>
+                    <div className="flex items-center gap-4">
+                      <p className="text-sm text-slate-500 italic">Unsaved changes will be lost.</p>
+                      {activeTab === 'Stock Rules' && (
+                        <label className="flex items-center gap-2 text-sm text-slate-700 font-medium cursor-pointer bg-white px-3 py-1.5 rounded-md border border-slate-200 shadow-sm hover:bg-slate-50 transition-colors">
+                          <input 
+                            type="checkbox" 
+                            checked={applyToAll} 
+                            onChange={(e) => setApplyToAll(e.target.checked)}
+                            className="rounded border-slate-300 text-[#0b8252] focus:ring-[#0b8252] w-4 h-4 cursor-pointer"
+                          />
+                          Apply to all existing products
+                        </label>
+                      )}
+                    </div>
                     <div className="flex items-center gap-3">
                       <button
                         onClick={resetSettings}
