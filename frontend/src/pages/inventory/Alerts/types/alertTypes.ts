@@ -1,4 +1,4 @@
-export type AlertCategory = 'Low Stock' | 'Out of Stock' | 'Expiring Soon' | 'Dead Stock' | 'Overstock' | 'Reorder Recommendation';
+export type AlertCategory = 'Low Stock' | 'Out of Stock' | 'Expiring Soon' | 'Dead Stock' | 'Overstock' | 'Reorder Recommendation' | 'Discount';
 export type AlertSeverity = 'Critical' | 'Warning' | 'Info';
 export type Tab = 'All Alerts' | AlertCategory;
 

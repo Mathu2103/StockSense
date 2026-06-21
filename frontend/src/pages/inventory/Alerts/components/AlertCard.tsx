@@ -30,6 +30,7 @@ const getCategoryBadgeClass = (category: string) => {
   if (category === 'Expiring Soon') return 'bg-orange-50 text-orange-700 border border-orange-100';
   if (category === 'Dead Stock') return 'bg-purple-50 text-purple-700 border border-purple-100';
   if (category === 'Overstock') return 'bg-blue-50 text-blue-700 border border-blue-100';
+  if (category === 'Discount') return 'bg-teal-50 text-teal-700 border border-teal-100';
   return 'bg-slate-100 text-slate-600';
 };
 
@@ -59,13 +60,17 @@ export default function AlertCard({ alert, handlePrimary, dismiss, markRead }: A
   // Decide where "View" button links based on alert category
   const viewLink = alert.category === 'Overstock' || alert.primaryAction === 'View Procurement'
     ? '/procurement'
-    : sku
-      ? `/manage-products?tab=products&search=${sku}`
-      : '/manage-products?tab=products';
+    : alert.category === 'Discount'
+      ? '/manage-products?tab=discounts'
+      : sku
+        ? `/manage-products?tab=products&search=${sku}`
+        : '/manage-products?tab=products';
 
   const viewLabel = alert.category === 'Overstock' || alert.primaryAction === 'View Procurement'
     ? 'View Procurement'
-    : 'View Product';
+    : alert.category === 'Discount'
+      ? 'View Discounts'
+      : 'View Product';
 
   return (
     <div

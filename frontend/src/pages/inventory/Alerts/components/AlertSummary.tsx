@@ -5,9 +5,12 @@ interface AlertSummaryProps {
   totalAlerts: number;
   criticalAlerts: number;
   lowStockAlerts: number;
+  outOfStockAlerts: number;
   expiryAlerts: number;
   deadStockAlerts: number;
+  overstockAlerts: number;
   reorderSuggestions: number;
+  discountAlerts: number;
   smartInsights: string[];
   setActiveTab: (t: Tab) => void;
   setSevFilter: (s: AlertSeverity | 'All') => void;
@@ -17,9 +20,12 @@ export default function AlertSummary({
   totalAlerts,
   criticalAlerts,
   lowStockAlerts,
+  outOfStockAlerts,
   expiryAlerts,
   deadStockAlerts,
+  overstockAlerts,
   reorderSuggestions,
+  discountAlerts,
   smartInsights,
   setActiveTab,
   setSevFilter,
@@ -27,7 +33,7 @@ export default function AlertSummary({
   return (
     <>
       {/* Alert KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-4">
         <div
           onClick={() => { setActiveTab('All Alerts'); setSevFilter('All'); }}
           className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm cursor-pointer hover:border-slate-400 hover:shadow-md transition-all"
@@ -49,7 +55,7 @@ export default function AlertSummary({
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Critical</p>
           </div>
           <h3 className="text-2xl font-extrabold text-red-600">{criticalAlerts}</h3>
-          <p className="text-[10px] text-slate-400 mt-1 font-medium">Need immediate action</p>
+          <p className="text-[10px] text-slate-400 mt-1 font-medium">Need action</p>
         </div>
 
         <div
@@ -61,7 +67,19 @@ export default function AlertSummary({
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Low Stock</p>
           </div>
           <h3 className="text-2xl font-extrabold text-amber-600">{lowStockAlerts}</h3>
-          <p className="text-[10px] text-slate-400 mt-1 font-medium">Below reorder threshold</p>
+          <p className="text-[10px] text-slate-400 mt-1 font-medium">Below capacity</p>
+        </div>
+
+        <div
+          onClick={() => { setActiveTab('Out of Stock'); setSevFilter('All'); }}
+          className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm cursor-pointer hover:border-red-400 hover:shadow-md transition-all"
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <span className="material-symbols-outlined text-red-500 text-[18px]">cancel</span>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Out Stock</p>
+          </div>
+          <h3 className="text-2xl font-extrabold text-red-600">{outOfStockAlerts}</h3>
+          <p className="text-[10px] text-slate-400 mt-1 font-medium">Zero remaining</p>
         </div>
 
         <div
@@ -85,7 +103,19 @@ export default function AlertSummary({
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Dead Stock</p>
           </div>
           <h3 className="text-2xl font-extrabold text-purple-600">{deadStockAlerts}</h3>
-          <p className="text-[10px] text-slate-400 mt-1 font-medium">Stagnant inventory</p>
+          <p className="text-[10px] text-slate-400 mt-1 font-medium">No sales (30d+)</p>
+        </div>
+
+        <div
+          onClick={() => { setActiveTab('Overstock'); setSevFilter('All'); }}
+          className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm cursor-pointer hover:border-blue-400 hover:shadow-md transition-all"
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <span className="material-symbols-outlined text-blue-500 text-[18px]">trending_down</span>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Overstock</p>
+          </div>
+          <h3 className="text-2xl font-extrabold text-blue-600">{overstockAlerts}</h3>
+          <p className="text-[10px] text-slate-400 mt-1 font-medium">Exceeds limits</p>
         </div>
 
         <div
@@ -97,7 +127,19 @@ export default function AlertSummary({
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Reorder</p>
           </div>
           <h3 className="text-2xl font-extrabold text-[#0b8252]">{reorderSuggestions}</h3>
-          <p className="text-[10px] text-slate-400 mt-1 font-medium">Suggestions</p>
+          <p className="text-[10px] text-slate-400 mt-1 font-medium">Replenish advice</p>
+        </div>
+
+        <div
+          onClick={() => { setActiveTab('Discount'); setSevFilter('All'); }}
+          className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm cursor-pointer hover:border-teal-400 hover:shadow-md transition-all"
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <span className="material-symbols-outlined text-teal-500 text-[18px]">local_offer</span>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Discount</p>
+          </div>
+          <h3 className="text-2xl font-extrabold text-teal-600">{discountAlerts}</h3>
+          <p className="text-[10px] text-slate-400 mt-1 font-medium">Approvals & updates</p>
         </div>
       </div>
 

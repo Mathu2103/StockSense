@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertSeverity, Tab } from '../types/alertTypes';
 
-const TABS: Tab[] = ['All Alerts', 'Low Stock', 'Out of Stock', 'Expiring Soon', 'Dead Stock', 'Overstock', 'Reorder Recommendation'];
+const TABS: Tab[] = ['All Alerts', 'Low Stock', 'Out of Stock', 'Expiring Soon', 'Dead Stock', 'Overstock', 'Reorder Recommendation', 'Discount'];
 
 interface AlertFilterBarProps {
   activeTab: Tab;

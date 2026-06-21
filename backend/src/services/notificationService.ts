@@ -81,8 +81,11 @@ export class NotificationService {
           maxStockPercent = parsed;
         }
       }
-      const enableOverstockAlerts = rules.enableOverstockAlerts === true; // explicitly check true/false based on DB rules
-      const enableExpiryAlerts = rules.enableExpiryAlerts !== false;
+      const enableLowStockAlerts = rules.enableLowStockAlerts !== false;
+      const enableOutOfStockAlerts = rules.enableOutOfStockAlerts !== false;
+      const enableExpiringSoonAlerts = rules.enableExpiringSoonAlerts !== false;
+      const enableDeadStockAlerts = rules.enableDeadStockAlerts === true;
+      const enableOverstockAlerts = rules.enableOverstockAlerts === true;
 
       // 2. Fetch all active products
       const products = await prisma.product.findMany({
@@ -94,8 +97,11 @@ export class NotificationService {
       for (const product of products) {
         await this.checkAndTriggerAllAlertsForProduct(product, {
           maxStockPercent,
-          enableOverstockAlerts,
-          enableExpiryAlerts
+          enableLowStockAlerts,
+          enableOutOfStockAlerts,
+          enableExpiringSoonAlerts,
+          enableDeadStockAlerts,
+          enableOverstockAlerts
         }, now);
       }
     } catch (error) {
@@ -126,15 +132,21 @@ export class NotificationService {
           maxStockPercent = parsed;
         }
       }
+      const enableLowStockAlerts = rules.enableLowStockAlerts !== false;
+      const enableOutOfStockAlerts = rules.enableOutOfStockAlerts !== false;
+      const enableExpiringSoonAlerts = rules.enableExpiringSoonAlerts !== false;
+      const enableDeadStockAlerts = rules.enableDeadStockAlerts === true;
       const enableOverstockAlerts = rules.enableOverstockAlerts === true;
-      const enableExpiryAlerts = rules.enableExpiryAlerts !== false;
 
       const now = new Date();
 
       await this.checkAndTriggerAllAlertsForProduct(product, {
         maxStockPercent,
-        enableOverstockAlerts,
-        enableExpiryAlerts
+        enableLowStockAlerts,
+        enableOutOfStockAlerts,
+        enableExpiringSoonAlerts,
+        enableDeadStockAlerts,
+        enableOverstockAlerts
       }, now);
     } catch (error) {
       console.error('Error checking stock alerts:', error);
@@ -148,8 +160,11 @@ export class NotificationService {
     product: any,
     config: {
       maxStockPercent: number;
+      enableLowStockAlerts: boolean;
+      enableOutOfStockAlerts: boolean;
+      enableExpiringSoonAlerts: boolean;
+      enableDeadStockAlerts: boolean;
       enableOverstockAlerts: boolean;
-      enableExpiryAlerts: boolean;
     },
     now: Date
   ) {
@@ -161,7 +176,7 @@ export class NotificationService {
     // ─────────────────────────────────────────────────────────────────────────
     // 1. Low Stock & Out of Stock Alerts
     // ─────────────────────────────────────────────────────────────────────────
-    if (currentStock === 0) {
+    if (config.enableOutOfStockAlerts && currentStock === 0) {
       // Out of Stock Alert
       const existing = await prisma.notification.findFirst({
         where: { sku, type: 'OUT_OF_STOCK' }
@@ -180,7 +195,7 @@ export class NotificationService {
       await prisma.notification.deleteMany({
         where: { sku, type: 'LOW_STOCK' }
       });
-    } else if (currentStock <= reorderLevel) {
+    } else if (config.enableLowStockAlerts && currentStock > 0 && currentStock <= reorderLevel) {
       // Low Stock Alert
       const existing = await prisma.notification.findFirst({
         where: { sku, type: 'LOW_STOCK' }
@@ -206,6 +221,18 @@ export class NotificationService {
           sku,
           type: { in: ['LOW_STOCK', 'OUT_OF_STOCK'] }
         }
+      });
+    }
+
+    // Explicitly delete disabled alert types if they were generated previously
+    if (!config.enableOutOfStockAlerts) {
+      await prisma.notification.deleteMany({
+        where: { sku, type: 'OUT_OF_STOCK' }
+      });
+    }
+    if (!config.enableLowStockAlerts) {
+      await prisma.notification.deleteMany({
+        where: { sku, type: 'LOW_STOCK' }
       });
     }
 
@@ -245,7 +272,7 @@ export class NotificationService {
     // ─────────────────────────────────────────────────────────────────────────
     // 3. Expiry Alerts (EXPIRING_SOON & EXPIRED)
     // ─────────────────────────────────────────────────────────────────────────
-    if (config.enableExpiryAlerts && product.expiryDate && currentStock > 0) {
+    if (config.enableExpiringSoonAlerts && product.expiryDate && currentStock > 0) {
       const expiryDate = new Date(product.expiryDate);
       // Clear time components for day calculation
       const todayZero = new Date(now);
@@ -323,41 +350,48 @@ export class NotificationService {
     // ─────────────────────────────────────────────────────────────────────────
     // 4. Dead Stock Alert (STOCK_VELOCITY)
     // ─────────────────────────────────────────────────────────────────────────
-    // Check products created at least 30 days ago
-    const productAgeDays = Math.floor((now.getTime() - new Date(product.createdAt).getTime()) / (1000 * 60 * 60 * 24));
-    if (productAgeDays >= 30) {
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      const saleCount = await prisma.billItem.count({
-        where: {
-          sku,
-          bill: {
-            createdAt: { gte: thirtyDaysAgo }
-          }
-        }
-      });
-
-      if (saleCount === 0 && currentStock > 0) {
-        const existing = await prisma.notification.findFirst({
-          where: { sku, type: 'STOCK_VELOCITY' }
-        });
-        if (!existing) {
-          await this.createNotification({
-            type: 'STOCK_VELOCITY',
-            severity: 'WARNING',
-            title: `${product.name} — Dead Stock Warning`,
-            message: `No sales recorded for this product in the last 30 days. Consider creating a bundle discount or clearance markdown.`,
+    if (config.enableDeadStockAlerts) {
+      // Check products created at least 30 days ago
+      const productAgeDays = Math.floor((now.getTime() - new Date(product.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+      if (productAgeDays >= 30) {
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const saleCount = await prisma.billItem.count({
+          where: {
             sku,
-            suggestedAction: 'Create Promotion',
+            bill: {
+              createdAt: { gte: thirtyDaysAgo }
+            }
+          }
+        });
+
+        if (saleCount === 0 && currentStock > 0) {
+          const existing = await prisma.notification.findFirst({
+            where: { sku, type: 'STOCK_VELOCITY' }
+          });
+          if (!existing) {
+            await this.createNotification({
+              type: 'STOCK_VELOCITY',
+              severity: 'WARNING',
+              title: `${product.name} — Dead Stock Warning`,
+              message: `No sales recorded for this product in the last 30 days. Consider creating a bundle discount or clearance markdown.`,
+              sku,
+              suggestedAction: 'Create Promotion',
+            });
+          }
+        } else {
+          // Has sales or stock is 0 - Resolve Dead Stock
+          await prisma.notification.deleteMany({
+            where: { sku, type: 'STOCK_VELOCITY' }
           });
         }
       } else {
-        // Has sales or stock is 0 - Resolve Dead Stock
+        // New product - Resolve Dead Stock
         await prisma.notification.deleteMany({
           where: { sku, type: 'STOCK_VELOCITY' }
         });
       }
     } else {
-      // New product - Resolve Dead Stock
+      // Disabled - Resolve Dead Stock
       await prisma.notification.deleteMany({
         where: { sku, type: 'STOCK_VELOCITY' }
       });
@@ -366,7 +400,7 @@ export class NotificationService {
     // ─────────────────────────────────────────────────────────────────────────
     // 5. Reorder Recommendation Alert (DEMAND_FORECAST)
     // ─────────────────────────────────────────────────────────────────────────
-    if (currentStock <= reorderLevel) {
+    if (config.enableLowStockAlerts && currentStock <= reorderLevel) {
       const suggestedQty = targetCapacity > currentStock ? targetCapacity - currentStock : 50;
       const existing = await prisma.notification.findFirst({
         where: { sku, type: 'DEMAND_FORECAST' }

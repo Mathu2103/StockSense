@@ -21,6 +21,9 @@ const mapCategory = (type: string): AlertCategory => {
       return 'Dead Stock';
     case 'COMBO_SUGGESTION':
       return 'Reorder Recommendation';
+    case 'DISCOUNT_APPROVAL':
+    case 'DISCOUNT_RESPONSE':
+      return 'Discount';
     default:
       return 'Low Stock';
   }
@@ -78,6 +81,14 @@ const getCategoryStyles = (category: AlertCategory, severity: AlertSeverity) => 
         iconColor: 'text-blue-400',
         accentColor: 'bg-blue-600',
         primaryBtnClass: 'bg-blue-600 hover:bg-blue-700',
+      };
+    case 'Discount':
+      return {
+        icon: 'local_offer',
+        iconBg: 'bg-teal-50',
+        iconColor: 'text-teal-500',
+        accentColor: 'bg-teal-600',
+        primaryBtnClass: 'bg-teal-600 hover:bg-teal-700',
       };
     case 'Reorder Recommendation':
     default:
@@ -218,9 +229,12 @@ export const useAlerts = () => {
   const unread = alerts.length; // Active count
   const criticalAlerts = visible.filter((a) => a.severity === 'Critical').length;
   const lowStockAlerts = visible.filter((a) => a.category === 'Low Stock').length;
+  const outOfStockAlerts = visible.filter((a) => a.category === 'Out of Stock').length;
   const expiryAlerts = visible.filter((a) => a.category === 'Expiring Soon').length;
   const deadStockAlerts = visible.filter((a) => a.category === 'Dead Stock').length;
+  const overstockAlerts = visible.filter((a) => a.category === 'Overstock').length;
   const reorderSuggestions = visible.filter((a) => a.category === 'Reorder Recommendation').length;
+  const discountAlerts = visible.filter((a) => a.category === 'Discount').length;
 
   const tabCount = (tab: Tab) =>
     tab === 'All Alerts' ? visible.length : visible.filter((a) => a.category === tab).length;
@@ -253,9 +267,12 @@ export const useAlerts = () => {
     unread,
     criticalAlerts,
     lowStockAlerts,
+    outOfStockAlerts,
     expiryAlerts,
     deadStockAlerts,
+    overstockAlerts,
     reorderSuggestions,
+    discountAlerts,
     filtered,
     smartInsights,
     activeTab,
