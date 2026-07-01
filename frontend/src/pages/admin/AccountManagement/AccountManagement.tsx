@@ -228,7 +228,7 @@ export default function AccountManagement() {
     try {
       const res = await authService.resetPassword(passwordResetUser.id);
       if (res.emailSent) {
-        toast.success(`Password reset successful! An email has been sent to ${passwordResetUser.email}.`, { duration: 5000 });
+        toast.success(`Password reset successful. A new password has been generated and sent to ${passwordResetUser.email}`, { duration: 5000 });
       } else {
         toast.success(`Password reset successful! (SMTP not configured, so email skipped). New password is: ${res.newPassword}`, { duration: 10000 });
       }
@@ -933,8 +933,8 @@ export default function AccountManagement() {
             </div>
             <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2">Reset Password?</h3>
             <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-              Are you sure you want to reset the password for <strong className="text-slate-700">{passwordResetUser.name}</strong>? 
-              A new randomly generated password will be sent to their email ({passwordResetUser.email}) and updated in the database.
+              Are you sure you want to reset <strong className="text-slate-700">{passwordResetUser.name}'s</strong> password?{' '}
+              A new randomly generated password will be sent to <strong className="text-slate-700">{passwordResetUser.email}</strong>, and the database will be updated with the new password.
             </p>
             <div className="flex gap-3 mt-4">
               <button
