@@ -30,8 +30,16 @@ export const createSupplier = async (req: Request, res: Response): Promise<void>
       res.status(400).json({ success: false, message: 'Supplier name must be 100 characters or less.' });
       return;
     }
+    if (!/^[a-zA-Z\s]+$/.test(cleanName)) {
+      res.status(400).json({ success: false, message: 'Supplier name must contain letters only.' });
+      return;
+    }
     if (cleanCompanyName.length > 100) {
       res.status(400).json({ success: false, message: 'Company name must be 100 characters or less.' });
+      return;
+    }
+    if (!/^[a-zA-Z0-9\s.,&'()-]+$/.test(cleanCompanyName)) {
+      res.status(400).json({ success: false, message: 'Company name can only contain letters, numbers, and basic punctuation.' });
       return;
     }
     if (cleanEmail) {
@@ -44,16 +52,15 @@ export const createSupplier = async (req: Request, res: Response): Promise<void>
         res.status(400).json({ success: false, message: 'Enter a valid email address.' });
         return;
       }
-    }
-    if (cleanPhone) {
-      if (cleanPhone.length > 20) {
-        res.status(400).json({ success: false, message: 'Phone number must be 20 characters or less.' });
+      const existingEmail = await prisma.supplier.findFirst({ where: { email: cleanEmail } });
+      if (existingEmail) {
+        res.status(400).json({ success: false, message: 'This email address is already registered.' });
         return;
       }
-      const strippedPhone = cleanPhone.replace(/[\s()-]/g, '');
-      const phoneRegex = /^(?:\+94|94|0)?\d{9}$/;
-      if (!phoneRegex.test(strippedPhone)) {
-        res.status(400).json({ success: false, message: 'Enter a valid Sri Lankan phone number.' });
+    }
+    if (cleanPhone) {
+      if (!/^\d{10}$/.test(cleanPhone)) {
+        res.status(400).json({ success: false, message: 'Phone number must be exactly 10 digits.' });
         return;
       }
     }
@@ -104,6 +111,10 @@ export const updateSupplier = async (req: Request, res: Response): Promise<void>
       res.status(400).json({ success: false, message: 'Supplier name must be 100 characters or less.' });
       return;
     }
+    if (cleanName !== undefined && !/^[a-zA-Z\s]+$/.test(cleanName)) {
+      res.status(400).json({ success: false, message: 'Supplier name must contain letters only.' });
+      return;
+    }
 
     if (cleanCompanyName !== undefined && !cleanCompanyName) {
       res.status(400).json({ success: false, message: 'Company name cannot be empty.' });
@@ -111,6 +122,10 @@ export const updateSupplier = async (req: Request, res: Response): Promise<void>
     }
     if (cleanCompanyName !== undefined && cleanCompanyName.length > 100) {
       res.status(400).json({ success: false, message: 'Company name must be 100 characters or less.' });
+      return;
+    }
+    if (cleanCompanyName !== undefined && !/^[a-zA-Z0-9\s.,&'()-]+$/.test(cleanCompanyName)) {
+      res.status(400).json({ success: false, message: 'Company name can only contain letters, numbers, and basic punctuation.' });
       return;
     }
 
@@ -124,17 +139,21 @@ export const updateSupplier = async (req: Request, res: Response): Promise<void>
         res.status(400).json({ success: false, message: 'Enter a valid email address.' });
         return;
       }
+      const existingEmail = await prisma.supplier.findFirst({
+        where: {
+          email: cleanEmail,
+          id: { not: id }
+        }
+      });
+      if (existingEmail) {
+        res.status(400).json({ success: false, message: 'This email address is already registered.' });
+        return;
+      }
     }
 
     if (cleanPhone !== undefined && cleanPhone) {
-      if (cleanPhone.length > 20) {
-        res.status(400).json({ success: false, message: 'Phone number must be 20 characters or less.' });
-        return;
-      }
-      const strippedPhone = cleanPhone.replace(/[\s()-]/g, '');
-      const phoneRegex = /^(?:\+94|94|0)?\d{9}$/;
-      if (!phoneRegex.test(strippedPhone)) {
-        res.status(400).json({ success: false, message: 'Enter a valid Sri Lankan phone number.' });
+      if (!/^\d{10}$/.test(cleanPhone)) {
+        res.status(400).json({ success: false, message: 'Phone number must be exactly 10 digits.' });
         return;
       }
     }

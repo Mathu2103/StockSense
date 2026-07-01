@@ -62,8 +62,7 @@ export default function CategoryRegistry({
   onRestoreCategory,
   onArchiveSubcategory,
   onRestoreSubcategory,
-  onEditProduct,
-  onArchiveProduct
+  onEditProduct
 }: CategoryRegistryProps) {
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
