@@ -274,8 +274,8 @@ export const BillTab: React.FC<BillTabProps> = ({
                           )}
                         </div>
                       </div>
-                      <div className="col-span-2 text-center font-semibold text-gray-700 text-[14px]">
-                        Rs. {item.price.toFixed(2)}
+                      <div className="col-span-2 text-center font-semibold text-[14px]">
+                        <span className="text-gray-700">Rs. {item.price.toFixed(2)}</span>
                       </div>
                       <div className="col-span-2 flex justify-center">
                         {item.isCombo ? (

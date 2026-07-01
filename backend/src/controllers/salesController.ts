@@ -18,7 +18,9 @@ export const createBill = async (req: AuthRequest, res: Response): Promise<void>
       draft = false,
       items,
       resumeDraftId,
-      totalDiscount: requestedTotalDiscount
+      totalDiscount: requestedTotalDiscount,
+      paidAmount,
+      changeAmount
     } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -129,6 +131,8 @@ export const createBill = async (req: AuthRequest, res: Response): Promise<void>
           paymentMethod: (paymentMethod as PaymentMethod) || PaymentMethod.CASH,
           totalQty: calculatedTotalQty,
           draft,
+          paidAmount: paidAmount !== undefined ? parseFloat(paidAmount) : null,
+          changeAmount: changeAmount !== undefined ? parseFloat(changeAmount) : null,
           billItems: {
             create: verifiedItems
           }
@@ -209,17 +213,13 @@ export const createBill = async (req: AuthRequest, res: Response): Promise<void>
 // Get completed sales history for the current cashier
 export const getSalesHistory = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const cashierId = req.user?.id;
-    if (!cashierId) {
-      res.status(401).json({ success: false, message: 'Unauthorized.' });
-      return;
+    const whereClause: any = { draft: false };
+    if (req.user?.role !== 'ADMIN') {
+      whereClause.cashierId = req.user?.id;
     }
 
     const bills = await prisma.bill.findMany({
-      where: {
-        cashierId,
-        draft: false
-      },
+      where: whereClause,
       include: {
         billItems: {
           include: {
