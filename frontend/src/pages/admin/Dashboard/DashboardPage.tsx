@@ -52,21 +52,6 @@ export default function DashboardPage() {
                     Welcome back, <strong className="text-emerald-700">{currentAdmin?.name || 'Administrator'}</strong>. Oversee store performance, manage team credentials, and configure global inventory system rules.
                   </p>
                 </div>
-                
-                {/* View Selector Tabs */}
-                <div className="flex bg-[#f1f5f9] p-1.5 rounded-2xl border border-slate-200 self-start md:self-auto shrink-0 shadow-sm">
-                  <button
-                    onClick={() => setActiveTab('overview')}
-                    className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
-                      activeTab === 'overview'
-                        ? 'bg-[#0b8252] text-white shadow-md'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[18px]">monitoring</span>
-                    Overview
-                  </button>
-                </div>
               </div>
             </section>
 
