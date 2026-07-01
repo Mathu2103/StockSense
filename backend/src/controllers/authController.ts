@@ -3,7 +3,7 @@ import { Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt.js'
-import { sendPasswordResetEmail, sendAccountCreatedEmail, sendStatusToggleEmail } from '../utils/email.js'
+import { sendPasswordResetEmail, sendAccountCreatedEmail, sendStatusToggleEmail, sendAccountUpdatedEmail, AccountChange } from '../utils/email.js'
 import { AuthRequest } from '../middlewares/authMiddleware.js'
 import { prisma } from '../config/prisma.js'
 
@@ -30,6 +30,14 @@ const createUserSchema = z.object({
   password: z.string().regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/, 'Password must be at least 8 characters long, and include uppercase, lowercase, number and special character'),
   role: z.enum(['CASHIER', 'INVENTORY_MANAGER']),
   phone: z.string().regex(/^\d{10}$/, 'Phone number must be exactly 10 digits').optional()
+})
+
+const updateUserSchema = z.object({
+  name: z.string().min(1, 'Name is required').regex(/^[a-zA-Z\s]+$/, 'Name must contain only English letters').optional(),
+  email: z.string().email('Invalid email address format').optional(),
+  phone: z.string().regex(/^\d{10}$/, 'Phone number must be exactly 10 digits').optional().nullable(),
+  role: z.enum(['CASHIER', 'INVENTORY_MANAGER']).optional(),
+  isActive: z.boolean().optional()
 })
 
 const REFRESH_TOKEN_COOKIE = 'stocksense_refresh'
@@ -376,7 +384,16 @@ export async function toggleUserStatus(req: AuthRequest, res: Response): Promise
 export async function updateUser(req: AuthRequest, res: Response): Promise<void> {
   try {
     const id = req.params.id as string
-    const { name, email, phone, role, isActive } = req.body
+
+    // Validate & sanitize input
+    const parsed = updateUserSchema.safeParse(req.body)
+    if (!parsed.success) {
+      res.status(400).json({ success: false, message: parsed.error.issues[0].message })
+      return
+    }
+
+    const { email, phone, role, isActive } = parsed.data
+    const name = parsed.data.name ? parsed.data.name.trim().replace(/\s+/g, ' ') : undefined
 
     const user = await prisma.user.findUnique({ where: { id } })
     if (!user) {
@@ -384,25 +401,66 @@ export async function updateUser(req: AuthRequest, res: Response): Promise<void>
       return
     }
 
-    if (email && email !== user.email) {
-      const existing = await prisma.user.findUnique({ where: { email } })
+    if (email && email.toLowerCase() !== user.email) {
+      const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } })
       if (existing) {
         res.status(409).json({ success: false, message: 'Email already in use.' })
         return
       }
     }
 
+    // Determine final values
+    const finalName = name !== undefined ? name : user.name
+    const finalEmail = email !== undefined ? email.toLowerCase() : user.email
+    const finalPhone = phone !== undefined ? phone : user.phone
+    const finalRole = role !== undefined ? role : user.role
+    const finalIsActive = isActive !== undefined ? isActive : user.isActive
+
     const updated = await prisma.user.update({
       where: { id },
       data: {
-        name: name !== undefined ? name : user.name,
-        email: email !== undefined ? email : user.email,
-        phone: phone !== undefined ? phone : user.phone,
-        role: role !== undefined ? role : user.role,
-        isActive: isActive !== undefined ? isActive : user.isActive,
+        name: finalName,
+        email: finalEmail,
+        phone: finalPhone,
+        role: finalRole,
+        isActive: finalIsActive,
       },
       select: { id: true, name: true, email: true, role: true, phone: true, isActive: true, createdAt: true },
     })
+
+    // Build change list for notification email
+    const roleLabel = (r: string) => r === 'INVENTORY_MANAGER' ? 'Manager' : r === 'CASHIER' ? 'Cashier' : r
+    const changes: AccountChange[] = []
+
+    if (finalName !== user.name) {
+      changes.push({ field: 'Name', oldValue: user.name, newValue: finalName })
+    }
+    if (finalEmail !== user.email) {
+      changes.push({ field: 'Email', oldValue: user.email, newValue: finalEmail })
+    }
+    if ((finalPhone || '') !== (user.phone || '')) {
+      changes.push({ field: 'Phone', oldValue: user.phone || '(not set)', newValue: finalPhone || '(not set)' })
+    }
+    if (finalRole !== user.role) {
+      changes.push({ field: 'Role', oldValue: roleLabel(user.role), newValue: roleLabel(finalRole) })
+    }
+    if (finalIsActive !== user.isActive) {
+      changes.push({ field: 'Account Status', oldValue: user.isActive ? 'Active' : 'Inactive', newValue: finalIsActive ? 'Active' : 'Inactive' })
+    }
+
+    // Send notification email if anything changed
+    if (changes.length > 0) {
+      try {
+        // Send to the user's latest email (in case email itself changed, send to both)
+        await sendAccountUpdatedEmail(updated.email, updated.name, changes)
+        // If email was changed, also notify the old email
+        if (finalEmail !== user.email) {
+          await sendAccountUpdatedEmail(user.email, user.name, changes)
+        }
+      } catch (err) {
+        console.error('[Email Send Error]', err)
+      }
+    }
 
     res.status(200).json({ success: true, message: 'User updated successfully.', data: updated })
   } catch (err) {
