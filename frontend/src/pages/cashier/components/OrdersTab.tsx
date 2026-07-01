@@ -243,11 +243,11 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
 
               <div className="flex justify-between">
                 <span>Paid Amount:</span>
-                <span>Rs. {selectedOrder.totalBill.toFixed(2)}</span>
+                <span>Rs. {selectedOrder.paidAmount !== null && selectedOrder.paidAmount !== undefined ? selectedOrder.paidAmount.toFixed(2) : selectedOrder.totalBill.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Change:</span>
-                <span>Rs. 0.00</span>
+                <span>Rs. {selectedOrder.changeAmount !== null && selectedOrder.changeAmount !== undefined ? selectedOrder.changeAmount.toFixed(2) : '0.00'}</span>
               </div>
 
               <div className="text-center mt-6">

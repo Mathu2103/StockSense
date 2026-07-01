@@ -164,7 +164,12 @@ export default function POSPage() {
 
   const cartWithDiscounts = useMemo(() => {
     const comboItems = cart.filter(item => item.isCombo);
-    const individualItems = cart.filter(item => !item.isCombo).map(item => ({ ...item, discount: 0, discountId: null }));
+    const individualItems = cart.filter(item => !item.isCombo).map(item => ({
+      ...item,
+      // Preserve discount for items pinned from the Discounts tab; reset others so auto-detection can run
+      discount: item._discountPinned ? (item.discount || 0) : 0,
+      discountId: item._discountPinned ? (item.discountId || null) : null,
+    }));
 
     const now = new Date();
     const tzOffset = now.getTimezoneOffset() * 60000;
@@ -173,6 +178,10 @@ export default function POSPage() {
     const currentTimeStr = now.toTimeString().split(' ')[0].substring(0, 5); // "HH:MM"
 
     individualItems.forEach(item => {
+      // If the item was added with a pinned discount (e.g. from the Discounts tab),
+      // skip auto-recalculation and use the pinned value.
+      if (item._discountPinned) return;
+
       const prod = products.find(p => p.sku === item.sku || p.id === item.id);
       const defaultDiscount = prod ? (prod.discount || 0) : 0;
 
@@ -182,10 +191,16 @@ export default function POSPage() {
       discounts.forEach(d => {
         if (d.type === 'SEASONAL') {
           const isTarget = d.productIds?.includes(item.sku) || d.productIds?.includes(item.id);
-          if (isTarget && d.startDate && d.endDate) {
-            const startD = d.startDate.split('T')[0];
-            const endD = d.endDate.split('T')[0];
-            if (currentDateStr >= startD && currentDateStr <= endD) {
+          if (isTarget) {
+            let dateMatch = true;
+            if (d.startDate && d.endDate) {
+              const startD = d.startDate.split('T')[0];
+              const endD = d.endDate.split('T')[0];
+              if (currentDateStr < startD || currentDateStr > endD) {
+                dateMatch = false;
+              }
+            }
+            if (dateMatch) {
               if (d.discountValue > bestDiscount) {
                 bestDiscount = d.discountValue;
                 bestDiscountId = d.id;
@@ -195,10 +210,23 @@ export default function POSPage() {
         } else if (d.type === 'DAILY') {
           const isTarget = d.productIds?.includes(item.sku) || d.productIds?.includes(item.id);
           if (isTarget) {
-            const appD = d.applicableDate ? d.applicableDate.split('T')[0] : null;
-            const dateMatch = appD ? (currentDateStr === appD) : true;
-            if (dateMatch && d.dailyStartTime && d.dailyEndTime) {
-              if (currentTimeStr >= d.dailyStartTime && currentTimeStr <= d.dailyEndTime) {
+            let dateMatch = true;
+            if (d.applicableDate) {
+              const appD = d.applicableDate.split('T')[0];
+              if (currentDateStr !== appD) {
+                dateMatch = false;
+              }
+            }
+            
+            if (dateMatch) {
+              let timeMatch = true;
+              if (d.dailyStartTime && d.dailyEndTime) {
+                if (currentTimeStr < d.dailyStartTime || currentTimeStr > d.dailyEndTime) {
+                  timeMatch = false;
+                }
+              }
+
+              if (timeMatch) {
                 if (d.discountValue > bestDiscount) {
                   bestDiscount = d.discountValue;
                   bestDiscountId = d.id;
@@ -214,7 +242,7 @@ export default function POSPage() {
     });
 
     return [...comboItems, ...individualItems];
-  }, [cart, discounts]);
+  }, [cart, discounts, products]);
 
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
@@ -242,7 +270,7 @@ export default function POSPage() {
   }, [products, searchQuery, selectedCategory]);
 
   // --- CART LOGIC ---
-  const addToCart = (product: any, quantityToAdd: number = 1) => {
+  const addToCart = (product: any, quantityToAdd: number = 1, overrideDiscount?: number, overrideDiscountId?: string) => {
     // If we add something new, let cashier reconsider declined combos
     setDeclinedCombos([]);
     setCart(prev => {
@@ -250,7 +278,13 @@ export default function POSPage() {
       if (existing) {
         return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + quantityToAdd } : item);
       }
-      return [...prev, { ...product, quantity: quantityToAdd, discount: product.discount || 0 }];
+      return [...prev, {
+        ...product,
+        quantity: quantityToAdd,
+        discount: overrideDiscount !== undefined ? overrideDiscount : (product.discount || 0),
+        discountId: overrideDiscountId !== undefined ? overrideDiscountId : (product.discountId || null),
+        _discountPinned: overrideDiscount !== undefined // flag to skip auto-recalc
+      }];
     });
   };
 
@@ -512,7 +546,9 @@ export default function POSPage() {
         totalQty: cartWithDiscounts.reduce((sum, item) => sum + (item.isCombo ? item.comboItems.reduce((s: number, ci: any) => s + ci.qty, 0) : item.quantity), 0),
         draft: false,
         items: itemsPayload,
-        resumeDraftId: resumedDraftId
+        resumeDraftId: resumedDraftId,
+        paidAmount: parseFloat(customerPaidInput) || total,
+        changeAmount: Math.max(0, (parseFloat(customerPaidInput) || total) - total)
       };
 
       const res = await SalesService.createBill(payload);
@@ -521,7 +557,6 @@ export default function POSPage() {
         setActiveReceipt(res.data);
         setCart([]);
         setResumedDraftId(null);
-        setCustomerPaidInput('');
         setManualDiscount(0);
 
         // Reload data to reflect decreased stock and fresh history
@@ -686,8 +721,8 @@ export default function POSPage() {
       `;
     }).join('') || '';
 
-    const paidAmount = paidVal !== undefined ? paidVal : order.totalBill;
-    const changeAmount = changeVal !== undefined ? changeVal : 0;
+    const paidAmount = paidVal !== undefined ? paidVal : (order.paidAmount !== null && order.paidAmount !== undefined ? order.paidAmount : order.totalBill);
+    const changeAmount = changeVal !== undefined ? changeVal : (order.changeAmount !== null && order.changeAmount !== undefined ? order.changeAmount : 0);
 
     let refundedBanner = '';
     if (order.refunds && order.refunds.length > 0) {
@@ -870,7 +905,7 @@ export default function POSPage() {
     printWindow.document.close();
   };
 
-  const handleDownloadPDF = (order: any) => {
+  const handleDownloadPDF = (order: any, paidVal?: number, changeVal?: number) => {
     if (!order) return;
     const element = document.createElement('div');
     element.style.padding = '20px';
@@ -958,11 +993,11 @@ export default function POSPage() {
       <div style="border-top: 1px dashed black; margin: 8px 0;"></div>
       <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0;">
         <span>Paid Amount:</span>
-        <span>Rs. ${order.totalBill.toFixed(2)}</span>
+        <span>Rs. ${(paidVal !== undefined ? paidVal : (order.paidAmount !== null && order.paidAmount !== undefined ? order.paidAmount : order.totalBill)).toFixed(2)}</span>
       </div>
       <div style="display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0;">
         <span>Change:</span>
-        <span>Rs. 0.00</span>
+        <span>Rs. ${(changeVal !== undefined ? changeVal : (order.changeAmount !== null && order.changeAmount !== undefined ? order.changeAmount : 0)).toFixed(2)}</span>
       </div>
       <div style="text-align: center; margin-top: 30px; font-size: 11px; font-weight: bold;">
         Thank You Come Again!
@@ -1234,10 +1269,11 @@ export default function POSPage() {
       discount.productIds.forEach((sku: string) => {
         const prod = products.find(p => p.sku === sku || p.id === sku);
         if (prod) {
-          addToCart(prod, 1);
+          // Pass the discount % and ID directly so it's immediately visible in cart
+          addToCart(prod, 1, discount.discountValue, discount.id);
         }
       });
-      toast.success(`Products for "${discount.name}" added to cart!`);
+      toast.success(`Products for "${discount.name}" added to cart with ${discount.discountValue}% discount!`);
     }
   };
 
@@ -1336,7 +1372,7 @@ export default function POSPage() {
               Print
             </button>
             <button 
-              onClick={() => handleDownloadPDF(activeReceipt)}
+              onClick={() => handleDownloadPDF(activeReceipt, paid, change)}
               className="flex-1 py-2.5 bg-[#16a34a] text-white rounded font-bold hover:bg-green-700 transition-colors text-sm"
             >
               Download
@@ -1345,6 +1381,7 @@ export default function POSPage() {
               onClick={() => {
                 setShowInvoiceModal(false);
                 setActiveReceipt(null);
+                setCustomerPaidInput('');
               }}
               className="flex-1 py-2.5 bg-[#4b5563] text-white rounded font-bold hover:bg-gray-700 transition-colors text-sm"
             >
