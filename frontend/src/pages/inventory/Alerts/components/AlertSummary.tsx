@@ -107,18 +107,6 @@ export default function AlertSummary({
         </div>
 
         <div
-          onClick={() => { setActiveTab('Reorder Recommendation'); setSevFilter('All'); }}
-          className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm cursor-pointer hover:border-[#0b8252] hover:shadow-md transition-all"
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <span className="material-symbols-outlined text-[#0b8252] text-[18px]">add_shopping_cart</span>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Reorder</p>
-          </div>
-          <h3 className="text-2xl font-extrabold text-[#0b8252]">{reorderSuggestions}</h3>
-          <p className="text-[10px] text-slate-400 mt-1 font-medium">Replenish advice</p>
-        </div>
-
-        <div
           onClick={() => { setActiveTab('Discount'); setSevFilter('All'); }}
           className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm cursor-pointer hover:border-teal-400 hover:shadow-md transition-all"
         >
