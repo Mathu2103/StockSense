@@ -35,6 +35,9 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
   });
 
   return (
+    <div className="flex-1 flex bg-[#f8f9fc] overflow-hidden h-screen">
+      <div className="flex-1 flex flex-col p-8 overflow-y-auto min-h-0">
+        <div className="flex justify-between items-end mb-8">
     <div className="flex-1 flex bg-[#f8f9fc] overflow-hidden h-full min-h-0">
       <div className="flex-1 flex flex-col p-8 overflow-hidden">
         <div className="flex justify-between items-end mb-8 shrink-0">

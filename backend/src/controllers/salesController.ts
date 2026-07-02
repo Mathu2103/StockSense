@@ -214,7 +214,7 @@ export const createBill = async (req: AuthRequest, res: Response): Promise<void>
 export const getSalesHistory = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const whereClause: any = { draft: false };
-    if (req.user?.role !== 'ADMIN') {
+    if (req.user?.role === 'CASHIER') {
       whereClause.cashierId = req.user?.id;
     }
 
