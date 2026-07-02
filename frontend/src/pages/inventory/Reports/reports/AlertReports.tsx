@@ -72,7 +72,7 @@ const ALERT_TYPE_OPTIONS = [
 
 const STATUS_OPTIONS = ['All', 'Active', 'Resolved'];
 
-export default function AlertReports({ onViewChange }: { onViewChange: (view: ViewState) => void }) {
+export default function AlertReports({ onViewChange: _onViewChange }: { onViewChange: (view: ViewState) => void }) {
   const [period, setPeriod] = useState<'Today' | 'Week' | 'Month' | 'Year' | 'Custom Range'>('Month');
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });

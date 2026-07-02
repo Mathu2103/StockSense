@@ -291,7 +291,7 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
     }
   };
 
-  const toggleApprovalStatus = async (id: string, currentStatus: 'DRAFT' | 'APPROVED') => {
+  const _toggleApprovalStatus = async (id: string, currentStatus: 'DRAFT' | 'APPROVED') => {
     const nextStatus = currentStatus === 'APPROVED' ? 'DRAFT' : 'APPROVED';
     try {
       const res = await DiscountService.toggleStatus(id, { approvalStatus: nextStatus });

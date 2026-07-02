@@ -109,7 +109,7 @@ export default function ProductsRegistry({
     return Math.round((reorderPercent / 100) * (p.targetCapacity || 100));
   };
 
-  const handleArchive = (product: ProductItem) => {
+  const _handleArchive = (product: ProductItem) => {
     const action = () => {
       onArchive(product.id, product.name);
     };
