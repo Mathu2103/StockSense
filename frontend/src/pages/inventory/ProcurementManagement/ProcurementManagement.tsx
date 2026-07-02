@@ -141,7 +141,7 @@ export default function ProcurementManagement() {
         if (trimmedVal) {
           if (trimmedVal.length > 100) {
             error = 'Email must be 100 characters or less';
-          } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedVal)) {
+          } else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(trimmedVal)) {
             error = 'Enter a valid email address';
           } else {
             // Uniqueness check for email locally

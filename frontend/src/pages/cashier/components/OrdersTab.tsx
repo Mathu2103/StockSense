@@ -55,9 +55,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
               </select>
               <Filter className="w-3.5 h-3.5 text-gray-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
-            <button className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-xl text-gray-700 font-semibold hover:bg-gray-50 transition-colors">
-              <Download className="w-4 h-4 mr-2" /> Export CSV
-            </button>
+
           </div>
         </div>
 
