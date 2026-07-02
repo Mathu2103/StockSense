@@ -15,12 +15,11 @@ const mapCategory = (type: string): AlertCategory => {
     case 'EXPIRING_SOON':
     case 'EXPIRED':
       return 'Expiring Soon';
-    case 'DEMAND_FORECAST':
-      return 'Reorder Recommendation';
     case 'STOCK_VELOCITY':
       return 'Dead Stock';
+    case 'DEMAND_FORECAST':
     case 'COMBO_SUGGESTION':
-      return 'Reorder Recommendation';
+      return 'Low Stock';
     case 'DISCOUNT_APPROVAL':
     case 'DISCOUNT_RESPONSE':
       return 'Discount';
@@ -90,14 +89,13 @@ const getCategoryStyles = (category: AlertCategory, severity: AlertSeverity) => 
         accentColor: 'bg-teal-600',
         primaryBtnClass: 'bg-teal-600 hover:bg-teal-700',
       };
-    case 'Reorder Recommendation':
     default:
       return {
-        icon: 'recommend',
-        iconBg: 'bg-emerald-50',
-        iconColor: 'text-emerald-500',
-        accentColor: 'bg-emerald-600',
-        primaryBtnClass: 'bg-emerald-600 hover:bg-emerald-700',
+        icon: 'notifications',
+        iconBg: 'bg-gray-50',
+        iconColor: 'text-gray-500',
+        accentColor: 'bg-gray-600',
+        primaryBtnClass: 'bg-gray-600 hover:bg-gray-700',
       };
   }
 };
@@ -265,7 +263,6 @@ export const useAlerts = () => {
   const expiryAlerts = visible.filter((a) => a.category === 'Expiring Soon').length;
   const deadStockAlerts = visible.filter((a) => a.category === 'Dead Stock').length;
   const overstockAlerts = visible.filter((a) => a.category === 'Overstock').length;
-  const reorderSuggestions = visible.filter((a) => a.category === 'Reorder Recommendation').length;
   const discountAlerts = visible.filter((a) => a.category === 'Discount').length;
 
   const tabCount = (tab: Tab) =>
@@ -303,7 +300,6 @@ export const useAlerts = () => {
     expiryAlerts,
     deadStockAlerts,
     overstockAlerts,
-    reorderSuggestions,
     discountAlerts,
     filtered,
     smartInsights,

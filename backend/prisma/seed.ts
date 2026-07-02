@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PrismaClient, BrandState, ProductStatus, Role } from '@prisma/client';
+import { PrismaClient, BrandState, ProductStatus, Role, PaymentMethod, NotificationType, NotificationSeverity, AdjustmentReason } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -27,11 +27,15 @@ function makeSku(brand: string, product: string, size: string, seq: number): str
 }
 
 async function main() {
-  console.log('🧹 Clearing inventory data...');
+  console.log('🧹 Clearing all data...');
+  await prisma.userNotificationState.deleteMany();
+  await prisma.notification.deleteMany();
   await prisma.discountComboItem.deleteMany();
   await prisma.discountProduct.deleteMany();
-  await prisma.discount.deleteMany();
+  await prisma.refundItem.deleteMany();
+  await prisma.refund.deleteMany();
   await prisma.billItem.deleteMany();
+  await prisma.discount.deleteMany();
   await prisma.bill.deleteMany();
   await prisma.grnItem.deleteMany();
   await prisma.goodsReceivingNote.deleteMany();
@@ -42,63 +46,45 @@ async function main() {
   await prisma.subCategory.deleteMany();
   await prisma.category.deleteMany();
   await prisma.supplier.deleteMany();
-  
-  console.log('📦 Seeding suppliers...');
+  await prisma.user.deleteMany();
+
+  // 1. 10 Suppliers (Mannar Localized)
+  console.log('📦 Seeding 10 Mannar Suppliers...');
   const suppliersRaw = [
-    { name: 'Unilever Sri Lanka', contactPerson: 'Kamal Perera', email: 'sales@unilever.lk', phone: '0112345678', address: 'Colombo' },
-    { name: 'Hemas Consumer Brands', contactPerson: 'Nimal Silva', email: 'sales@hemas.com', phone: '0112445678', address: 'Colombo' },
-    { name: 'CBL (Munchee)', contactPerson: 'Ruwan Kumara', email: 'orders@munchee.lk', phone: '0112545678', address: 'Pannipitiya' },
-    { name: 'Maliban Biscuit', contactPerson: 'Saman Perera', email: 'sales@maliban.lk', phone: '0112645678', address: 'Ratmalana' },
-    { name: 'Nestle Lanka', contactPerson: 'Janaka', email: 'orders@nestle.lk', phone: '0112745678', address: 'Kurunegala' },
-    { name: 'Fonterra Brands', contactPerson: 'Sunil', email: 'sales@fonterra.lk', phone: '0112845678', address: 'Biyagama' },
-    { name: 'Cargills PLC', contactPerson: 'Mohan', email: 'orders@cargills.lk', phone: '0112945678', address: 'Colombo' },
-    { name: 'Ceylon Cold Stores', contactPerson: 'Ajith', email: 'sales@elephanthouse.lk', phone: '0113045678', address: 'Colombo' },
-    { name: 'CIC Holdings', contactPerson: 'Bandara', email: 'sales@cic.lk', phone: '0113145678', address: 'Peliyagoda' },
-    { name: 'Dilmah Ceylon Tea', contactPerson: 'Roshan', email: 'sales@dilmahtea.com', phone: '0113245678', address: 'Peliyagoda' },
-    { name: 'Bairaha Farms', contactPerson: 'Nuwan', email: 'sales@bairaha.com', phone: '0113345678', address: 'Colombo' },
-    { name: 'Reckitt Benckiser', contactPerson: 'Dinesh', email: 'sales@reckitt.lk', phone: '0113445678', address: 'Colombo' },
-    { name: 'Haleon', contactPerson: 'Asanka', email: 'sales@haleon.com', phone: '0113545678', address: 'Colombo' },
-    { name: 'Mannar Wholesale Distributors', contactPerson: 'Jude', email: 'mannarwd@gmail.com', phone: '0232223456', address: 'Mannar Town' },
-    { name: 'Northern Traders', contactPerson: 'Ramesh', email: 'northerntraders@yahoo.com', phone: '0232224567', address: 'Mannar' },
-    { name: 'St. Marys Dry Fish Exporters', contactPerson: 'Anton', email: 'stmarys@mannar.lk', phone: '0232225678', address: 'Pesalai, Mannar' },
-    { name: 'Mannar Rice Mill', contactPerson: 'Sivakumar', email: 'ricemill@mannar.com', phone: '0232226789', address: 'Murunkan, Mannar' },
-    { name: 'Sathosa Mannar Hub', contactPerson: 'Manager', email: 'sathosa.mannar@gov.lk', phone: '0232227890', address: 'Mannar Town' },
+    { name: 'Mannar Sea Foods', email: 'contact@mannarsea.lk', phone: '0772223456', address: 'Main Street, Mannar' },
+    { name: 'Pesalai Traders', email: 'sales@pesalaitraders.lk', phone: '0712221122', address: 'Pesalai, Mannar' },
+    { name: 'Murunkan Mills', email: 'info@murunkanmills.com', phone: '0772223344', address: 'Murunkan, Mannar' },
+    { name: 'Thalaimannar Distributors', email: 'supply@thalaimannar.lk', phone: '0762225566', address: 'Thalaimannar' },
+    { name: 'Nanaddan Grocers', email: 'nanaddan@gmail.com', phone: '0702227788', address: 'Nanaddan, Mannar' },
+    { name: 'Silavathurai Traders', email: 'silavathurai@yahoo.com', phone: '0782229900', address: 'Silavathurai, Mannar' },
+    { name: 'Vankalai Wholesale', email: 'vankalai@mannar.lk', phone: '0712222233', address: 'Vankalai, Mannar' },
+    { name: 'Mannar Hub Logistics', email: 'hub@mannarlogistics.com', phone: '0752224455', address: 'Moor Street, Mannar' },
+    { name: 'Illuppaikkadavai Supply', email: 'illuppai@gmail.com', phone: '0722226677', address: 'Illuppaikkadavai' },
+    { name: 'Adampan Distributors', email: 'adampan@traders.com', phone: '0772228899', address: 'Adampan, Mannar' },
   ];
 
-  const baseDate = new Date('2023-01-01T00:00:00Z');
-
+  const baseDate = new Date('2024-01-01T00:00:00Z');
   const supplierMap: Record<string, any> = {};
   for (const s of suppliersRaw) {
-    supplierMap[s.name] = await prisma.supplier.create({ 
-      data: { 
-        name: s.name, 
-        companyName: s.name, 
-        email: s.email, 
-        phone: s.phone, 
-        address: s.address,
-        createdAt: baseDate
-      } 
+    supplierMap[s.name] = await prisma.supplier.create({
+      data: { name: s.name, companyName: s.name, email: s.email, phone: s.phone, address: s.address, createdAt: baseDate }
     });
   }
 
-  console.log('📂 Seeding categories and subcategories...');
+  // 2. 5 Categories, 3-4 Subcategories
+  console.log('📂 Seeding 5 Categories & Subcategories...');
   const categoriesRaw = [
-    { name: 'Grocery & Staples', subs: ['Rice', 'Dhal & Pulses', 'Flour', 'Sugar', 'Spices & Condiments', 'Oil'] },
-    { name: 'Beverages', subs: ['Tea', 'Coffee', 'Soft Drinks', 'Fruit Juices', 'Water', 'Malt & Energy Drinks'] },
-    { name: 'Snacks & Confectionery', subs: ['Biscuits', 'Chocolates', 'Chips & Murukku', 'Sweets'] },
-    { name: 'Personal Care', subs: ['Soaps & Body Wash', 'Hair Care', 'Oral Care', 'Skin Care'] },
-    { name: 'Household Care', subs: ['Laundry Detergents', 'Surface Cleaners', 'Dishwashing', 'Repellents'] },
-    { name: 'Dairy & Chilled', subs: ['Milk Powder', 'Fresh Milk', 'Butter & Cheese', 'Yoghurt'] },
-    { name: 'Frozen Foods', subs: ['Ice Cream', 'Processed Meats'] },
-    { name: 'Baby Care', subs: ['Baby Diapers', 'Baby Food', 'Baby Toiletries'] },
-    { name: 'Bakery', subs: ['Bread', 'Buns & Cakes'] },
-    { name: 'Local & Dry Goods', subs: ['Dry Fish (Karuvadu)', 'Local Sweets'] }
+    { name: 'Seafood & Dry Fish', image: 'https://images.unsplash.com/photo-1615141982883-c7ad0e69fd62?q=80&w=800&auto=format&fit=crop', subs: ['Fresh Fish', 'Dry Fish (Karuvadu)', 'Prawns', 'Crab'] },
+    { name: 'Groceries & Staples', image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=800&auto=format&fit=crop', subs: ['Rice', 'Flour & Sugar', 'Spices & Condiments', 'Pulses'] },
+    { name: 'Beverages', image: 'https://images.unsplash.com/photo-1556881286-fc6915169721?q=80&w=800&auto=format&fit=crop', subs: ['Tea & Coffee', 'Soft Drinks', 'Fruit Juices'] },
+    { name: 'Snacks & Bakery', image: 'https://images.unsplash.com/photo-1599599810765-bfb1a31656d5?q=80&w=800&auto=format&fit=crop', subs: ['Biscuits', 'Cakes & Buns', 'Sweets & Chocolates'] },
+    { name: 'Personal Care', image: 'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?q=80&w=800&auto=format&fit=crop', subs: ['Soaps & Body Wash', 'Hair Care', 'Oral Care', 'Skin Care'] }
   ];
 
   const categoryMap: Record<string, any> = {};
   const subCategoryMap: Record<string, any> = {};
   for (const c of categoriesRaw) {
-    const cat = await prisma.category.create({ data: { name: c.name, description: `All ${c.name}` } });
+    const cat = await prisma.category.create({ data: { name: c.name, description: `All ${c.name}`, categoryImageUrl: c.image } });
     categoryMap[c.name] = cat;
     for (const sub of c.subs) {
       const createdSub = await prisma.subCategory.create({ data: { name: sub, categoryId: cat.id } });
@@ -106,565 +92,396 @@ async function main() {
     }
   }
 
-  console.log('🏷️ Seeding brands...');
-  const brandsRaw = [
-    'Sunsilk', 'Lifebuoy', 'Signal', 'Clogard', 'Baby Cheramy', 'Munchee', 'Maliban', 'Maggi', 'Milo', 
-    'Anchor', 'Ratthi', 'Kotmale', 'Elephant House', 'Kist', 'Dettol', 'Harpic', 'Prima', 'Roza', 'Dilmah', 
-    'Zesta', 'Sustagen', 'Viva', 'Nestomalt', 'Nescafe', 'Gold Leaf', 'Ritzbury', 'Kandos', 'Edinborough',
-    'Araliya', 'Nipuna', 'CIC', 'Marina', 'Fortune', 'Sunquick', 'Coca-Cola', 'Sprite', 'Fanta', 'Knorr',
-    'MD', 'Sera', 'Bairaha', 'Crysbro', 'Keells', 'Magic', 'Highland', 'Pelwatte', 'Velona', 'Pears', 
-    'Lysol', 'Vim', 'Sunlight', 'Surf Excel', 'Diva', 'Kumarika', 'Vatika', 'Clear', 'Dove', 'Sensodyne',
-    'Local', 'Pesalai Dry Fish', 'Mannar Mill', 'Sathosa Mannar Hub'
-  ];
-  
+  // 3. 10 Brands
+  console.log('🏷️ Seeding 10 Brands...');
+  const brandsRaw = ['Mannar Best', 'Pesalai Catch', 'Ceylon Gold', 'Munchee', 'Maliban', 'Sunlight', 'Lifebuoy', 'Nescafe', 'Dilmah', 'Kist'];
   const brandMap: Record<string, any> = {};
   for (const b of brandsRaw) {
     brandMap[b] = await prisma.brand.create({ data: { name: b, state: BrandState.ACTIVE } });
   }
 
-  console.log('🛒 Generating products...');
+  // 4. Products (100-150 SKUs)
+  console.log('🛒 Generating 100+ Products...');
   
-  // Define Master Products with variants to generate 500+ SKUs
-  const masterProducts = [
-    // RICE
-    { name: 'Keeri Samba Rice', cat: 'Grocery & Staples', sub: 'Rice', brand: 'Araliya', sup: 'Northern Traders',
-      variants: [{v:'1Kg', p:380, c:350}, {v:'5Kg', p:1850, c:1750}, {v:'10Kg', p:3650, c:3450}, {v:'25Kg', p:9000, c:8600}] },
-    { name: 'Nadu Rice', cat: 'Grocery & Staples', sub: 'Rice', brand: 'Nipuna', sup: 'Mannar Rice Mill',
-      variants: [{v:'1Kg', p:220, c:200}, {v:'5Kg', p:1080, c:1000}, {v:'10Kg', p:2150, c:1950}, {v:'25Kg', p:5300, c:4850}] },
-    { name: 'Samba Rice', cat: 'Grocery & Staples', sub: 'Rice', brand: 'Local', sup: 'Mannar Rice Mill',
-      variants: [{v:'1Kg', p:240, c:220}, {v:'5Kg', p:1180, c:1100}, {v:'10Kg', p:2350, c:2150}, {v:'25Kg', p:5800, c:5300}] },
-    { name: 'Basmati Rice', cat: 'Grocery & Staples', sub: 'Rice', brand: 'CIC', sup: 'CIC Holdings',
-      variants: [{v:'1Kg', p:850, c:780}, {v:'5Kg', p:4200, c:3850}] },
+  // Base products definition
+  const baseProducts = [
+    // Seafood & Dry Fish
+    { name: 'Seer Fish (Thora)', cat: 'Seafood & Dry Fish', sub: 'Fresh Fish', brand: 'Pesalai Catch', sup: 'Pesalai Traders', price: 1800, cost: 1500, vars: ['500g', '1Kg'] },
+    { name: 'Katta Karuvadu', cat: 'Seafood & Dry Fish', sub: 'Dry Fish (Karuvadu)', brand: 'Mannar Best', sup: 'Mannar Sea Foods', price: 2200, cost: 1800, vars: ['250g', '500g', '1Kg'] },
+    { name: 'Sprats (Keeramin)', cat: 'Seafood & Dry Fish', sub: 'Dry Fish (Karuvadu)', brand: 'Pesalai Catch', sup: 'Pesalai Traders', price: 1100, cost: 900, vars: ['250g', '500g', '1Kg'] },
+    { name: 'Tiger Prawns', cat: 'Seafood & Dry Fish', sub: 'Prawns', brand: 'Mannar Best', sup: 'Silavathurai Traders', price: 2500, cost: 2100, vars: ['500g', '1Kg'] },
+    { name: 'Mud Crab', cat: 'Seafood & Dry Fish', sub: 'Crab', brand: 'Mannar Best', sup: 'Vankalai Wholesale', price: 1500, cost: 1200, vars: ['1Kg', '2Kg'] },
+    { name: 'Kumbalava Dry Fish', cat: 'Seafood & Dry Fish', sub: 'Dry Fish (Karuvadu)', brand: 'Mannar Best', sup: 'Illuppaikkadavai Supply', price: 900, cost: 750, vars: ['500g', '1Kg'] },
 
-    // DHAL & PULSES
-    { name: 'Mysore Dhal', cat: 'Grocery & Staples', sub: 'Dhal & Pulses', brand: 'Local', sup: 'Mannar Wholesale Distributors',
-      variants: [{v:'250g', p:110, c:95}, {v:'500g', p:210, c:185}, {v:'1Kg', p:400, c:360}, {v:'5Kg', p:1950, c:1780}] },
-    { name: 'Green Gram', cat: 'Grocery & Staples', sub: 'Dhal & Pulses', brand: 'Sathosa Mannar Hub', sup: 'Sathosa Mannar Hub',
-      variants: [{v:'500g', p:350, c:300}, {v:'1Kg', p:680, c:590}] },
-    { name: 'Chickpeas', cat: 'Grocery & Staples', sub: 'Dhal & Pulses', brand: 'Local', sup: 'Northern Traders',
-      variants: [{v:'500g', p:450, c:390}, {v:'1Kg', p:880, c:770}] },
+    // Groceries
+    { name: 'Keeri Samba Rice', cat: 'Groceries & Staples', sub: 'Rice', brand: 'Ceylon Gold', sup: 'Murunkan Mills', price: 350, cost: 300, vars: ['1Kg', '2Kg', '5Kg', '10Kg', '25Kg', '50Kg'] },
+    { name: 'Nadu Rice', cat: 'Groceries & Staples', sub: 'Rice', brand: 'Ceylon Gold', sup: 'Murunkan Mills', price: 220, cost: 190, vars: ['1Kg', '2Kg', '5Kg', '10Kg', '25Kg', '50Kg'] },
+    { name: 'Wheat Flour', cat: 'Groceries & Staples', sub: 'Flour & Sugar', brand: 'Mannar Best', sup: 'Nanaddan Grocers', price: 210, cost: 180, vars: ['500g', '1Kg', '2Kg', '5Kg', '10Kg'] },
+    { name: 'White Sugar', cat: 'Groceries & Staples', sub: 'Flour & Sugar', brand: 'Mannar Best', sup: 'Thalaimannar Distributors', price: 320, cost: 280, vars: ['500g', '1Kg', '2Kg', '5Kg'] },
+    { name: 'Chilli Powder', cat: 'Groceries & Staples', sub: 'Spices & Condiments', brand: 'Ceylon Gold', sup: 'Mannar Hub Logistics', price: 1500, cost: 1200, vars: ['50g', '100g', '250g', '500g', '1Kg'] },
+    { name: 'Turmeric Powder', cat: 'Groceries & Staples', sub: 'Spices & Condiments', brand: 'Ceylon Gold', sup: 'Adampan Distributors', price: 1600, cost: 1300, vars: ['50g', '100g', '250g', '500g', '1Kg'] },
+    { name: 'Mysore Dhal', cat: 'Groceries & Staples', sub: 'Pulses', brand: 'Mannar Best', sup: 'Nanaddan Grocers', price: 400, cost: 340, vars: ['250g', '500g', '1Kg', '2Kg', '5Kg', '10Kg'] },
 
-    // FLOUR & SUGAR
-    { name: 'Wheat Flour', cat: 'Grocery & Staples', sub: 'Flour', brand: 'Prima', sup: 'Mannar Wholesale Distributors',
-      variants: [{v:'1Kg', p:210, c:190}, {v:'5Kg', p:1030, c:940}, {v:'50Kg', p:10000, c:9200}] },
-    { name: 'Kurakkan Flour', cat: 'Grocery & Staples', sub: 'Flour', brand: 'Local', sup: 'Northern Traders',
-      variants: [{v:'500g', p:320, c:280}, {v:'1Kg', p:620, c:550}] },
-    { name: 'White Sugar', cat: 'Grocery & Staples', sub: 'Sugar', brand: 'Local', sup: 'Mannar Wholesale Distributors',
-      variants: [{v:'500g', p:160, c:145}, {v:'1Kg', p:310, c:285}, {v:'5Kg', p:1530, c:1420}, {v:'50Kg', p:15000, c:14000}] },
-    { name: 'Brown Sugar', cat: 'Grocery & Staples', sub: 'Sugar', brand: 'Sathosa Mannar Hub', sup: 'Sathosa Mannar Hub',
-      variants: [{v:'1Kg', p:350, c:310}, {v:'5Kg', p:1720, c:1540}] },
+    // Beverages
+    { name: 'Premium Tea Dust', cat: 'Beverages', sub: 'Tea & Coffee', brand: 'Dilmah', sup: 'Mannar Hub Logistics', price: 250, cost: 200, vars: ['100g', '200g', '500g', '1Kg'] },
+    { name: 'Nescafe Classic', cat: 'Beverages', sub: 'Tea & Coffee', brand: 'Nescafe', sup: 'Thalaimannar Distributors', price: 1450, cost: 1200, vars: ['50g', '100g', '200g'] },
+    { name: 'Ceylon Golden Tea', cat: 'Beverages', sub: 'Tea & Coffee', brand: 'Ceylon Gold', sup: 'Mannar Hub Logistics', price: 300, cost: 240, vars: ['100g', '200g', '400g'] },
+    { name: 'Kist Orange Nectar', cat: 'Beverages', sub: 'Fruit Juices', brand: 'Kist', sup: 'Vankalai Wholesale', price: 850, cost: 700, vars: ['1L', '2L'] },
+    { name: 'Mixed Fruit Juice', cat: 'Beverages', sub: 'Fruit Juices', brand: 'Kist', sup: 'Adampan Distributors', price: 900, cost: 750, vars: ['1L'] },
 
-    // SPICES & OIL
-    { name: 'Chilli Powder', cat: 'Grocery & Staples', sub: 'Spices & Condiments', brand: 'Local', sup: 'Northern Traders',
-      variants: [{v:'100g', p:180, c:150}, {v:'250g', p:420, c:360}, {v:'500g', p:800, c:700}, {v:'1Kg', p:1550, c:1350}] },
-    { name: 'Curry Powder (Roasted)', cat: 'Grocery & Staples', sub: 'Spices & Condiments', brand: 'Local', sup: 'Northern Traders',
-      variants: [{v:'100g', p:160, c:130}, {v:'250g', p:380, c:310}, {v:'500g', p:720, c:600}] },
-    { name: 'Turmeric Powder', cat: 'Grocery & Staples', sub: 'Spices & Condiments', brand: 'Local', sup: 'Mannar Wholesale Distributors',
-      variants: [{v:'50g', p:90, c:75}, {v:'100g', p:170, c:140}, {v:'250g', p:400, c:340}] },
-    { name: 'Coconut Oil', cat: 'Grocery & Staples', sub: 'Oil', brand: 'Marina', sup: 'Mannar Wholesale Distributors',
-      variants: [{v:'500ml', p:480, c:430}, {v:'1L', p:950, c:850}, {v:'5L', p:4600, c:4200}] },
-    { name: 'Vegetable Oil', cat: 'Grocery & Staples', sub: 'Oil', brand: 'Fortune', sup: 'Northern Traders',
-      variants: [{v:'1L', p:750, c:680}, {v:'2L', p:1480, c:1350}, {v:'5L', p:3650, c:3350}] },
+    // Snacks
+    { name: 'Lemon Puff', cat: 'Snacks & Bakery', sub: 'Biscuits', brand: 'Munchee', sup: 'Nanaddan Grocers', price: 150, cost: 120, vars: ['100g', '200g', '400g'] },
+    { name: 'Cream Cracker', cat: 'Snacks & Bakery', sub: 'Biscuits', brand: 'Maliban', sup: 'Silavathurai Traders', price: 200, cost: 160, vars: ['190g', '330g', '500g'] },
+    { name: 'Chocolate Cream', cat: 'Snacks & Bakery', sub: 'Biscuits', brand: 'Munchee', sup: 'Illuppaikkadavai Supply', price: 120, cost: 100, vars: ['100g', '400g'] },
+    { name: 'Butter Cake', cat: 'Snacks & Bakery', sub: 'Cakes & Buns', brand: 'Mannar Best', sup: 'Mannar Hub Logistics', price: 400, cost: 300, vars: ['250g', '500g'] },
+    { name: 'Tea Bun', cat: 'Snacks & Bakery', sub: 'Cakes & Buns', brand: 'Mannar Best', sup: 'Mannar Hub Logistics', price: 80, cost: 60, vars: ['1pcs', '5pcs'] },
+    { name: 'Milk Chocolate', cat: 'Snacks & Bakery', sub: 'Sweets & Chocolates', brand: 'Ceylon Gold', sup: 'Adampan Distributors', price: 250, cost: 200, vars: ['50g', '100g', '200g'] },
 
-    // DRY FISH (MANNAR SPECIAL)
-    { name: 'Katta Karuvadu', cat: 'Local & Dry Goods', sub: 'Dry Fish (Karuvadu)', brand: 'Pesalai Dry Fish', sup: 'St. Marys Dry Fish Exporters',
-      variants: [{v:'100g', p:400, c:320}, {v:'250g', p:950, c:780}, {v:'500g', p:1850, c:1550}, {v:'1Kg', p:3600, c:3000}] },
-    { name: 'Sprats (Keeramin)', cat: 'Local & Dry Goods', sub: 'Dry Fish (Karuvadu)', brand: 'Pesalai Dry Fish', sup: 'St. Marys Dry Fish Exporters',
-      variants: [{v:'100g', p:150, c:120}, {v:'250g', p:360, c:290}, {v:'500g', p:700, c:560}, {v:'1Kg', p:1350, c:1100}] },
-    { name: 'Kumbalava Dry Fish', cat: 'Local & Dry Goods', sub: 'Dry Fish (Karuvadu)', brand: 'Pesalai Dry Fish', sup: 'St. Marys Dry Fish Exporters',
-      variants: [{v:'250g', p:550, c:450}, {v:'500g', p:1050, c:880}, {v:'1Kg', p:2000, c:1700}] },
-
-    // BEVERAGES
-    { name: 'Tea Dust', cat: 'Beverages', sub: 'Tea', brand: 'Zesta', sup: 'Mannar Wholesale Distributors',
-      variants: [{v:'100g', p:250, c:220}, {v:'200g', p:490, c:430}, {v:'500g', p:1200, c:1050}, {v:'1Kg', p:2350, c:2080}] },
-    { name: 'Premium Tea Leaves', cat: 'Beverages', sub: 'Tea', brand: 'Dilmah', sup: 'Dilmah Ceylon Tea',
-      variants: [{v:'100g', p:380, c:320}, {v:'200g', p:740, c:630}, {v:'400g', p:1450, c:1250}] },
-    { name: 'Milo Powder', cat: 'Beverages', sub: 'Malt & Energy Drinks', brand: 'Milo', sup: 'Nestle Lanka',
-      variants: [{v:'200g', p:500, c:440}, {v:'400g', p:980, c:870}, {v:'1Kg', p:2400, c:2150}] },
-    { name: 'Nestomalt', cat: 'Beverages', sub: 'Malt & Energy Drinks', brand: 'Nestomalt', sup: 'Nestle Lanka',
-      variants: [{v:'200g', p:480, c:420}, {v:'400g', p:940, c:830}, {v:'1Kg', p:2300, c:2050}] },
-    { name: 'Nescafe Classic', cat: 'Beverages', sub: 'Coffee', brand: 'Nescafe', sup: 'Nestle Lanka',
-      variants: [{v:'50g', p:750, c:650}, {v:'100g', p:1450, c:1250}, {v:'200g', p:2800, c:2450}] },
-    { name: 'Coca-Cola', cat: 'Beverages', sub: 'Soft Drinks', brand: 'Coca-Cola', sup: 'Northern Traders',
-      variants: [{v:'400ml', p:120, c:100}, {v:'1L', p:280, c:240}, {v:'1.5L', p:380, c:330}, {v:'2L', p:480, c:420}] },
-    { name: 'Sprite', cat: 'Beverages', sub: 'Soft Drinks', brand: 'Sprite', sup: 'Northern Traders',
-      variants: [{v:'400ml', p:120, c:100}, {v:'1.5L', p:380, c:330}] },
-    { name: 'Sunquick Orange', cat: 'Beverages', sub: 'Fruit Juices', brand: 'Sunquick', sup: 'Northern Traders',
-      variants: [{v:'330ml', p:850, c:740}, {v:'840ml', p:1850, c:1600}] },
-    
-    // SNACKS & BISCUITS
-    { name: 'Lemon Puff', cat: 'Snacks & Confectionery', sub: 'Biscuits', brand: 'Munchee', sup: 'CBL (Munchee)',
-      variants: [{v:'100g', p:100, c:85}, {v:'200g', p:190, c:165}, {v:'400g', p:370, c:320}] },
-    { name: 'Cream Cracker', cat: 'Snacks & Confectionery', sub: 'Biscuits', brand: 'Maliban', sup: 'Maliban Biscuit',
-      variants: [{v:'125g', p:90, c:75}, {v:'190g', p:140, c:120}, {v:'330g', p:240, c:205}, {v:'500g', p:360, c:310}] },
-    { name: 'Chocolate Cream Biscuit', cat: 'Snacks & Confectionery', sub: 'Biscuits', brand: 'Munchee', sup: 'CBL (Munchee)',
-      variants: [{v:'100g', p:120, c:100}, {v:'400g', p:450, c:390}] },
-    { name: 'Marie Biscuit', cat: 'Snacks & Confectionery', sub: 'Biscuits', brand: 'Maliban', sup: 'Maliban Biscuit',
-      variants: [{v:'80g', p:80, c:65}, {v:'300g', p:280, c:240}] },
-    { name: 'Kandos Milk Chocolate', cat: 'Snacks & Confectionery', sub: 'Chocolates', brand: 'Kandos', sup: 'Northern Traders',
-      variants: [{v:'45g', p:150, c:130}, {v:'100g', p:320, c:280}, {v:'200g', p:620, c:540}] },
-    { name: 'Ritzbury Revello', cat: 'Snacks & Confectionery', sub: 'Chocolates', brand: 'Ritzbury', sup: 'CBL (Munchee)',
-      variants: [{v:'50g', p:180, c:155}, {v:'100g', p:350, c:300}] },
-    { name: 'Cassava Chips (Manioc)', cat: 'Snacks & Confectionery', sub: 'Chips & Murukku', brand: 'Local', sup: 'Mannar Wholesale Distributors',
-      variants: [{v:'50g', p:80, c:65}, {v:'100g', p:150, c:120}, {v:'250g', p:350, c:280}] },
-    { name: 'Murukku Packet', cat: 'Snacks & Confectionery', sub: 'Chips & Murukku', brand: 'Local', sup: 'Northern Traders',
-      variants: [{v:'100g', p:100, c:80}, {v:'200g', p:190, c:150}] },
-
-    // PERSONAL CARE
-    { name: 'Sunsilk Black Shine Shampoo', cat: 'Personal Care', sub: 'Hair Care', brand: 'Sunsilk', sup: 'Unilever Sri Lanka',
-      variants: [{v:'90ml', p:320, c:280}, {v:'180ml', p:580, c:510}, {v:'340ml', p:1050, c:920}, {v:'680ml', p:1950, c:1720}] },
-    { name: 'Clear Anti-Dandruff Shampoo', cat: 'Personal Care', sub: 'Hair Care', brand: 'Clear', sup: 'Unilever Sri Lanka',
-      variants: [{v:'80ml', p:350, c:310}, {v:'170ml', p:650, c:570}, {v:'330ml', p:1200, c:1050}] },
-    { name: 'Lifebuoy Soap Total 10', cat: 'Personal Care', sub: 'Soaps & Body Wash', brand: 'Lifebuoy', sup: 'Unilever Sri Lanka',
-      variants: [{v:'50g', p:65, c:55}, {v:'100g', p:120, c:100}, {v:'100g x 4', p:450, c:390}] },
-    { name: 'Signal Toothpaste', cat: 'Personal Care', sub: 'Oral Care', brand: 'Signal', sup: 'Unilever Sri Lanka',
-      variants: [{v:'40g', p:95, c:80}, {v:'120g', p:240, c:210}, {v:'160g', p:320, c:280}] },
-    { name: 'Sensodyne Repair', cat: 'Personal Care', sub: 'Oral Care', brand: 'Sensodyne', sup: 'Haleon',
-      variants: [{v:'100g', p:750, c:650}] },
-    { name: 'Kumarika Hair Oil', cat: 'Personal Care', sub: 'Hair Care', brand: 'Kumarika', sup: 'Hemas Consumer Brands',
-      variants: [{v:'100ml', p:220, c:190}, {v:'200ml', p:420, c:360}] },
-    { name: 'Dove Beauty Bathing Bar', cat: 'Personal Care', sub: 'Soaps & Body Wash', brand: 'Dove', sup: 'Unilever Sri Lanka',
-      variants: [{v:'100g', p:350, c:300}] },
-
-    // HOUSEHOLD CARE
-    { name: 'Surf Excel Detergent Powder', cat: 'Household Care', sub: 'Laundry Detergents', brand: 'Surf Excel', sup: 'Unilever Sri Lanka',
-      variants: [{v:'200g', p:180, c:155}, {v:'500g', p:420, c:370}, {v:'1Kg', p:820, c:720}] },
-    { name: 'Sunlight Washing Soap', cat: 'Household Care', sub: 'Laundry Detergents', brand: 'Sunlight', sup: 'Unilever Sri Lanka',
-      variants: [{v:'120g', p:80, c:70}, {v:'120g x 4', p:310, c:275}] },
-    { name: 'Diva Washing Powder', cat: 'Household Care', sub: 'Laundry Detergents', brand: 'Diva', sup: 'Hemas Consumer Brands',
-      variants: [{v:'400g', p:280, c:240}, {v:'1Kg', p:650, c:560}] },
-    { name: 'Vim Dishwash Liquid', cat: 'Household Care', sub: 'Dishwashing', brand: 'Vim', sup: 'Unilever Sri Lanka',
-      variants: [{v:'250ml', p:250, c:220}, {v:'500ml', p:480, c:420}] },
-    { name: 'Lysol Floor Cleaner', cat: 'Household Care', sub: 'Surface Cleaners', brand: 'Lysol', sup: 'Reckitt Benckiser',
-      variants: [{v:'500ml', p:550, c:480}, {v:'1L', p:1050, c:920}] },
-    { name: 'Harpic Toilet Cleaner', cat: 'Household Care', sub: 'Surface Cleaners', brand: 'Harpic', sup: 'Reckitt Benckiser',
-      variants: [{v:'500ml', p:480, c:420}, {v:'750ml', p:680, c:590}] },
-
-    // DAIRY & CHILLED
-    { name: 'Anchor Full Cream Milk Powder', cat: 'Dairy & Chilled', sub: 'Milk Powder', brand: 'Anchor', sup: 'Fonterra Brands',
-      variants: [{v:'75g', p:250, c:230}, {v:'400g', p:1200, c:1120}, {v:'1Kg', p:2950, c:2780}] },
-    { name: 'Highland Milk Powder', cat: 'Dairy & Chilled', sub: 'Milk Powder', brand: 'Highland', sup: 'Mannar Wholesale Distributors',
-      variants: [{v:'400g', p:1150, c:1080}, {v:'1Kg', p:2850, c:2680}] },
-    { name: 'Ratthi Milk Powder', cat: 'Dairy & Chilled', sub: 'Milk Powder', brand: 'Ratthi', sup: 'Fonterra Brands',
-      variants: [{v:'400g', p:1180, c:1100}] },
-    { name: 'Kotmale Fresh Milk', cat: 'Dairy & Chilled', sub: 'Fresh Milk', brand: 'Kotmale', sup: 'Cargills PLC',
-      variants: [{v:'500ml', p:280, c:250}, {v:'1L', p:520, c:460}] },
-    { name: 'Highland Yoghurt', cat: 'Dairy & Chilled', sub: 'Yoghurt', brand: 'Highland', sup: 'Mannar Wholesale Distributors',
-      variants: [{v:'80g', p:70, c:60}] },
-    { name: 'Kotmale Set Yoghurt', cat: 'Dairy & Chilled', sub: 'Yoghurt', brand: 'Kotmale', sup: 'Cargills PLC',
-      variants: [{v:'80g', p:75, c:65}] },
-    { name: 'Astra Margarine', cat: 'Dairy & Chilled', sub: 'Butter & Cheese', brand: 'Anchor', sup: 'Fonterra Brands',
-      variants: [{v:'100g', p:250, c:220}, {v:'250g', p:580, c:510}] },
-    { name: 'Happy Cow Cheese', cat: 'Dairy & Chilled', sub: 'Butter & Cheese', brand: 'Anchor', sup: 'Mannar Wholesale Distributors',
-      variants: [{v:'120g (8 Portions)', p:780, c:680}] },
-
-    // FROZEN FOODS
-    { name: 'Elephant House Vanilla Ice Cream', cat: 'Frozen Foods', sub: 'Ice Cream', brand: 'Elephant House', sup: 'Ceylon Cold Stores',
-      variants: [{v:'1L', p:750, c:650}, {v:'2L', p:1450, c:1280}, {v:'4L', p:2800, c:2480}] },
-    { name: 'Elephant House Chocolate Ice Cream', cat: 'Frozen Foods', sub: 'Ice Cream', brand: 'Elephant House', sup: 'Ceylon Cold Stores',
-      variants: [{v:'1L', p:800, c:700}, {v:'2L', p:1550, c:1350}] },
-    { name: 'Magic Fruit & Nut Ice Cream', cat: 'Frozen Foods', sub: 'Ice Cream', brand: 'Magic', sup: 'Cargills PLC',
-      variants: [{v:'1L', p:950, c:820}] },
-    { name: 'Bairaha Chicken Sausages', cat: 'Frozen Foods', sub: 'Processed Meats', brand: 'Bairaha', sup: 'Bairaha Farms',
-      variants: [{v:'250g', p:480, c:420}, {v:'500g', p:920, c:810}] },
-    { name: 'Keells Chicken Meatballs', cat: 'Frozen Foods', sub: 'Processed Meats', brand: 'Keells', sup: 'Northern Traders',
-      variants: [{v:'200g', p:450, c:390}, {v:'500g', p:1050, c:920}] },
-    { name: 'Bairaha Whole Chicken (Frozen)', cat: 'Frozen Foods', sub: 'Processed Meats', brand: 'Bairaha', sup: 'Bairaha Farms',
-      variants: [{v:'1Kg', p:1250, c:1120}, {v:'1.2Kg', p:1500, c:1350}] },
-
-    // BABY CARE
-    { name: 'Baby Cheramy Soap', cat: 'Baby Care', sub: 'Baby Toiletries', brand: 'Baby Cheramy', sup: 'Hemas Consumer Brands',
-      variants: [{v:'100g', p:150, c:130}] },
-    { name: 'Baby Cheramy Cologne', cat: 'Baby Care', sub: 'Baby Toiletries', brand: 'Baby Cheramy', sup: 'Hemas Consumer Brands',
-      variants: [{v:'100ml', p:350, c:300}] },
-    { name: 'Pears Baby Lotion', cat: 'Baby Care', sub: 'Baby Toiletries', brand: 'Pears', sup: 'Unilever Sri Lanka',
-      variants: [{v:'100ml', p:420, c:360}, {v:'200ml', p:780, c:680}] },
-    { name: 'Velona Cuddles Diapers', cat: 'Baby Care', sub: 'Baby Diapers', brand: 'Velona', sup: 'Northern Traders',
-      variants: [{v:'Small (10pcs)', p:850, c:750}, {v:'Medium (10pcs)', p:950, c:840}, {v:'Large (10pcs)', p:1050, c:930}] },
-    { name: 'Cerelac Wheat & Milk', cat: 'Baby Care', sub: 'Baby Food', brand: 'Maggi', sup: 'Nestle Lanka',
-      variants: [{v:'400g', p:1250, c:1100}] },
-
-    // BAKERY
-    { name: 'Sliced Bread', cat: 'Bakery', sub: 'Bread', brand: 'Local', sup: 'Mannar Wholesale Distributors',
-      variants: [{v:'450g', p:180, c:150}] },
-    { name: 'Roast Bread', cat: 'Bakery', sub: 'Bread', brand: 'Local', sup: 'Mannar Wholesale Distributors',
-      variants: [{v:'450g', p:200, c:170}] },
-    { name: 'Tea Bun', cat: 'Bakery', sub: 'Buns & Cakes', brand: 'Local', sup: 'Northern Traders',
-      variants: [{v:'1 piece', p:80, c:65}, {v:'5 pieces', p:380, c:310}] },
-    { name: 'Butter Cake', cat: 'Bakery', sub: 'Buns & Cakes', brand: 'Local', sup: 'Mannar Wholesale Distributors',
-      variants: [{v:'250g', p:350, c:290}, {v:'500g', p:680, c:560}] },
-
-    // MORE NOODLES & CONDIMENTS
-    { name: 'Maggi Chicken Noodles', cat: 'Grocery & Staples', sub: 'Flour', brand: 'Maggi', sup: 'Nestle Lanka',
-      variants: [{v:'73g', p:110, c:95}, {v:'350g (Family)', p:520, c:450}] },
-    { name: 'Maggi Kottu Mee', cat: 'Grocery & Staples', sub: 'Flour', brand: 'Maggi', sup: 'Nestle Lanka',
-      variants: [{v:'80g', p:130, c:110}] },
-    { name: 'Kist Tomato Sauce', cat: 'Grocery & Staples', sub: 'Spices & Condiments', brand: 'Kist', sup: 'Cargills PLC',
-      variants: [{v:'400g', p:450, c:390}, {v:'1Kg', p:950, c:840}] },
-    { name: 'MD Chilli Sauce', cat: 'Grocery & Staples', sub: 'Spices & Condiments', brand: 'MD', sup: 'Northern Traders',
-      variants: [{v:'400g', p:480, c:410}] },
-    { name: 'Knorr Chicken Cubes', cat: 'Grocery & Staples', sub: 'Spices & Condiments', brand: 'Knorr', sup: 'Unilever Sri Lanka',
-      variants: [{v:'20g (2 Cubes)', p:90, c:75}, {v:'60g (6 Cubes)', p:250, c:210}] },
+    // Personal Care
+    { name: 'Sunlight Soap', cat: 'Personal Care', sub: 'Soaps & Body Wash', brand: 'Sunlight', sup: 'Vankalai Wholesale', price: 80, cost: 65, vars: ['120g', '120g x 4'] },
+    { name: 'Lifebuoy Total 10', cat: 'Personal Care', sub: 'Soaps & Body Wash', brand: 'Lifebuoy', sup: 'Thalaimannar Distributors', price: 120, cost: 100, vars: ['100g', '100g x 4'] },
+    { name: 'Clear Anti-Dandruff', cat: 'Personal Care', sub: 'Hair Care', brand: 'Lifebuoy', sup: 'Pesalai Traders', price: 650, cost: 550, vars: ['170ml', '330ml'] },
+    { name: 'Signal Toothpaste', cat: 'Personal Care', sub: 'Oral Care', brand: 'Lifebuoy', sup: 'Nanaddan Grocers', price: 240, cost: 200, vars: ['120g', '160g'] },
+    { name: 'Aloe Vera Lotion', cat: 'Personal Care', sub: 'Skin Care', brand: 'Mannar Best', sup: 'Mannar Sea Foods', price: 450, cost: 350, vars: ['100ml', '200ml'] },
   ];
 
   let totalSkus = 0;
   let currentSeq = 1;
+  const createdProducts = [];
 
-  for (const mp of masterProducts) {
-    const categoryName = mp.cat;
-    const subCategoryKey = `${mp.cat}-${mp.sub}`;
-    const brandName = mp.brand;
-    const supplierName = mp.sup;
-
-    const category = categoryMap[categoryName];
-    const subCategory = subCategoryMap[subCategoryKey];
-    const brand = brandMap[brandName];
-    const supplier = supplierMap[supplierName];
-
-    if (!category) console.error('Missing category', categoryName);
-    if (!subCategory) console.error('Missing subcategory', subCategoryKey);
-    if (!brand) console.error('Missing brand', brandName);
-    if (!supplier) console.error('Missing supplier', supplierName);
+  for (const mp of baseProducts) {
+    const category = categoryMap[mp.cat];
+    const subCategory = subCategoryMap[`${mp.cat}-${mp.sub}`];
+    const brand = brandMap[mp.brand];
+    const supplier = supplierMap[mp.sup];
 
     const master = await prisma.masterProductClass.create({
       data: {
         name: mp.name,
         categoryId: category.id,
-        subCategoryId: subCategory ? subCategory.id : undefined,
+        subCategoryId: subCategory.id,
         brandId: brand.id,
         supplierId: supplier.id,
-        hasVariant: mp.variants.length > 1,
+        hasVariant: mp.vars.length > 1,
         createdAt: baseDate
       }
     });
 
-    for (const variant of mp.variants) {
-      const sku = makeSku(brandName, mp.name, variant.v, currentSeq++);
-      const barcode = generateBarcode();
-      const unitType = variant.v.replace(/[0-9.]/g, '').trim().toUpperCase() || 'PCS';
-      
-      // Stock logic
-      const isLowStock = Math.random() > 0.8;
-      const stock = isLowStock ? Math.floor(Math.random() * 15) : Math.floor(Math.random() * 80) + 20;
-      
-      const imageUrl = category.categoryImageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80';
+    for (const v of mp.vars) {
+      // Create price variations based on variant size
+      let mult = 1;
+      if (v.includes('50Kg')) mult = 50;
+      else if (v.includes('25Kg')) mult = 25;
+      else if (v.includes('10Kg')) mult = 10;
+      else if (v.includes('5Kg')) mult = 5;
+      else if (v.includes('2Kg') || v.includes('2L')) mult = 2;
+      else if (v.includes('1Kg') || v.includes('1L') || v.includes('1pcs')) mult = 1;
+      else if (v.includes('500g')) mult = 0.5;
+      else if (v.includes('400g') || v.includes('330g')) mult = 0.4;
+      else if (v.includes('250g')) mult = 0.25;
+      else if (v.includes('200g')) mult = 0.2;
+      else if (v.includes('100g') || v.includes('120g')) mult = 0.1;
+      else if (v.includes('50g')) mult = 0.05;
+      else if (v.includes('x 4') || v.includes('5pcs')) mult = 4;
 
-      await prisma.product.create({
+      const pPrice = Math.round(mp.price * mult);
+      const cPrice = Math.round(mp.cost * mult);
+      const sku = makeSku(mp.brand, mp.name, v, currentSeq++);
+      const barcode = generateBarcode();
+      const unitType = v.replace(/[0-9.]/g, '').trim().toUpperCase() || 'PCS';
+      const stock = Math.floor(Math.random() * 80) + 10;
+      
+      // Each product gets a distinct image using picsum seed
+      const distinctImageUrl = `https://picsum.photos/seed/${sku}/600/600`;
+
+      const product = await prisma.product.create({
         data: {
           sku,
           masterId: master.id,
           barcode,
-          name: `${mp.name} ${variant.v}`,
+          name: `${mp.name} ${v}`,
           unitType,
-          costPrice: variant.c,
-          sellingPrice: variant.p,
+          costPrice: cPrice,
+          sellingPrice: pPrice,
           currentStock: stock,
-          reorderLevel: 20,
-          targetCapacity: 150,
+          reorderLevel: 15,
+          targetCapacity: 100,
           status: ProductStatus.ACTIVE,
-          imageUrl,
-          variantAttributeType: variant.v,
+          imageUrl: distinctImageUrl,
+          variantAttributeType: v,
           createdAt: baseDate,
           updatedAt: baseDate
         }
       });
+      createdProducts.push(product);
       totalSkus++;
     }
   }
+  console.log(`✅ Generated ${totalSkus} SKUs with distinct images.`);
 
-  // Multiply variants to reach 500+ SKUs by creating bulk variants (x2 to x3 multiplier)
-  console.log('🔄 Multiplying variants to achieve 500+ SKUs limit...');
-  for (const mp of masterProducts) {
-    // We create promotional or multipack variants to explode the SKU count realistically
-    const master = await prisma.masterProductClass.findFirst({ where: { name: mp.name } });
-    if (!master) continue;
-
-    const subCategoryKey = `${mp.cat}-${mp.sub}`;
-    const subCategory = subCategoryMap[subCategoryKey];
-
-    for (const variant of mp.variants) {
-      // Multipack 3x
-      const sku3x = makeSku(mp.brand, mp.name, `3x${variant.v}`, currentSeq++);
-      const price3x = variant.p * 3 * 0.95; // 5% discount
-      await prisma.product.create({
-        data: {
-          sku: sku3x, masterId: master.id, barcode: generateBarcode(),
-          name: `${mp.name} ${variant.v} (Pack of 3)`, unitType: 'PACK', costPrice: variant.c * 3,
-          sellingPrice: Math.round(price3x), currentStock: Math.floor(Math.random() * 30),
-          reorderLevel: 10, targetCapacity: 50, status: ProductStatus.ACTIVE, imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80',
-          variantAttributeType: `Pack of 3`, createdAt: baseDate, updatedAt: baseDate
-        }
-      });
-      totalSkus++;
-
-      // Multipack 6x
-      const sku6x = makeSku(mp.brand, mp.name, `6x${variant.v}`, currentSeq++);
-      const price6x = variant.p * 6 * 0.90; // 10% discount
-      await prisma.product.create({
-        data: {
-          sku: sku6x, masterId: master.id, barcode: generateBarcode(),
-          name: `${mp.name} ${variant.v} (Pack of 6)`, unitType: 'PACK', costPrice: variant.c * 6,
-          sellingPrice: Math.round(price6x), currentStock: Math.floor(Math.random() * 20),
-          reorderLevel: 10, targetCapacity: 50, status: ProductStatus.ACTIVE, imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80',
-          variantAttributeType: `Pack of 6`, createdAt: baseDate, updatedAt: baseDate
-        }
-      });
-      totalSkus++;
-    }
-  }
-
-  console.log(`\n✅ Inventory seeding complete! Total SKUs generated: ${totalSkus}`);
-  console.log(`📊 Summary:`);
-  console.log(`   - ${suppliersRaw.length} Suppliers`);
-  console.log(`   - ${categoriesRaw.length} Categories`);
-  console.log(`   - ${brandsRaw.length} Brands`);
-  console.log(`   - ~${totalSkus} Product SKUs`);
-
-  // ─── USERS ───────────────────────────────────────────────────────────────────
-  console.log('\n👥 Seeding users...');
-  const passwordHashAdmin = await bcrypt.hash('Admin@123', 12);
-  const passwordHashCashier = await bcrypt.hash('Cashier@123', 12);
-  const passwordHashManager = await bcrypt.hash('Manager@123', 12);
+  // 5. Users
+  console.log('👥 Seeding Users...');
+  const adminHash = await bcrypt.hash('Admin@123', 12);
+  const managerHash = await bcrypt.hash('Manager@123', 12);
+  const cashierHash = await bcrypt.hash('Cashier@123', 12);
+  const arulHash = await bcrypt.hash('Arul@123', 12);
 
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@stocksense.com' }, update: {},
-    create: { name: 'Super Admin', email: 'admin@stocksense.com', passwordHash: passwordHashAdmin, role: Role.ADMIN, isActive: true, createdAt: baseDate, updatedAt: baseDate },
+    create: { name: 'System Administrator', email: 'admin@stocksense.com', passwordHash: adminHash, role: Role.ADMIN, isActive: true },
   });
-
+  
+  // Primary Accounts (Used in Seed logic below)
   const cashierUser = await prisma.user.upsert({
     where: { email: 'cashier@stocksense.com' }, update: {},
-    create: { name: 'Main Cashier', email: 'cashier@stocksense.com', passwordHash: passwordHashCashier, role: Role.CASHIER, isActive: true, createdAt: baseDate, updatedAt: baseDate },
+    create: { name: 'Main Cashier', email: 'cashier@stocksense.com', passwordHash: cashierHash, role: Role.CASHIER, isActive: true },
   });
-
   const managerUser = await prisma.user.upsert({
     where: { email: 'manager@stocksense.com' }, update: {},
-    create: { name: 'Stock Manager', email: 'manager@stocksense.com', passwordHash: passwordHashManager, role: Role.INVENTORY_MANAGER, isActive: true, createdAt: baseDate, updatedAt: baseDate },
+    create: { name: 'Stock Manager', email: 'manager@stocksense.com', passwordHash: managerHash, role: Role.INVENTORY_MANAGER, isActive: true },
   });
-  console.log('✅ Users seeded successfully!');
 
-  // ─── HISTORICAL DATA GENERATION ──────────────────────────────────────────────
-  console.log('\\n🕰️ Generating historical transactions (2023 - 2026)...');
-  
-  const startDate = new Date('2023-01-01T00:00:00Z').getTime();
-  const endDate = new Date('2026-01-01T00:00:00Z').getTime();
+  // Secondary Accounts (User requested)
+  await prisma.user.upsert({
+    where: { email: 'arultharsan096@gmail.com' }, update: {},
+    create: { name: 'Arultharsan (Cashier)', email: 'arultharsan096@gmail.com', passwordHash: arulHash, role: Role.CASHIER, isActive: true, phone: '0770960000' },
+  });
+  await prisma.user.upsert({
+    where: { email: 'arultharisan1@gmail.com' }, update: {},
+    create: { name: 'Arultharsan (Manager)', email: 'arultharisan1@gmail.com', passwordHash: arulHash, role: Role.INVENTORY_MANAGER, isActive: true, phone: '0711110000' },
+  });
 
-  function randomDate() {
-    return new Date(startDate + Math.random() * (endDate - startDate));
+  // GRN (Goods Receiving Note)
+  console.log('📦 Seeding GRNs...');
+  for(let i=1; i<=10; i++) {
+     const supplierKey = Object.keys(supplierMap)[Math.floor(Math.random() * 10)];
+     const supplier = supplierMap[supplierKey];
+     const items = [];
+     for(let j=0; j<2; j++) {
+       const p = createdProducts[Math.floor(Math.random() * createdProducts.length)];
+       items.push({ sku: p.sku, addedQuantity: 50, finalQuantity: p.currentStock, unitCost: p.costPrice });
+     }
+     await prisma.goodsReceivingNote.create({
+       data: {
+          grnId: `GRN-2026-${i.toString().padStart(4, '0')}`,
+          supplierId: supplier.id,
+          operatorId: managerUser.id,
+          grnDate: new Date(Date.now() - Math.floor(Math.random() * 15) * 86400000),
+          notes: 'Routine Restock',
+          items: { create: items }
+       }
+     });
   }
 
-  function randomInt(min: number, max: number) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+  // Stock Adjustments
+  console.log('⚖️ Seeding Stock Adjustments...');
+  const reasons = Object.values(AdjustmentReason);
+  for(let i=1; i<=10; i++) {
+     const p = createdProducts[Math.floor(Math.random() * createdProducts.length)];
+     await prisma.stockAdjustment.create({
+       data: {
+          sku: p.sku,
+          qtyChanged: -Math.floor(Math.random() * 5) - 1, // negative adjustment
+          reason: reasons[Math.floor(Math.random() * reasons.length)],
+          adjustedById: managerUser.id,
+          finalQuantity: p.currentStock - 2, // approximation
+          createdAt: new Date(Date.now() - Math.floor(Math.random() * 10) * 86400000)
+       }
+     });
   }
 
-  const allProducts = await prisma.product.findMany();
-  const allSuppliers = await prisma.supplier.findMany();
-  const usersForOps = [adminUser.id, managerUser.id];
-  const cashiers = [cashierUser.id];
+  // 6. Distinct Offers (Combo, Seasonal, Daily, Bill)
+  console.log('🎉 Seeding Distinct Offers...');
+  const teaProduct = createdProducts.find(p => p.name.includes('Premium Tea Dust 500g'));
+  const biscuitProduct = createdProducts.find(p => p.name.includes('Cream Cracker 330g'));
+  const sugarProduct = createdProducts.find(p => p.name.includes('White Sugar 1Kg'));
+  const riceProduct = createdProducts.find(p => p.name.includes('Keeri Samba Rice 5Kg'));
+  const dhalProduct = createdProducts.find(p => p.name.includes('Mysore Dhal 1Kg'));
+  const fishProduct = createdProducts.find(p => p.name.includes('Katta Karuvadu 500g'));
 
-  // 1. Generate GRNs
-  console.log('   📦 Generating 300 Goods Receiving Notes...');
-  const grnItemData = [];
-  for (let i = 1; i <= 300; i++) {
-    const grnId = `GRN-${i.toString().padStart(5, '0')}`;
-    const rDate = randomDate();
-    const supplier = allSuppliers[randomInt(0, allSuppliers.length - 1)];
-    const operatorId = usersForOps[randomInt(0, usersForOps.length - 1)];
-    
-    // Create GRN
-    const dbGrn = await prisma.goodsReceivingNote.create({
+  // COMBO: Tea + Biscuit + Sugar
+  if (teaProduct && biscuitProduct && sugarProduct) {
+    await prisma.discount.create({
       data: {
-        grnId,
-        supplierId: supplier.id,
-        operatorId,
-        grnDate: rDate,
-        notes: `Historical GRN ${i}`
+        name: 'Evening Tea Time Combo',
+        type: 'COMBO',
+        discountValue: 20,
+        label: 'PERFECT PAIRING',
+        imageUrl: 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?q=80&w=800&auto=format&fit=crop',
+        isActive: true,
+        approvalStatus: 'APPROVED',
+        comboItems: {
+          create: [
+            { sku: teaProduct.sku, minQty: 1 },
+            { sku: biscuitProduct.sku, minQty: 1 },
+            { sku: sugarProduct.sku, minQty: 1 }
+          ]
+        }
       }
     });
+  }
 
-    const numItems = randomInt(2, 8);
-    for (let j = 0; j < numItems; j++) {
-      const product = allProducts[randomInt(0, allProducts.length - 1)];
-      const addedQty = randomInt(10, 100);
-      grnItemData.push({
-        grnId: dbGrn.id,
-        sku: product.sku,
-        addedQuantity: addedQty,
-        finalQuantity: addedQty + randomInt(0, 50),
-        unitCost: product.costPrice,
-      });
+  // SEASONAL: Rice + Dhal (Festive Grocery Pack)
+  if (riceProduct && dhalProduct) {
+    await prisma.discount.create({
+      data: {
+        name: 'Festive Grocery Savings',
+        type: 'SEASONAL',
+        discountValue: 15,
+        label: 'FESTIVAL SPECIAL 15% OFF',
+        imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?q=80&w=800&auto=format&fit=crop',
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Valid for 30 days
+        isActive: true,
+        approvalStatus: 'APPROVED',
+        discountProducts: {
+          create: [
+            { sku: riceProduct.sku },
+            { sku: dhalProduct.sku }
+          ]
+        }
+      }
+    });
+  }
+
+  // DAILY FLASH: Premium Dry Fish
+  if (fishProduct) {
+    await prisma.discount.create({
+      data: {
+        name: 'Mannar Special Flash Sale',
+        type: 'DAILY',
+        discountValue: 30,
+        label: 'TODAY ONLY',
+        imageUrl: 'https://images.unsplash.com/photo-1598514982205-f36b96d1e8d4?q=80&w=800&auto=format&fit=crop',
+        dailyStartTime: '10:00',
+        dailyEndTime: '18:00',
+        applicableDate: new Date(),
+        isActive: true,
+        approvalStatus: 'APPROVED',
+        discountProducts: {
+          create: [
+            { sku: fishProduct.sku }
+          ]
+        }
+      }
+    });
+  }
+
+  // BILL: Buy above 5000 get 5% off
+  await prisma.discount.create({
+    data: {
+      name: 'Mega Cart Offer',
+      type: 'BILL',
+      discountValue: 5,
+      minBillAmount: 5000,
+      label: 'BILL OFFER',
+      isActive: true,
+      approvalStatus: 'APPROVED',
     }
+  });
+
+  // 7. Adjust Products & Generate Diverse Notifications
+  console.log('🔔 Adjusting Products & Seeding Required Notifications...');
+  const notifs: any[] = [];
+  
+  // Low Stock x4 (i = 0 to 3)
+  for(let i=0; i<4; i++) {
+    await prisma.product.update({ where: { sku: createdProducts[i].sku }, data: { currentStock: 5, reorderLevel: 10 } });
+    notifs.push({ type: NotificationType.LOW_STOCK, severity: NotificationSeverity.WARNING, title: 'Low Stock Alert', msg: `${createdProducts[i].name} is running low on stock.`, sku: createdProducts[i].sku, users: [adminUser.id, managerUser.id, cashierUser.id] });
   }
-  if (grnItemData.length > 0) {
-    await prisma.grnItem.createMany({ data: grnItemData });
+  
+  // Out of Stock x4 (i = 4 to 7)
+  for(let i=4; i<8; i++) {
+    await prisma.product.update({ where: { sku: createdProducts[i].sku }, data: { currentStock: 0 } });
+    notifs.push({ type: NotificationType.OUT_OF_STOCK, severity: NotificationSeverity.CRITICAL, title: 'Out of Stock Alert', msg: `${createdProducts[i].name} is completely out of stock.`, sku: createdProducts[i].sku, users: [adminUser.id, managerUser.id, cashierUser.id] });
+  }
+  
+  // Expiring Soon (i = 8, 9) - WARNING
+  for(let i=8; i<10; i++) {
+    const expDate = new Date(Date.now() + 5 * 86400000);
+    const dateStr = expDate.toLocaleDateString('en-GB');
+    await prisma.product.update({ where: { sku: createdProducts[i].sku }, data: { expiryDate: expDate } });
+    notifs.push({ type: NotificationType.EXPIRING_SOON, severity: NotificationSeverity.WARNING, title: 'Item Expiring Soon', msg: `${createdProducts[i].name} batch expires on ${dateStr} (in 5 Days).`, sku: createdProducts[i].sku, users: [adminUser.id, managerUser.id] });
+  }
+  
+  // Expired (i = 10, 11) - CRITICAL
+  for(let i=10; i<12; i++) {
+    const expDate = new Date(Date.now() - 2 * 86400000);
+    const dateStr = expDate.toLocaleDateString('en-GB');
+    await prisma.product.update({ where: { sku: createdProducts[i].sku }, data: { expiryDate: expDate } });
+    notifs.push({ type: NotificationType.EXPIRED, severity: NotificationSeverity.CRITICAL, title: 'Item Expired', msg: `${createdProducts[i].name} expired on ${dateStr}. Please remove from shelf immediately.`, sku: createdProducts[i].sku, users: [adminUser.id, managerUser.id] });
   }
 
-  // 2. Generate Stock Adjustments
-  console.log('   ⚖️ Generating 150 Stock Adjustments...');
-  const reasons = ['DAMAGED', 'LOST', 'EXPIRED', 'RETURNED', 'COUNTING_ERROR', 'SYSTEM_CORRECTION'] as const;
-  const adjData = [];
-  for (let i = 0; i < 150; i++) {
-    const product = allProducts[randomInt(0, allProducts.length - 1)];
-    const rDate = randomDate();
-    const reason = reasons[randomInt(0, reasons.length - 1)];
-    const qtyChanged = randomInt(-10, 10);
-    if (qtyChanged === 0) continue;
+  // Overstock x2 (i = 12, 13)
+  for(let i=12; i<14; i++) {
+    await prisma.product.update({ where: { sku: createdProducts[i].sku }, data: { currentStock: 200, targetCapacity: 100 } });
+    notifs.push({ type: NotificationType.OVERSTOCK, severity: NotificationSeverity.INFO, title: 'Overstock Detected', msg: `${createdProducts[i].name} exceeds target capacity limits.`, sku: createdProducts[i].sku, users: [adminUser.id, managerUser.id, cashierUser.id] });
+  }
 
-    adjData.push({
-      sku: product.sku,
-      qtyChanged,
-      reason,
-      adjustedById: usersForOps[randomInt(0, usersForOps.length - 1)],
-      finalQuantity: Math.max(0, product.currentStock + qtyChanged),
-      createdAt: rDate
+  // Dead Stock x2 (i = 14, 15)
+  for(let i=14; i<16; i++) {
+    // A product created 1 year ago with no recent movement is considered dead stock
+    await prisma.product.update({ where: { sku: createdProducts[i].sku }, data: { currentStock: 50, createdAt: new Date(Date.now() - 365 * 86400000) } });
+    notifs.push({ type: NotificationType.STOCK_VELOCITY, severity: NotificationSeverity.INFO, title: 'Dead Stock Warning', msg: `${createdProducts[i].name} has had zero sales in the last 45 days.`, sku: createdProducts[i].sku, users: [adminUser.id, managerUser.id, cashierUser.id] });
+  }
+
+  // Discount Approval (To Admin ONLY) x2 (i = 16, 17)
+  for(let i=16; i<18; i++) {
+    notifs.push({ type: NotificationType.DISCOUNT_APPROVAL, severity: NotificationSeverity.INFO, title: 'Discount Approval Required', msg: `Campaign for ${createdProducts[i].name} requires your approval.`, sku: createdProducts[i].sku, users: [adminUser.id] });
+  }
+  
+  // Discount Response (To Manager ONLY) x2 (i = 18, 19)
+  for(let i=18; i<20; i++) {
+    notifs.push({ type: NotificationType.DISCOUNT_RESPONSE, severity: NotificationSeverity.INFO, title: 'Discount Approved', msg: `Admin approved your discount campaign for ${createdProducts[i].name}.`, sku: createdProducts[i].sku, users: [managerUser.id] });
+  }
+
+  for (const n of notifs) {
+    await prisma.notification.create({
+      data: {
+        type: n.type, severity: n.severity, title: n.title, message: n.msg, sku: n.sku,
+        userStates: { 
+          create: n.users.map((uid: string) => ({ userId: uid }))
+        }
+      }
     });
   }
-  if (adjData.length > 0) {
-    await prisma.stockAdjustment.createMany({ data: adjData });
-  }
 
-  // 3. Generate Sales Bills
-  console.log('   🧾 Generating 2000 Sales Bills...');
-  let billCount = 1;
-  const BATCH_SIZE = 500;
-  
-  for (let batch = 0; batch < 4; batch++) { // 4 * 500 = 2000
-    const billsBatch = [];
+  // 8. Generate Sales Bills with full details
+  console.log('🧾 Generating Sales Bills...');
+  for (let i = 1; i <= 20; i++) {
+    const numItems = Math.floor(Math.random() * 5) + 1;
+    let subtotal = 0;
+    const items = [];
     
-    for (let i = 0; i < BATCH_SIZE; i++) {
-      const rDate = randomDate();
-      const cashierId = cashiers[0];
-      const numItems = randomInt(1, 10);
-      let subtotal = 0;
-      let totalQty = 0;
-      const billItemsToCreate = [];
+    for (let j = 0; j < numItems; j++) {
+      const p = createdProducts[Math.floor(Math.random() * createdProducts.length)];
+      const qty = Math.floor(Math.random() * 3) + 1;
+      const total = p.sellingPrice * qty;
+      subtotal += total;
+      items.push({ sku: p.sku, qty, unitPrice: p.sellingPrice, total, discountValue: 0 });
+    }
 
-      for (let j = 0; j < numItems; j++) {
-        const product = allProducts[randomInt(0, allProducts.length - 1)];
-        const qty = randomInt(1, 5);
-        const itemTotal = qty * product.sellingPrice;
-        
-        subtotal += itemTotal;
-        totalQty += qty;
+    const isCard = Math.random() > 0.5;
+    const totalDiscount = Math.random() > 0.7 ? Math.floor(subtotal * 0.05) : 0;
+    const totalBill = subtotal - totalDiscount;
 
-        billItemsToCreate.push({
-          sku: product.sku,
-          qty,
-          unitPrice: product.sellingPrice,
-          total: itemTotal,
-        });
-      }
-
-      const totalDiscount = Math.random() > 0.9 ? randomInt(50, 200) : 0;
-      const totalBill = Math.max(0, subtotal - totalDiscount);
-      
-      const billNumber = `INV-${billCount.toString().padStart(6, '0')}`;
-      billCount++;
-
-      billsBatch.push({
-        billNumber,
-        cashierId,
+    await prisma.bill.create({
+      data: {
+        billNumber: `INV-2026-${i.toString().padStart(4, '0')}`,
+        cashierId: cashierUser.id,
         subtotal,
         totalDiscount,
         totalBill,
-        paymentMethod: Math.random() > 0.7 ? 'CARD' : 'CASH',
+        paymentMethod: isCard ? PaymentMethod.CARD : PaymentMethod.CASH,
+        totalQty: items.reduce((acc, curr) => acc + curr.qty, 0),
         draft: false,
-        totalQty,
-        createdAt: rDate,
-        items: billItemsToCreate
-      });
-    }
-
-    for (const b of billsBatch) {
-      await prisma.bill.create({
-        data: {
-          billNumber: b.billNumber,
-          cashierId: b.cashierId,
-          subtotal: b.subtotal,
-          totalDiscount: b.totalDiscount,
-          totalBill: b.totalBill,
-          paymentMethod: b.paymentMethod as any,
-          draft: b.draft,
-          totalQty: b.totalQty,
-          createdAt: b.createdAt,
-          billItems: {
-            create: b.items
-          }
-        }
-      });
-    }
-  }
-
-  console.log('✅ Historical transactions seeded successfully!');
-  console.log('\n🏷️ Seeding discount campaigns...');
-  const nescafe = await prisma.product.findFirst({ where: { name: { contains: 'Nescafe' } } });
-  const bread = await prisma.product.findFirst({ where: { name: { contains: 'Sliced Bread' } } });
-  const lemonPuff = await prisma.product.findFirst({ where: { name: { contains: 'Lemon Puff' } } });
-
-  if (nescafe) {
-    await prisma.discount.create({
-      data: {
-        id: 'd-1',
-        name: 'New Year Mega Sale',
-        type: 'SEASONAL',
-        discountValue: 30,
-        label: 'New Year 30% Off ⚡',
-        imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=600&auto=format&fit=crop',
-        startDate: new Date('2026-12-25'),
-        endDate: new Date('2027-01-05'),
-        isActive: true,
-        approvalStatus: 'APPROVED',
-        discountProducts: {
-          create: [
-            { sku: nescafe.sku }
-          ]
-        }
+        createdAt: new Date(Date.now() - Math.floor(Math.random() * 10) * 86400000), // Random past 10 days
+        billItems: { create: items }
       }
     });
   }
 
-  if (bread) {
-    await prisma.discount.create({
-      data: {
-        id: 'd-2',
-        name: 'Morning Bakery Deal',
-        type: 'DAILY',
-        discountValue: 15,
-        label: 'Breakfast Special 🍞',
-        imageUrl: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=600&auto=format&fit=crop',
-        dailyStartTime: '07:00',
-        dailyEndTime: '10:00',
-        isActive: true,
-        approvalStatus: 'APPROVED',
-        discountProducts: {
-          create: [
-            { sku: bread.sku }
-          ]
-        }
-      }
-    });
-  }
-
-  if (nescafe && lemonPuff) {
-    await prisma.discount.create({
-      data: {
-        id: 'd-3',
-        name: 'Morning Ritual Combo',
-        type: 'COMBO',
-        discountValue: 20,
-        label: 'Morning Ritual ☕',
-        imageUrl: 'https://images.unsplash.com/photo-1559553156-2e97137af16f?q=80&w=600&auto=format&fit=crop',
-        isActive: true,
-        approvalStatus: 'DRAFT',
-        comboItems: {
-          create: [
-            { sku: nescafe.sku, minQty: 1 },
-            { sku: lemonPuff.sku, minQty: 1 }
-          ]
-        }
-      }
-    });
-  }
-  console.log('✅ Discount campaigns seeded successfully!');
+  console.log('✅ Seed completed successfully with distinct images, precise offers, and full details!');
 }
 
 main()
