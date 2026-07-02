@@ -47,7 +47,7 @@ export const createSupplier = async (req: Request, res: Response): Promise<void>
         res.status(400).json({ success: false, message: 'Email must be 100 characters or less.' });
         return;
       }
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
       if (!emailRegex.test(cleanEmail)) {
         res.status(400).json({ success: false, message: 'Enter a valid email address.' });
         return;
@@ -134,7 +134,7 @@ export const updateSupplier = async (req: Request, res: Response): Promise<void>
         res.status(400).json({ success: false, message: 'Email must be 100 characters or less.' });
         return;
       }
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
       if (!emailRegex.test(cleanEmail)) {
         res.status(400).json({ success: false, message: 'Enter a valid email address.' });
         return;

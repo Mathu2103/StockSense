@@ -76,7 +76,7 @@ export default function AccountManagement() {
         if (value && !/^\d{10}$/.test(value)) error = 'Phone number must be exactly 10 digits.';
         break;
       case 'email':
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) error = 'Invalid email address format.';
+        if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)) error = 'Invalid email address format.';
         break;
       case 'password':
         if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/.test(value)) {

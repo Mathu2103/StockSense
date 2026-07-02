@@ -25,6 +25,9 @@ export default function SettingsProfile() {
     if (!/^[a-zA-Z\s]+$/.test(fullName)) {
       newErrors.fullName = 'Name must contain only English letters.';
     }
+    if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+      newErrors.email = 'Invalid email address format.';
+    }
     if (phone && !/^\d{10}$/.test(phone)) {
       newErrors.phone = 'Phone number must be exactly 10 digits.';
     }
@@ -94,9 +97,10 @@ export default function SettingsProfile() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-slate-50/50 border border-slate-200 text-slate-800 text-[15px] rounded-xl px-4 py-3 focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252] focus:bg-white transition-all"
+                className={`w-full bg-slate-50/50 border ${errors.email ? 'border-rose-500' : 'border-slate-200'} text-slate-800 text-[15px] rounded-xl px-4 py-3 focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252] focus:bg-white transition-all`}
                 required
               />
+              {errors.email && <p className="text-[10px] text-rose-500 font-medium">{errors.email}</p>}
             </div>
 
             <div className="flex flex-col gap-2">
