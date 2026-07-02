@@ -7,7 +7,7 @@ interface OrdersTabProps {
   setStatusFilter: (filter: 'ALL' | 'COMPLETED' | 'REFUNDED') => void;
   selectedOrder: any | null;
   setSelectedOrder: (order: any | null) => void;
-  handlePrint: (order: any) => void;
+  handleDownload: (order: any, paid: number, change: number) => void;
   setShowRefundModal: (show: boolean) => void;
   setRefundQuantities: (quantities: any) => void;
 }
@@ -18,7 +18,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
   setStatusFilter,
   selectedOrder,
   setSelectedOrder,
-  handlePrint,
+  handleDownload,
   setShowRefundModal,
   setRefundQuantities
 }) => {
@@ -38,6 +38,9 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
     <div className="flex-1 flex bg-[#f8f9fc] overflow-hidden h-screen">
       <div className="flex-1 flex flex-col p-8 overflow-y-auto min-h-0">
         <div className="flex justify-between items-end mb-8">
+    <div className="flex-1 flex bg-[#f8f9fc] overflow-hidden h-full min-h-0">
+      <div className="flex-1 flex flex-col p-8 overflow-hidden">
+        <div className="flex justify-between items-end mb-8 shrink-0">
           <div>
             <h1 className="text-3xl font-extrabold text-gray-900">Order History</h1>
             <p className="text-gray-500 mt-2 font-medium">Today • {totalOrdersCount} Transactions</p>
@@ -59,7 +62,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-3 gap-4 mb-8 shrink-0">
           <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
             <p className="text-xs font-bold text-gray-500 tracking-wider mb-2">NET SALES</p>
             <h2 className="text-3xl font-extrabold text-[#166534]">Rs. {netSales.toFixed(2)}</h2>
@@ -83,14 +86,14 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[#f8f9fc] border-b border-gray-200 text-gray-500 font-bold text-xs">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="flex-1 overflow-y-auto relative">
+            <table className="w-full text-left text-sm relative">
+              <thead className="bg-[#f8f9fc] text-gray-500 font-bold text-xs sticky top-0 z-10 shadow-[0_1px_0_#e5e7eb]">
               <tr>
                 <th className="py-4 px-6">ORDER ID</th>
                 <th className="py-4 px-6">TIME</th>
                 <th className="py-4 px-6">ITEMS</th>
-                <th className="py-4 px-6">METHOD</th>
                 <th className="py-4 px-6">STATUS</th>
                 <th className="py-4 px-6 text-right">TOTAL</th>
               </tr>
@@ -110,7 +113,6 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                       {orderDate.toLocaleDateString()} {orderDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </td>
                     <td className="py-4 px-6 text-gray-600 font-medium">{order.totalQty} {order.totalQty === 1 ? 'Item' : 'Items'}</td>
-                    <td className="py-4 px-6 font-semibold text-gray-500">{order.paymentMethod}</td>
                     <td className="py-4 px-6">
                       {isRefunded ? (
                         <span className="px-2.5 py-1 text-[11px] font-bold rounded-full bg-amber-50 text-amber-700 border border-amber-200">
@@ -130,7 +132,8 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
               })}
             </tbody>
           </table>
-          <div className="p-4 text-center border-t border-gray-100 bg-[#f8f9fc]">
+          </div>
+          <div className="p-4 text-center border-t border-gray-100 bg-[#f8f9fc] shrink-0">
             <button className="text-sm font-bold text-[#166534] hover:underline">Load older transactions</button>
           </div>
         </div>
@@ -255,20 +258,26 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
           </div>
           <div className="p-6 border-t border-gray-200 bg-white space-y-3">
             <button 
-              onClick={() => handlePrint(selectedOrder)}
+              onClick={() => handleDownload(
+                selectedOrder, 
+                selectedOrder.paidAmount !== null && selectedOrder.paidAmount !== undefined ? selectedOrder.paidAmount : selectedOrder.totalBill, 
+                selectedOrder.changeAmount !== null && selectedOrder.changeAmount !== undefined ? selectedOrder.changeAmount : 0
+              )}
               className="w-full py-3 border border-gray-200 rounded-xl font-bold text-gray-700 hover:bg-gray-50 flex items-center justify-center transition-colors"
             >
-              <Receipt className="w-5 h-5 mr-2" /> Print Receipt
+              <Download className="w-5 h-5 mr-2" /> Download Receipt
             </button>
-            <button
-              onClick={() => {
-                setRefundQuantities({});
-                setShowRefundModal(true);
-              }}
-              className="w-full py-4 bg-[#111827] text-white rounded-xl font-bold hover:bg-black flex items-center justify-center transition-colors"
-            >
-              <ChevronRight className="w-5 h-5 mr-2 rotate-180" /> Refund Order
-            </button>
+            {new Date().getTime() - new Date(selectedOrder.createdAt).getTime() <= 24 * 60 * 60 * 1000 && (
+              <button
+                onClick={() => {
+                  setRefundQuantities({});
+                  setShowRefundModal(true);
+                }}
+                className="w-full py-4 bg-[#111827] text-white rounded-xl font-bold hover:bg-black flex items-center justify-center transition-colors"
+              >
+                <ChevronRight className="w-5 h-5 mr-2 rotate-180" /> Refund Order
+              </button>
+            )}
           </div>
         </div>
       )}

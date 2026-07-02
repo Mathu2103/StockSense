@@ -1269,11 +1269,17 @@ export default function POSPage() {
       discount.productIds.forEach((sku: string) => {
         const prod = products.find(p => p.sku === sku || p.id === sku);
         if (prod) {
-          // Pass the discount % and ID directly so it's immediately visible in cart
           addToCart(prod, 1, discount.discountValue, discount.id);
         }
       });
       toast.success(`Products for "${discount.name}" added to cart with ${discount.discountValue}% discount!`);
+    }
+  };
+
+  const addSingleDiscountProduct = (product: any, discount: any) => {
+    if (product && discount) {
+      addToCart(product, 1, discount.discountValue, discount.id);
+      toast.success(`${product.name} added to cart with ${discount.discountValue}% discount!`);
     }
   };
 
@@ -1868,6 +1874,7 @@ export default function POSPage() {
             products={products}
             addComboToCart={addComboToCart}
             addDiscountProductsToCart={addDiscountProductsToCart}
+            addSingleDiscountProduct={addSingleDiscountProduct}
           />
         )}
         {activeTab === 'orders' && (
@@ -1877,7 +1884,7 @@ export default function POSPage() {
             setStatusFilter={setStatusFilter}
             selectedOrder={selectedOrder}
             setSelectedOrder={setSelectedOrder}
-            handlePrint={handlePrint}
+            handleDownload={handleDownloadPDF}
             setShowRefundModal={setShowRefundModal}
             setRefundQuantities={setRefundQuantities}
           />
