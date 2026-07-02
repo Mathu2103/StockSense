@@ -83,7 +83,6 @@ export default function SettingsAlerts({ rules, onChange }: Props) {
             <div>
               <div className="flex items-center">
                 <h4 className={`text-[15px] font-bold ${rules.enableExpiringSoonAlerts ? 'text-slate-800' : 'text-slate-400'}`}>Expiring Soon Alerts</h4>
-                <span className="bg-[#0b8252] text-white text-[10px] font-bold px-2 py-0.5 rounded ml-2 uppercase tracking-wide">Novelty</span>
               </div>
               <p className={`text-[14px] mt-0.5 ${rules.enableExpiringSoonAlerts ? 'text-slate-500' : 'text-slate-300'}`}>
                 Date-driven · auto-escalates 50% → 25% → 10% → Expired
@@ -104,7 +103,6 @@ export default function SettingsAlerts({ rules, onChange }: Props) {
             <div>
               <div className="flex items-center">
                 <h4 className={`text-[15px] font-bold ${rules.enableDeadStockAlerts ? 'text-slate-800' : 'text-slate-400'}`}>Dead Stock Alerts</h4>
-                <span className="bg-[#0b8252] text-white text-[10px] font-bold px-2 py-0.5 rounded ml-2 uppercase tracking-wide">Novelty</span>
               </div>
               <p className={`text-[14px] mt-0.5 ${rules.enableDeadStockAlerts ? 'text-slate-500' : 'text-slate-300'}`}>
                 Velocity engine · Never Sold, Dead (30d+), Slow Moving
