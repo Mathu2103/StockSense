@@ -7,6 +7,10 @@ export default function OffersPage() {
   const [seasonals, setSeasonals] = useState<any[]>([]);
   const [dailys, setDailys] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const [showAllCombos, setShowAllCombos] = useState(false);
+  const [showAllSeasonal, setShowAllSeasonal] = useState(false);
+  const [showAllDaily, setShowAllDaily] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -31,6 +35,21 @@ export default function OffersPage() {
     fetchOffers();
   }, []);
 
+  const seasonalProducts = seasonals.flatMap(discount => 
+    (discount.products || []).map((prod: any) => ({ discount, prod }))
+  );
+
+  const dailyProducts = dailys.flatMap(discount => 
+    (discount.products || []).map((prod: any) => ({ discount, prod }))
+  );
+
+  // Example add to cart for public page
+  const handleAddToCart = (prod: any, discount: any) => {
+    // In a real public page, this would add to a local cart state or redirect to login.
+    // For now, we'll just show an alert or placeholder.
+    alert(`Added ${prod.name} to cart with ${discount.discountValue}% off!`);
+  };
+
   return (
     <div className="min-h-screen bg-[#f8f9fc] relative overflow-hidden font-sans pb-32">
       <div className={`relative z-10 max-w-7xl mx-auto px-6 md:px-12 pt-16 transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
@@ -50,7 +69,7 @@ export default function OffersPage() {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {combos.map((combo: any) => {
+                  {(showAllCombos ? combos : combos.slice(0, 2)).map((combo: any) => {
                     const originalPrice = combo.comboItems?.reduce((sum: number, item: any) => sum + (item.sellingPrice * item.minQty), 0) || 0;
                     const displayPrice = combo.comboPrice || originalPrice * (1 - (combo.discountValue || 0) / 100);
                     
@@ -87,53 +106,70 @@ export default function OffersPage() {
                     );
                   })}
                 </div>
+                
+                {combos.length > 2 && (
+                  <div className="mt-8 text-center">
+                    <button 
+                      onClick={() => setShowAllCombos(!showAllCombos)}
+                      className="px-6 py-2 border-2 border-[#103e2c] text-[#103e2c] font-bold rounded-full hover:bg-[#103e2c] hover:text-white transition-colors"
+                    >
+                      {showAllCombos ? 'Show Less' : `See All Combos (${combos.length})`}
+                    </button>
+                  </div>
+                )}
               </section>
             )}
 
             {/* 2. Seasonal Specials Section */}
-            {seasonals.length > 0 && (
+            {seasonalProducts.length > 0 && (
               <section className="mb-32">
                 <div className="mb-14 text-center">
                   <h2 className="text-3xl font-bold text-[#103e2c] mb-2">Seasonal Offers</h2>
                   <p className="text-gray-600 text-sm">Fresh savings for the current season.</p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 max-w-6xl mx-auto">
-                  {seasonals.slice(0, 3).map((seasonal: any) => {
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 max-w-7xl mx-auto">
+                  {(showAllSeasonal ? seasonalProducts : seasonalProducts.slice(0, 5)).map(({ discount, prod }, idx) => {
+                    const discountedPrice = prod.sellingPrice * (1 - discount.discountValue / 100);
                     return (
-                      <div key={seasonal.id} className="flex flex-col items-center text-center">
-                        <div className="w-64 h-64 shrink-0 rounded-full overflow-hidden shadow-xl border-4 border-white bg-white mb-6 flex justify-center items-center">
+                      <div key={`${discount.id}-${prod.sku}-${idx}`} className="flex flex-col items-center text-center bg-white p-6 rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.04)] hover:shadow-xl transition-all border border-gray-100 group">
+                        <div className="w-32 h-32 shrink-0 rounded-full overflow-hidden shadow-md border-2 border-emerald-50 bg-gray-50 mb-4 flex justify-center items-center group-hover:scale-105 transition-transform">
                           <img 
-                            src={seasonal.imageUrl || seasonal.products?.[0]?.imageUrl || "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?q=80&w=600&auto=format&fit=crop"} 
-                            alt={seasonal.name} 
+                            src={prod.imageUrl || "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?q=80&w=600&auto=format&fit=crop"} 
+                            alt={prod.name} 
                             className="w-full h-full object-cover" 
-                            onError={(e) => { (e.target as HTMLImageElement).src = seasonal.products?.[0]?.imageUrl || 'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?q=80&w=600&auto=format&fit=crop'; }}
                           />
                         </div>
-                        <span className="inline-block bg-[#475569] text-white text-[10px] font-bold px-3 py-1 rounded-full tracking-wide mb-3">
-                          {seasonal.discountValue ? `${seasonal.discountValue}% OFF` : 'SPECIAL'}
+                        <span className="inline-block bg-[#103e2c] text-white text-[10px] font-bold px-3 py-1 rounded-full tracking-wider mb-3">
+                          {discount.label || 'SPECIAL'}
                         </span>
-                        <h3 className="text-2xl font-extrabold text-gray-900 mb-2">{seasonal.name}</h3>
-                        <p className="text-[#0f766e] font-medium text-sm mb-2">{seasonal.label || 'Exclusive Seasonal Offer'}</p>
                         
-                        {seasonal.endDate && (
-                          <p className="text-gray-400 text-xs mb-3">Valid till: {new Date(seasonal.endDate).toLocaleDateString()}</p>
-                        )}
+                        <h3 className="text-sm font-extrabold text-gray-900 mb-1 line-clamp-2 min-h-[40px] leading-snug">{prod.name}</h3>
                         
-                        {seasonal.products && seasonal.products.length > 0 && (
-                          <p className="text-gray-500 text-xs mb-6 px-4 truncate w-full max-w-[250px]">
-                            On {seasonal.products[0].name} {seasonal.products.length > 1 ? `& ${seasonal.products.length - 1} more items` : ''}
-                          </p>
-                        )}
+                        <div className="flex flex-col items-center gap-0.5 mb-2 mt-1">
+                          <span className="text-gray-400 line-through text-xs font-semibold">Rs. {prod.sellingPrice.toFixed(2)}</span>
+                          <span className="text-emerald-700 font-black text-lg">Rs. {discountedPrice.toFixed(2)}</span>
+                        </div>
                       </div>
                     );
                   })}
                 </div>
+
+                {seasonalProducts.length > 5 && (
+                  <div className="mt-8 text-center">
+                    <button 
+                      onClick={() => setShowAllSeasonal(!showAllSeasonal)}
+                      className="px-6 py-2 border-2 border-[#103e2c] text-[#103e2c] font-bold rounded-full hover:bg-[#103e2c] hover:text-white transition-colors"
+                    >
+                      {showAllSeasonal ? 'Show Less' : `See All Seasonal Deals (${seasonalProducts.length})`}
+                    </button>
+                  </div>
+                )}
               </section>
             )}
 
             {/* 3. Daily Sales Section */}
-            {dailys.length > 0 && (
+            {dailyProducts.length > 0 && (
               <section className="mb-24">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-8 gap-4">
                   <div>
@@ -142,50 +178,55 @@ export default function OffersPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {dailys.slice(0, 3).map((daily: any) => {
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {(showAllDaily ? dailyProducts : dailyProducts.slice(0, 4)).map(({ discount, prod }, idx) => {
+                    const discountedPrice = prod.sellingPrice * (1 - discount.discountValue / 100);
                     return (
-                      <div key={daily.id} className="relative h-[340px] rounded-2xl overflow-hidden group cursor-pointer shadow-[0_4px_20px_rgba(0,0,0,0.08)] hover:shadow-2xl transition-all duration-300">
+                      <div key={`${discount.id}-${prod.sku}-${idx}`} className="relative h-[250px] rounded-2xl overflow-hidden group shadow-[0_4px_20px_rgba(0,0,0,0.08)] hover:shadow-2xl transition-all duration-300">
                         <img 
-                          src={daily.imageUrl || daily.products?.[0]?.imageUrl || "https://images.unsplash.com/photo-1559553156-2e97137af16f?q=80&w=800&auto=format&fit=crop"} 
-                          alt={daily.name} 
+                          src={prod.imageUrl || "https://images.unsplash.com/photo-1559553156-2e97137af16f?q=80&w=800&auto=format&fit=crop"} 
+                          alt={prod.name} 
                           className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
-                          onError={(e) => { (e.target as HTMLImageElement).src = daily.products?.[0]?.imageUrl || 'https://images.unsplash.com/photo-1559553156-2e97137af16f?q=80&w=800&auto=format&fit=crop'; }}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#022c22]/95 via-[#064e3b]/60 to-transparent"></div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#022c22]/95 via-[#064e3b]/70 to-black/20"></div>
                         
-                        <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/30 flex items-center gap-2">
-                           <span className="material-symbols-outlined text-white text-[14px]">schedule</span>
-                           <span className="text-[10px] font-bold tracking-wider text-white uppercase">
-                             {daily.dailyEndTime ? `Ends ${daily.dailyEndTime}` : 'ENDS TODAY'}
+                        <div className="absolute top-3 left-3 bg-white/20 backdrop-blur-md px-2 py-1 rounded border border-white/30 flex items-center gap-1.5">
+                           <span className="material-symbols-outlined text-white text-[12px]">schedule</span>
+                           <span className="text-[9px] font-bold tracking-wider text-white uppercase">
+                             {discount.dailyEndTime ? `Ends ${discount.dailyEndTime}` : 'ENDS TODAY'}
                            </span>
                         </div>
 
-                        <div className="absolute top-4 left-4">
-                           <span className="bg-[#fbbf24] text-amber-900 text-[10px] font-extrabold px-3 py-1 rounded-full shadow-sm tracking-wide">
-                             FLASH SALE
+                        <div className="absolute top-3 right-3">
+                           <span className="bg-[#fbbf24] text-amber-900 text-[10px] font-extrabold px-2 py-1 rounded shadow-sm tracking-wide">
+                             {discount.discountValue}% OFF
                            </span>
                         </div>
                         
-                        <div className="absolute bottom-0 left-0 w-full p-6 pb-[90px]">
-                          <p className="text-[#a7f3d0] font-semibold text-xs mb-1 uppercase tracking-wider">{daily.label || 'Daily Deal'}</p>
-                          <h3 className="text-white text-2xl font-bold mb-2 leading-tight">{daily.name}</h3>
+                        <div className="absolute bottom-0 left-0 w-full p-5 flex flex-col justify-end">
+                          <p className="text-[#a7f3d0] font-semibold text-[10px] mb-1 uppercase tracking-wider line-clamp-1">{discount.label || 'Daily Deal'}</p>
+                          <h3 className="text-white text-base font-bold mb-2 leading-tight line-clamp-2 min-h-[40px]">{prod.name}</h3>
                           
-                          {daily.products && daily.products.length > 0 && (
-                            <p className="text-white/80 text-sm mb-2 truncate">
-                              Incl. {daily.products[0].name} {daily.products.length > 1 ? `+${daily.products.length - 1} items` : ''}
-                            </p>
-                          )}
-                        </div>
-                        
-                        <div className="absolute bottom-[90px] right-6 w-[70px] h-[70px] rounded-full bg-[#34d399] text-[#064e3b] flex flex-col items-center justify-center shadow-lg shadow-green-900/30 border-2 border-[#a7f3d0]">
-                          <span className="text-[9px] font-bold uppercase leading-none mb-1">Save</span>
-                          <span className="text-lg font-extrabold leading-none">{daily.discountValue || 0}%</span>
+                          <div className="flex items-end gap-2 mb-2">
+                            <span className="text-white font-black text-xl">Rs. {discountedPrice.toFixed(2)}</span>
+                            <span className="text-white/60 line-through text-xs font-semibold mb-1">Rs. {prod.sellingPrice.toFixed(2)}</span>
+                          </div>
                         </div>
                       </div>
                     );
                   })}
                 </div>
+
+                {dailyProducts.length > 4 && (
+                  <div className="mt-8 text-center">
+                    <button 
+                      onClick={() => setShowAllDaily(!showAllDaily)}
+                      className="px-6 py-2 border-2 border-[#103e2c] text-[#103e2c] font-bold rounded-full hover:bg-[#103e2c] hover:text-white transition-colors"
+                    >
+                      {showAllDaily ? 'Show Less' : `See All Daily Offers (${dailyProducts.length})`}
+                    </button>
+                  </div>
+                )}
               </section>
             )}
 
