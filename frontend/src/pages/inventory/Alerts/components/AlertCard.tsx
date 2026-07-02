@@ -1,4 +1,3 @@
-import React from 'react';
 import { AlertItem, AlertSeverity } from '../types/alertTypes';
 import { Link } from 'react-router-dom';
 
@@ -57,7 +56,7 @@ const showPrimaryAction = (category: string): boolean => {
   return category !== 'Low Stock' && category !== 'Out of Stock' && category !== 'Overstock' && category !== 'Reorder Recommendation';
 };
 
-export default function AlertCard({ alert, handlePrimary, dismiss, markRead, onViewProduct }: AlertCardProps) {
+export default function AlertCard({ alert, handlePrimary, dismiss: _dismiss, markRead, onViewProduct }: AlertCardProps) {
   const expiryBadge = getExpiryBadge(alert.daysUntilExpiry);
   const stockPct = alert.stockPercentage ?? null;
   const sku = alert.sku || extractSku(alert.id);

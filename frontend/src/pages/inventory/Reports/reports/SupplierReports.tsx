@@ -3,7 +3,7 @@ import { downloadReport, ViewState } from './reportUtils';
 import { inventoryOperationsService } from '../../StockOperations/operations/inventoryOperationsService';
 import { MasterDataService } from '../../../../services/masterDataService';
 
-export default function SupplierReports({ onViewChange }: { onViewChange: (view: ViewState) => void }) {
+export default function SupplierReports({ onViewChange: _onViewChange }: { onViewChange: (view: ViewState) => void }) {
   const [period, setPeriod] = useState<'Today' | 'Week' | 'Month' | 'Year' | 'Custom Range'>('Month');
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
@@ -101,7 +101,7 @@ export default function SupplierReports({ onViewChange }: { onViewChange: (view:
 
   // Process live data to match UI display structure
   const processedSuppliers = useMemo(() => {
-    return suppliers.map((sup, idx) => {
+    return suppliers.map((sup, _idx) => {
       const supProducts = products.filter(
         p => p.supplier.trim().toLowerCase() === sup.name.trim().toLowerCase()
       );

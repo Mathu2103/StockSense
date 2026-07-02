@@ -11,7 +11,7 @@ import { authenticate, requireRole } from '../middlewares/authMiddleware.js';
 const router = express.Router();
 
 router.route('/')
-  .get(authenticate, requireRole('ADMIN', 'INVENTORY_MANAGER', 'CASHIER'), getDiscounts)
+  .get(getDiscounts)
   .post(authenticate, requireRole('ADMIN', 'INVENTORY_MANAGER'), createDiscount);
 
 router.route('/:id')

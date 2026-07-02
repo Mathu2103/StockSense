@@ -6,7 +6,7 @@ import {
   LedgerEntry
 } from '../../StockOperations/operations/inventoryOperationsService';
 
-export default function InventoryReports({ onViewChange }: { onViewChange: (view: ViewState) => void }) {
+export default function InventoryReports({ onViewChange: _onViewChange }: { onViewChange: (view: ViewState) => void }) {
   const [period, setPeriod] = useState<'Today' | 'Week' | 'Month' | 'Year' | 'Custom Range'>('Month');
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });

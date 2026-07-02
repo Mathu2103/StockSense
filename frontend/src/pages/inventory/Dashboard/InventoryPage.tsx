@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import Sidebar from '../Shared/Sidebar';
 import InventoryHeader from '../Shared/InventoryHeader';
 import SnapshotCard from './DashboardComponents/SnapshotCard';
-import QuickActionItem from './DashboardComponents/QuickActionItem';
 import RecentActivityItem from './DashboardComponents/RecentActivityItem';
 import {
   inventoryOperationsService,
@@ -65,7 +64,7 @@ export default function InventoryPage() {
   const totalProducts = products.length;
   const totalStockValue = products.reduce((acc, product) => acc + product.stock * product.costPrice, 0);
   const activeSuppliersCount = new Set(products.map((product) => product.supplier)).size;
-  const pendingGrns = grns.filter((grn) => grn.status !== 'Completed').length;
+  const _pendingGrns = grns.filter((grn) => grn.status !== 'Completed').length;
   const lowStockCount = products.filter((product) => product.stock > 0 && product.stock <= product.reorderLevel).length;
   const outOfStockCount = products.filter((product) => product.stock === 0).length;
 
