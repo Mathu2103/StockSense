@@ -187,7 +187,7 @@ async function main() {
   const catMap: Record<string, any> = {};
   const subMap: Record<string, any> = {};
   for (const c of categoriesRaw) {
-    const cat = await prisma.category.create({ data: { name: c.name, description: `All ${c.name}`, categoryImageUrl: c.image } });
+    const cat = await prisma.category.create({ data: { name: c.name, description: `All ${c.name}`, categoryImageUrl: '/images/default_product.png' } });
     catMap[c.name] = cat;
     for (const sub of c.subs) {
       subMap[`${c.name}-${sub}`] = await prisma.subCategory.create({ data: { name: sub, categoryId: cat.id } });
@@ -229,7 +229,7 @@ async function main() {
           sku, masterId: master.id, barcode, name: `${bp.name} ${v}`,
           unitType, costPrice, sellingPrice, currentStock: 0,
           reorderLevel: 15, targetCapacity: 100, status: ProductStatus.ACTIVE,
-          imageUrl: `https://picsum.photos/seed/${sku}/600/600`,
+          imageUrl: '/images/default_product.png',
           variantAttributeType: v, createdAt: DAY_ZERO, updatedAt: DAY_ZERO,
         }
       });
@@ -321,7 +321,7 @@ async function main() {
     const d = await prisma.discount.create({
       data: {
         name: sd.name, type: 'SEASONAL', discountValue: sd.value,
-        label: sd.label, imageUrl: sd.img,
+        label: sd.label, imageUrl: '/images/default_discount.png',
         startDate: new Date(sd.start), endDate: new Date(sd.end),
         isActive: true, approvalStatus: 'APPROVED', createdAt: new Date(sd.created),
         discountProducts: { create: skus.map(sku => ({ sku })) }
@@ -345,7 +345,7 @@ async function main() {
       data: {
         name: dd.name, type: 'DAILY', discountValue: dd.value,
         label: dd.label, dailyStartTime: '08:00', dailyEndTime: '20:00',
-        applicableDate: new Date(dd.date),
+        applicableDate: new Date(dd.date), imageUrl: '/images/default_discount.png',
         isActive: true, approvalStatus: 'APPROVED', createdAt: new Date(dd.created),
         discountProducts: { create: skus.map(sku => ({ sku })) }
       }
@@ -368,7 +368,7 @@ async function main() {
       await prisma.discount.create({
         data: {
           name: cd.name, type: 'COMBO', discountValue: cd.value,
-          label: cd.label, imageUrl: cd.img,
+          label: cd.label, imageUrl: '/images/default_discount.png',
           isActive: true, approvalStatus: 'APPROVED', createdAt: new Date(cd.created),
           comboItems: { create: comboSkus.map(sku => ({ sku, minQty: 1 })) }
         }
