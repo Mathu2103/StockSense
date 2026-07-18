@@ -455,18 +455,26 @@ model UserNotificationState {
 // ─────────────────────────────────────
 
 model DemandForecastRun {
-  id            String    @id @default(uuid())
-  targetMonth   DateTime  @map("target_month") @db.Date
-  dataStartDate DateTime  @map("data_start_date") @db.Date
-  dataEndDate   DateTime  @map("data_end_date") @db.Date
-  status        String
-  startedAt     DateTime? @map("started_at")
-  completedAt   DateTime? @map("completed_at")
-  errorMessage  String?   @map("error_message")
-  createdAt     DateTime  @default(now()) @map("created_at")
+  id                    String    @id @default(uuid())
+  targetMonth           DateTime  @map("target_month") @db.Date
+  version               Int       @default(1)
+  status                String
+  triggerType           String    @default("MANUAL") @map("trigger_type")
+  dataStartDate         DateTime  @map("data_start_date") @db.Date
+  dataEndDate           DateTime  @map("data_end_date") @db.Date
+  startedAt             DateTime? @map("started_at")
+  completedAt           DateTime? @map("completed_at")
+  requestedBy           String?   @map("requested_by")
+  totalProducts         Int       @default(0) @map("total_products")
+  successCount          Int       @default(0) @map("success_count")
+  failureCount          Int       @default(0) @map("failure_count")
+  configurationSnapshot Json?     @map("configuration_snapshot")
+  errorMessage          String?   @map("error_message")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
 
-  analyses      DemandAnalysis[]
-  forecasts     DemandForecast[]
+  analyses              DemandAnalysis[]
+  forecasts             DemandForecast[]
 
   @@index([targetMonth])
   @@map("demand_forecast_runs")
@@ -475,48 +483,71 @@ model DemandForecastRun {
 model DemandAnalysis {
   id                         String   @id @default(uuid())
   forecastRunId              String   @map("forecast_run_id")
-  sku                        String
-  recent30DaySales           Int      @map("recent_30_day_sales")
-  previous30DaySales         Int      @map("previous_30_day_sales")
-  recentGrowthPercent        Float?   @map("recent_growth_percent")
+  productId                  String   @map("product_id")
+  usableHistoryDays          Int      @map("usable_history_days")
+  completeHistoryMonths      Int      @map("complete_history_months")
+  dataQuality                String   @map("data_quality")
+  recent30Sales              Int      @map("recent_30_sales")
+  previous30Sales            Int      @map("previous_30_sales")
+  recentGrowthPercentage     Float?   @map("recent_growth_percentage")
   threeMonthAverage          Float    @map("three_month_average")
   sixMonthAverage            Float    @map("six_month_average")
+  twelveMonthAverage         Float?   @map("twelve_month_average")
   sameMonthHistoricalAverage Float?   @map("same_month_historical_average")
-  averageDailySales          Float    @map("average_daily_sales")
-  discountUpliftPercent      Float?   @map("discount_uplift_percent")
+  seasonalUpliftPercentage   Float?   @map("seasonal_uplift_percentage")
+  discountUpliftPercentage   Float?   @map("discount_uplift_percentage")
   refundQuantity             Int      @default(0) @map("refund_quantity")
-  stockOutEstimate           Int      @default(0) @map("stock_out_estimate")
-  demandTrend                String   @map("demand_trend")
-  dataQuality                String   @map("data_quality")
+  refundRate                 Float    @default(0.0) @map("refund_rate")
+  stockOutDays               Int      @default(0) @map("stock_out_days")
+  stockOutRatio              Float    @default(0.0) @map("stock_out_ratio")
+  zeroSalesRatio             Float    @default(0.0) @map("zero_sales_ratio")
+  coefficientOfVariation     Float    @default(0.0) @map("coefficient_of_variation")
+  averageDemandInterval      Float    @default(0.0) @map("average_demand_interval")
+  trendSlope                 Float    @default(0.0) @map("trend_slope")
+  primaryBehaviour           String   @map("primary_behaviour")
+  trendDirection             String   @map("trend_direction")
+  additionalBehaviourTags    Json     @map("additional_behaviour_tags")
+  analysisWarnings           Json?    @map("analysis_warnings")
   createdAt                  DateTime @default(now()) @map("created_at")
 
   forecastRun DemandForecastRun @relation(fields: [forecastRunId], references: [id], onDelete: Cascade)
-  product     Product           @relation(fields: [sku], references: [sku])
+  product     Product           @relation(fields: [productId], references: [sku])
 
-  @@unique([forecastRunId, sku])
-  @@index([sku])
+  @@unique([forecastRunId, productId])
+  @@index([productId])
   @@map("demand_analysis")
 }
 
 model DemandForecast {
-  id                   String   @id @default(uuid())
-  forecastRunId        String   @map("forecast_run_id")
-  sku                  String
-  currentStockSnapshot Int      @map("current_stock_snapshot")
-  stockCoverageDays    Float?   @map("stock_coverage_days")
-  predictedDemand      Int      @map("predicted_demand")
-  recommendedQuantity  Int      @map("recommended_quantity")
-  selectedModel        String   @map("selected_model")
-  accuracyScore        Float?   @map("accuracy_score")
-  predictionReason     String   @map("prediction_reason")
-  status               String
-  createdAt            DateTime @default(now()) @map("created_at")
+  id                       String   @id @default(uuid())
+  forecastRunId            String   @map("forecast_run_id")
+  productId                String   @map("product_id")
+  targetMonth              DateTime @map("target_month") @db.Date
+  currentStock             Int      @map("current_stock")
+  confirmedIncomingStock   Int      @default(0) @map("confirmed_incoming_stock")
+  predictedDemand          Int      @map("predicted_demand")
+  safetyStock              Int      @map("safety_stock")
+  requiredStock            Int      @map("required_stock")
+  recommendedOrderQuantity Int      @map("recommended_order_quantity")
+  stockCoverageDays        Float?   @map("stock_coverage_days")
+  selectedModel            String   @map("selected_model")
+  modelParameters          Json?    @map("model_parameters")
+  MAE                      Float?   @map("mae")
+  RMSE                     Float?   @map("rmse")
+  WAPE                     Float?   @map("wape")
+  accuracyScore            Float?   @map("accuracy_score")
+  reliabilityLevel         String   @map("reliability_level")
+  predictionReason         String   @map("prediction_reason")
+  status                   String
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
 
   forecastRun DemandForecastRun @relation(fields: [forecastRunId], references: [id], onDelete: Cascade)
-  product     Product           @relation(fields: [sku], references: [sku])
+  product     Product           @relation(fields: [productId], references: [sku])
 
-  @@unique([forecastRunId, sku])
-  @@index([sku])
+  @@unique([forecastRunId, productId])
+  @@index([productId])
+  @@index([targetMonth])
   @@index([status])
   @@map("demand_forecasts")
 }

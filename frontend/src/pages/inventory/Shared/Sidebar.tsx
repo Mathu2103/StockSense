@@ -17,7 +17,20 @@ export default function Sidebar() {
 
   const navLinks: NavLink[] = [
     { name: 'Dashboard', path: '/inventory', icon: 'grid_view' },
-    { name: 'Inventory Analytics', path: '/inventory-analytics', icon: 'trending_up' },
+    
+    // Nested AI Section
+    { 
+      name: 'AI Intelligence', 
+      path: '/inventory-analytics', 
+      icon: 'psychology',
+      subLinks: [
+        { name: 'Overview & Health', path: '/inventory-analytics', icon: 'trending_up' },
+        { name: 'AI Demand Forecasting', path: '/ai-demand-forecasting', icon: 'psychology' }
+      ]
+    },
+    
+    // Management Section
+    { name: 'Management', path: '', icon: '', isHeader: true },
     { name: 'Product Catalog', path: '/manage-products', icon: 'inventory_2' },
     { name: 'Procurement Management', path: '/procurement', icon: 'local_shipping' },
     { name: 'Stock Operations', path: '/inventory-operations', icon: 'sync_alt' },

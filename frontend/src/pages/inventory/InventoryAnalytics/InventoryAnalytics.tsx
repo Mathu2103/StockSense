@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from 'react';
-import { toast } from 'sonner';
 import Sidebar from '../Shared/Sidebar';
 import InventoryHeader from '../Shared/InventoryHeader';
 import { inventoryOperationsService, ProductItem, LedgerEntry } from '../StockOperations/operations/inventoryOperationsService';
@@ -7,11 +6,9 @@ import { inventoryOperationsService, ProductItem, LedgerEntry } from '../StockOp
 // Analytics subcomponents — organized in Components/analytics/
 import KpiDashboardCards from './analytics/KpiDashboardCards';
 import OverviewTab from './analytics/OverviewTab';
-import AiDemandTab from './analytics/AiDemandTab';
 
 export default function InventoryAnalytics() {
   // ── UI State ────────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'overview' | 'ai-demand'>('overview');
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'year' | 'custom'>('month');
   const [hoveredChartBar, setHoveredChartBar] = useState<string | null>(null);
   const [hoveredDonutSegment, setHoveredDonutSegment] = useState<string | null>(null);
@@ -233,7 +230,6 @@ export default function InventoryAnalytics() {
 
               <div className="flex flex-wrap items-center gap-3.5 xl:justify-end">
                 {/* Date Filters */}
-                {activeTab === 'overview' && (
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex bg-[#f1f5f9] p-1 rounded-lg border border-slate-200">
                     {(['today', 'week', 'month', 'year', 'custom'] as const).map((range) => (
@@ -268,62 +264,29 @@ export default function InventoryAnalytics() {
                     </div>
                   )}
                 </div>
-              )}
-
               </div>
             </div>
 
-            {/* Tab Navigation */}
-            <div className="flex border-b border-slate-200 gap-6">
-              {([
-                { id: 'overview', label: 'Overview & Health', icon: 'dashboard' },
-                { id: 'ai-demand', label: 'AI Demand Forecasting', icon: 'monitoring' }
-              ] as const).map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`pb-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === tab.id
-                    ? 'border-[#0b8252] text-[#0b8252]'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                    }`}
-                >
-                  <span className="material-symbols-outlined text-[18px]">{tab.icon}</span>
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            {/* KPI Cards */}
+            <KpiDashboardCards
+              totalInventoryValue={totalInventoryValue}
+              turnoverRate={turnoverRate}
+              totalExpiryLoss={totalExpiryLoss}
+              productsCount={products.length}
+              deadStockCount={deadStockCount}
+              lowStockCount={lowStockCount}
+            />
 
-            {/* KPI Cards — only on Overview tab */}
-            {activeTab === 'overview' && (
-              <KpiDashboardCards
-                totalInventoryValue={totalInventoryValue}
-                turnoverRate={turnoverRate}
-                totalExpiryLoss={totalExpiryLoss}
-                productsCount={products.length}
-                deadStockCount={deadStockCount}
-                lowStockCount={lowStockCount}
-              />
-            )}
-
-            {/* Tab: Overview & Health */}
-            {activeTab === 'overview' && (
-              <OverviewTab
-                dynamicHealthStats={dynamicHealthStats}
-                hoveredDonutSegment={hoveredDonutSegment}
-                setHoveredDonutSegment={setHoveredDonutSegment}
-                dynamicMovementInsights={dynamicMovementInsights}
-                hoveredChartBar={hoveredChartBar}
-                setHoveredChartBar={setHoveredChartBar}
-                dynamicCategoryPerformance={dynamicCategoryPerformance}
-              />
-            )}
-
-            {/* Tab: AI Demand Forecasting */}
-            {activeTab === 'ai-demand' && (
-              <AiDemandTab
-                categories={Array.from(new Set(products.map(p => p.category || '').filter(Boolean)))}
-              />
-            )}
+            {/* Overview & Health */}
+            <OverviewTab
+              dynamicHealthStats={dynamicHealthStats}
+              hoveredDonutSegment={hoveredDonutSegment}
+              setHoveredDonutSegment={setHoveredDonutSegment}
+              dynamicMovementInsights={dynamicMovementInsights}
+              hoveredChartBar={hoveredChartBar}
+              setHoveredChartBar={setHoveredChartBar}
+              dynamicCategoryPerformance={dynamicCategoryPerformance}
+            />
 
           </div>
         </main>

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Path
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List, Optional
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 from app.database import get_db
 from app.schemas.demand_forecast import (
@@ -16,7 +16,6 @@ from app.schemas.demand_forecast import (
 from app.services.forecast_engine import run_monthly_forecasting
 from app.services.db_operations import (
     check_existing_run,
-    delete_existing_run,
     create_initial_run,
     mark_run_completed,
     mark_run_failed,
@@ -40,39 +39,22 @@ def generate_forecast(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid target month format. Use YYYY-MM or YYYY-MM-DD.")
 
+    is_force = payload.force or payload.regenerate
+
     # Check duplicates
     existing_run_id = check_existing_run(db, target_month_date)
-    if existing_run_id and not payload.force:
-        # Return existing completed run details
-        query = text("""
-        SELECT r.id, r.target_month, r.status, r.started_at, r.completed_at, r.error_message,
-               (SELECT COUNT(*)::integer FROM demand_forecasts WHERE forecast_run_id = r.id) as processed
-        FROM demand_forecast_runs r
-        WHERE r.id = :run_id
-        """)
-        res = db.execute(query, {"run_id": existing_run_id}).first()
-        if res:
-            return {
-                "runId": res[0],
-                "targetMonth": str(res[1]),
-                "status": res[2],
-                "productsProcessed": res[6],
-                "productsFailed": 0,
-                "startedAt": res[3],
-                "completedAt": res[4],
-                "errorMessage": res[5]
-            }
-
-    if existing_run_id and payload.force:
-        # Delete old run
-        delete_existing_run(db, existing_run_id)
+    if existing_run_id and not is_force:
+        raise HTTPException(
+            status_code=400, 
+            detail="A completed forecast run already exists for this target month. Would you like to regenerate and create a new version?"
+        )
 
     # Cutoff date is end of previous month
     cutoff_date = target_month_date - timedelta(days=1)
     data_start = date(2023, 1, 1)
 
     # Create running execution header
-    run_id = create_initial_run(db, target_month_date, data_start, cutoff_date)
+    run_id = create_initial_run(db, target_month_date, data_start, cutoff_date, trigger_type=payload.triggerType or "MANUAL")
 
     try:
         # Execute pipeline
@@ -82,7 +64,14 @@ def generate_forecast(
         save_analyses_and_forecasts(db, run_id, analyses, forecasts)
         
         # Mark as completed
-        mark_run_completed(db, run_id)
+        mark_run_completed(
+            db, 
+            run_id, 
+            total_products=run_meta["productsProcessed"] + run_meta["productsFailed"],
+            success_count=run_meta["productsProcessed"],
+            failure_count=run_meta["productsFailed"],
+            config_snapshot=run_meta["configurationSnapshot"]
+        )
         
         return {
             "runId": run_id,
@@ -198,7 +187,7 @@ def get_forecast_run_details(
     # Base query for product forecasts
     sql_base = """
     FROM demand_forecasts df
-    JOIN products p ON df.sku = p.sku
+    JOIN products p ON df.product_id = p.sku
     JOIN master_product_class mc ON p.master_id = mc.id
     JOIN categories c ON mc.category_id = c.category_id
     WHERE df.forecast_run_id = :run_id
@@ -227,9 +216,9 @@ def get_forecast_run_details(
     # Apply sorting mapping to columns to prevent injection
     sort_cols = {
         "predictedDemand": "df.predicted_demand",
-        "recommendedQuantity": "df.recommended_quantity",
+        "recommendedQuantity": "df.recommended_order_quantity",
         "stockCoverage": "df.stock_coverage_days",
-        "currentStock": "df.current_stock_snapshot",
+        "currentStock": "df.current_stock",
         "productName": "p.name",
         "sku": "p.sku",
         "accuracyScore": "df.accuracy_score"
@@ -244,8 +233,8 @@ def get_forecast_run_details(
     params["offset"] = offset
 
     fetch_sql = f"""
-    SELECT df.sku, p.name, c.name as category_name, df.current_stock_snapshot, 
-           df.stock_coverage_days, df.predicted_demand, df.recommended_quantity, 
+    SELECT df.product_id, p.name, c.name as category_name, df.current_stock, 
+           df.stock_coverage_days, df.predicted_demand, df.recommended_order_quantity, 
            df.selected_model, df.accuracy_score, df.prediction_reason, df.status
     {sql_base}
     ORDER BY {sort_col} {sort_dir} NULLS LAST
@@ -296,21 +285,22 @@ def get_product_forecast_detail(
     db: Session = Depends(get_db)
 ):
     query = text("""
-    SELECT df.sku, p.name, c.name as category_name, df.current_stock_snapshot, 
-           df.predicted_demand, df.recommended_quantity, df.stock_coverage_days, 
+    SELECT df.product_id, p.name, c.name as category_name, df.current_stock, 
+           df.predicted_demand, df.recommended_order_quantity, df.stock_coverage_days, 
            df.status, df.selected_model, df.accuracy_score, df.prediction_reason, 
            r.target_month, df.created_at,
-           da.recent_30_day_sales, da.previous_30_day_sales, da.recent_growth_percent,
+           da.recent_30_sales, da.previous_30_sales, da.recent_growth_percentage,
            da.three_month_average, da.six_month_average, da.same_month_historical_average,
-           da.average_daily_sales, da.discount_uplift_percent, da.refund_quantity,
-           da.stock_out_estimate, da.demand_trend, da.data_quality
+           (df.current_stock / NULLIF(da.recent_30_sales / 30.0, 0.0)) as average_daily_sales, 
+           da.discount_uplift_percentage, da.refund_quantity,
+           da.stock_out_days, da.primary_behaviour, da.data_quality
     FROM demand_forecasts df
     JOIN demand_forecast_runs r ON df.forecast_run_id = r.id
-    JOIN products p ON df.sku = p.sku
+    JOIN products p ON df.product_id = p.sku
     JOIN master_product_class mc ON p.master_id = mc.id
     JOIN categories c ON mc.category_id = c.category_id
-    JOIN demand_analysis da ON da.forecast_run_id = r.id AND da.sku = p.sku
-    WHERE df.forecast_run_id = :run_id AND df.sku = :sku
+    JOIN demand_analysis da ON da.forecast_run_id = r.id AND da.product_id = p.sku
+    WHERE df.forecast_run_id = :run_id AND df.product_id = :sku
     """)
     
     res = db.execute(query, {"run_id": runId, "sku": sku}).first()
@@ -339,12 +329,10 @@ def get_product_forecast_detail(
         "threeMonthAverage": res[16],
         "sixMonthAverage": res[17],
         "sameMonthHistoricalAverage": res[18],
-        "averageDailySales": res[19],
+        "averageDailySales": res[19] if res[19] is not None else 0.0,
         "discountUpliftPercent": res[20],
         "refundQuantity": res[21],
         "stockOutEstimate": res[22],
         "demandTrend": res[23],
         "dataQuality": res[24]
     }
-
-from datetime import timedelta

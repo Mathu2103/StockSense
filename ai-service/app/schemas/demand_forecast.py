@@ -5,6 +5,8 @@ from typing import List, Optional, Any, Dict
 class ForecastRequest(BaseModel):
     targetMonth: str = Field(..., description="Target forecasting month format YYYY-MM-DD or YYYY-MM")
     force: Optional[bool] = Field(False, description="Force forecast regeneration even if already completed")
+    regenerate: Optional[bool] = Field(False, description="Force forecast regeneration even if already completed")
+    triggerType: Optional[str] = Field("MANUAL", description="Trigger type: MANUAL or SCHEDULED")
 
 class ForecastRunResponse(BaseModel):
     runId: str

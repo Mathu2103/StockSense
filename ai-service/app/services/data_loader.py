@@ -54,7 +54,8 @@ def load_daily_grn_df(db: Session, end_date: str) -> pd.DataFrame:
 def load_daily_adjustments_df(db: Session, end_date: str) -> pd.DataFrame:
     query = """
     SELECT DATE(created_at) as date, sku,
-           SUM(qty_changed)::integer as adjustment_qty
+           SUM(CASE WHEN qty_changed > 0 THEN qty_changed ELSE 0 END)::integer as pos_adjustment,
+           SUM(CASE WHEN qty_changed < 0 THEN ABS(qty_changed) ELSE 0 END)::integer as neg_adjustment
     FROM stock_adjustments
     WHERE created_at <= :end_date
     GROUP BY DATE(created_at), sku

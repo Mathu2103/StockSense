@@ -3,6 +3,12 @@ import { api } from './axiosInstance';
 export interface ForecastRun {
   id: string;
   targetMonth: string;
+  version?: number;
+  triggerType?: string;
+  requestedBy?: string;
+  totalProducts?: number;
+  successCount?: number;
+  failureCount?: number;
   dataStartDate: string;
   dataEndDate: string;
   status: string;
@@ -41,6 +47,8 @@ export interface ProductForecastDetail {
   categoryName: string;
   currentStock: number;
   predictedDemand: number;
+  safetyStock: number;
+  requiredStock: number;
   recommendedQuantity: number;
   stockCoverageDays?: number;
   status: 'CRITICAL_ACTION' | 'SUFFICIENT' | 'OVERSTOCK_RISK';
@@ -49,6 +57,12 @@ export interface ProductForecastDetail {
   predictionReason: string;
   targetMonth: string;
   createdAt: string;
+  
+  // Backtesting metrics
+  mae?: number;
+  rmse?: number;
+  wape?: number;
+  reliabilityLevel: 'HIGH' | 'MEDIUM' | 'LOW';
   
   // Analysis metrics
   recent30DaySales: number;
@@ -61,8 +75,10 @@ export interface ProductForecastDetail {
   discountUpliftPercent?: number;
   refundQuantity: number;
   stockOutEstimate: number;
-  demandTrend: 'GROWING' | 'DECLINING' | 'STABLE';
-  dataQuality: 'HIGH' | 'MEDIUM' | 'POOR';
+  demandTrend: string;
+  primaryBehaviour: string;
+  additionalBehaviourTags?: string[];
+  dataQuality: 'GOOD' | 'MODERATE' | 'LIMITED';
 }
 
 export const aiDemandService = {
@@ -94,6 +110,11 @@ export const aiDemandService = {
 
   async getProductForecastDetail(runId: string, sku: string): Promise<ProductForecastDetail> {
     const response = await api.get(`/ai-demand/forecast/${runId}/product/${sku}`);
+    return response.data.data;
+  },
+
+  async getForecastHistory(): Promise<ForecastRun[]> {
+    const response = await api.get('/ai-demand/forecast/history');
     return response.data.data;
   }
 };

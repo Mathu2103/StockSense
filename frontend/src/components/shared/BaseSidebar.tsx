@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -5,6 +6,8 @@ export interface NavLink {
   name: string;
   path: string;
   icon: string;
+  isHeader?: boolean;
+  subLinks?: NavLink[];
 }
 
 interface BaseSidebarProps {
@@ -16,6 +19,29 @@ export default function BaseSidebar({ navLinks, isLinkActive }: BaseSidebarProps
   const location = useLocation();
   const { logout } = useAuth();
   const currentPath = location.pathname;
+
+  // Track which submenus are expanded
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    navLinks.forEach(link => {
+      if (link.subLinks) {
+        const hasActiveSublink = link.subLinks.some(sub => 
+          isLinkActive(sub.path, currentPath, location.search)
+        );
+        if (hasActiveSublink) {
+          initial[link.name] = true;
+        }
+      }
+    });
+    return initial;
+  });
+
+  const toggleSubmenu = (name: string) => {
+    setExpandedMenus(prev => ({
+      ...prev,
+      [name]: !prev[name]
+    }));
+  };
 
   return (
     <aside className="w-64 h-screen sticky top-0 bg-background border-r border-outline-variant flex flex-col shrink-0">
@@ -33,6 +59,75 @@ export default function BaseSidebar({ navLinks, isLinkActive }: BaseSidebarProps
       <div className="flex-1 overflow-y-auto py-4 no-scrollbar">
         <nav className="space-y-1.5 px-3">
           {navLinks.map((link) => {
+            if (link.isHeader) {
+              return (
+                <div 
+                  key={link.name} 
+                  className="pt-4 pb-1.5 px-3 text-[10px] font-black uppercase text-outline tracking-wider select-none"
+                >
+                  {link.name}
+                </div>
+              );
+            }
+
+            // Accordion/Dropdown Submenu
+            if (link.subLinks && link.subLinks.length > 0) {
+              const isExpanded = !!expandedMenus[link.name];
+              const isAnySubActive = link.subLinks.some(sub => 
+                isLinkActive(sub.path, currentPath, location.search)
+              );
+
+              return (
+                <div key={link.name} className="space-y-1">
+                  <button
+                    onClick={() => toggleSubmenu(link.name)}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg font-medium transition-colors ${
+                      isAnySubActive
+                        ? 'bg-secondary-container/50 text-primary'
+                        : 'text-on-surface-variant hover:bg-surface-container'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className={`material-symbols-outlined ${isAnySubActive ? 'text-primary' : 'text-outline-variant'}`}>
+                        {link.icon}
+                      </span>
+                      <span className="text-sm">{link.name}</span>
+                    </div>
+                    <span 
+                      className="material-symbols-outlined text-[18px] transition-transform duration-200"
+                      style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                    >
+                      keyboard_arrow_down
+                    </span>
+                  </button>
+
+                  {isExpanded && (
+                    <div className="pl-4 space-y-1 border-l border-outline-variant/30 ml-5 animate-in slide-in-from-top-2 duration-150">
+                      {link.subLinks.map((sub) => {
+                        const isSubActive = isLinkActive(sub.path, currentPath, location.search);
+                        return (
+                          <Link
+                            key={sub.name}
+                            to={sub.path}
+                            className={`flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-xs transition-colors ${
+                              isSubActive
+                                ? 'bg-secondary-container text-on-secondary-container border-l-4 border-primary font-bold'
+                                : 'text-on-surface-variant hover:bg-surface-container'
+                            }`}
+                          >
+                            <span className={`material-symbols-outlined text-[16px] ${isSubActive ? 'text-primary' : 'text-outline-variant'}`}>
+                              {sub.icon}
+                            </span>
+                            {sub.name}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             const isActive = isLinkActive(link.path, currentPath, location.search);
             return (
               <Link
@@ -47,7 +142,7 @@ export default function BaseSidebar({ navLinks, isLinkActive }: BaseSidebarProps
                 <span className={`material-symbols-outlined ${isActive ? 'text-primary' : 'text-outline-variant'}`}>
                   {link.icon}
                 </span>
-                {link.name}
+                <span className="text-sm">{link.name}</span>
               </Link>
             );
           })}

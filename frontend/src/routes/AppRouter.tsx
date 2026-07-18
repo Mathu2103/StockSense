@@ -18,6 +18,7 @@ import UnauthorizedPage from '../pages/auth/UnauthorizedPage'
 // Inventory Pages (ADMIN + INVENTORY_MANAGER)
 import InventoryPage from '../pages/inventory/Dashboard/InventoryPage'
 import InventoryAnalytics from '../pages/inventory/InventoryAnalytics/InventoryAnalytics'
+import AiDemandForecastingPage from '../pages/inventory/AiDemandForecasting/AiDemandForecastingPage'
 import ProductManagement from '../pages/inventory/ProductManagement/ProductManagement'
 import ProcurementManagement from '../pages/inventory/ProcurementManagement/ProcurementManagement'
 import InventoryOperations from '../pages/inventory/StockOperations/StockOperations'
@@ -64,6 +65,9 @@ export default function AppRouter() {
         } />
         <Route path="/inventory-analytics" element={
           <ProtectedRoute allowedRoles={INVENTORY_ROLES}><InventoryAnalytics /></ProtectedRoute>
+        } />
+        <Route path="/ai-demand-forecasting" element={
+          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><AiDemandForecastingPage /></ProtectedRoute>
         } />
         <Route path="/manage-products" element={
           <ProtectedRoute allowedRoles={INVENTORY_ROLES}><ProductManagement /></ProtectedRoute>

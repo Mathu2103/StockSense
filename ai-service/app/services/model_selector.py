@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from typing import Dict, Any, Tuple
 from app.services.backtesting import run_backtest_on_product
 from app.models.seasonal_naive import SeasonalNaiveModel
@@ -10,30 +11,51 @@ from app.models.croston import CrostonModel
 
 def select_best_model(
     product_history: pd.DataFrame,
-    demand_profile: str,
+    primary_behaviour: str,
     target_month: int
-) -> Tuple[str, float, Any]:
+) -> Tuple[str, Dict[str, Any], float, float, float, float, str, Any]:
     """
-    Evaluates candidate models via backtesting and selects the best fitted model instance.
-    Returns: (model_name, accuracy_score, fitted_model_instance)
+    Evaluates candidate models via walk-forward backtesting.
+    Filters candidate models dynamically based on demand behavior.
+    Selects the best model and returns its parameters, error metrics, reliability, and fitted instance.
     """
-    # 1. Check data sufficiency
     n_days = len(product_history)
     
-    if demand_profile == "LIMITED_HISTORY" or n_days < 45:
+    # 1. Fallback for Limited History
+    if primary_behaviour == "LIMITED_HISTORY" or n_days < 45:
         # Limited history fallback: use simple Moving Average (30-day window)
-        model = MovingAverageModel(window_days=30).fit(product_history)
-        # Accuracy score is low confidence (e.g., 0.5)
-        return "Moving Average (Limited Data)", 0.50, model
-
-    # 2. Run backtesting
-    backtest_errs = run_backtest_on_product(product_history, target_month, validation_days=30)
-    
-    # 3. Handle model eligibility by profile
-    eligible_models = ["Moving Average", "Seasonal Naive", "Linear Regression", "Random Forest", "Gradient Boosting"]
-    if demand_profile == "INTERMITTENT":
-        eligible_models.append("Croston")
+        model_name = "Moving Average"
+        model_params = {"window_days": 30}
+        model_instance = MovingAverageModel(window_days=30).fit(product_history)
         
+        # Default metrics for limited data
+        mae = 0.0
+        rmse = 0.0
+        wape = 0.50
+        accuracy = 0.50
+        reliability = "LOW"
+        
+        return model_name, model_params, mae, rmse, wape, accuracy, reliability, model_instance
+
+    # 2. Run walk-forward validation
+    backtest_errs = run_backtest_on_product(product_history, target_month, n_windows=3)
+    
+    # 3. Filter candidate models by demand profile
+    eligible_models = ["Moving Average"] # Always keep at least one simple baseline
+    
+    if primary_behaviour == "STABLE":
+        eligible_models.extend(["Linear Regression", "Random Forest"])
+    elif primary_behaviour == "SEASONAL":
+        eligible_models.extend(["Seasonal Naive", "Random Forest", "Gradient Boosting"])
+    elif primary_behaviour in ["TRENDING_UP", "TRENDING_DOWN"]:
+        eligible_models.extend(["Linear Regression", "Random Forest", "Gradient Boosting"])
+    elif primary_behaviour == "INTERMITTENT":
+        eligible_models.extend(["Croston"])
+    elif primary_behaviour == "HIGH_VARIABILITY":
+        eligible_models.extend(["Random Forest", "Gradient Boosting"])
+    else:
+        eligible_models.extend(["Seasonal Naive", "Linear Regression", "Random Forest", "Gradient Boosting"])
+
     best_model_name = "Moving Average"
     best_wape = 999.0
     
@@ -44,33 +66,55 @@ def select_best_model(
                 best_wape = wape
                 best_model_name = model_name
 
-    # 4. Parsimonious rule: complex models must beat baseline by at least 5% WAPE
+    # 4. Parsimonious rule: complex models must beat Moving Average baseline by at least 5% WAPE
     baseline_wape = backtest_errs.get("Moving Average", {}).get("WAPE", 999.0)
     
-    # If the chosen best is a complex model (Random Forest / Gradient Boosting)
-    if best_model_name in ["Random Forest", "Gradient Boosting"]:
-        # If it doesn't beat baseline by at least 5% relative improvement
+    if best_model_name in ["Random Forest", "Gradient Boosting"] and baseline_wape != 999.0:
+        # If relative improvement is less than 5%
         if best_wape >= baseline_wape * 0.95:
             best_model_name = "Moving Average"
             best_wape = baseline_wape
 
-    # 5. Fit the final selected model on the entire historical dataset
+    # 5. Extract selected model's metrics
+    model_metrics = backtest_errs.get(best_model_name, {"WAPE": 0.50, "MAE": 0.0, "RMSE": 0.0, "stability": 0.0})
+    wape = model_metrics.get("WAPE", 0.50)
+    mae = model_metrics.get("MAE", 0.0)
+    rmse = model_metrics.get("RMSE", 0.0)
+    stability = model_metrics.get("stability", 0.0)
+    
+    # Accuracy score = max(0, 100 - WAPE_pct)
+    accuracy_score = max(0.0, 100.0 - (wape * 100.0))
+    
+    # 6. Fit the selected model on the entire historical dataset
     if best_model_name == "Seasonal Naive":
+        model_params = {"target_month": target_month}
         model_instance = SeasonalNaiveModel().fit(product_history, target_month)
     elif best_model_name == "Linear Regression":
-        model_instance = LinearRegressionModel().fit(product_history)
+        model_params = {"window_days": 180}
+        model_instance = LinearRegressionModel(window_days=180).fit(product_history)
     elif best_model_name == "Random Forest":
+        model_params = {"n_estimators": 50, "max_depth": 6, "random_state": 42}
         model_instance = RandomForestModel().fit(product_history)
     elif best_model_name == "Gradient Boosting":
+        model_params = {"n_estimators": 50, "max_depth": 4, "learning_rate": 0.1, "random_state": 42}
         model_instance = GradientBoostingModel().fit(product_history)
     elif best_model_name == "Croston":
-        model_instance = CrostonModel().fit(product_history)
+        model_params = {"alpha": 0.15}
+        model_instance = CrostonModel(alpha=0.15).fit(product_history)
     else:
-        # Default/Moving Average
         best_model_name = "Moving Average"
-        model_instance = MovingAverageModel().fit(product_history)
+        model_params = {"window_days": 90}
+        model_instance = MovingAverageModel(window_days=90).fit(product_history)
 
-    # Accuracy Score = max(0, 1 - WAPE)
-    accuracy_score = max(0.0, 1.0 - best_wape) if best_wape != 999.0 else 0.50
+    # 7. Reliability level assignment
+    # Consider backtesting error, error stability, history length
+    zero_sales_ratio = float((product_history["net_qty_sold"] == 0).sum() / len(product_history))
+    
+    if wape <= 0.20 and stability <= 0.10 and n_days >= 180 and zero_sales_ratio < 0.50:
+        reliability = "HIGH"
+    elif wape >= 0.50 or n_days < 90 or stability > 0.25:
+        reliability = "LOW"
+    else:
+        reliability = "MEDIUM"
 
-    return best_model_name, accuracy_score, model_instance
+    return best_model_name, model_params, mae, rmse, wape, accuracy_score, reliability, model_instance
