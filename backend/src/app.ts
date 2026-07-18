@@ -17,6 +17,7 @@ import refundRoutes from './routes/refundRoutes.js'
 import reportRoutes from './routes/reportRoutes.js'
 import settingsRoutes from './routes/settingsRoutes.js'
 import notificationRoutes from './routes/notificationRoutes.js'
+import aiDemandRoutes from './routes/aiDemandRoutes.js'
 
 const app = express()
 
@@ -64,6 +65,7 @@ app.use('/api/refunds', refundRoutes)
 app.use('/api/reports', reportRoutes)
 app.use('/api/settings', settingsRoutes)
 app.use('/api/notifications', notificationRoutes)
+app.use('/api/ai-demand', aiDemandRoutes)
 
 // ── 404 Handler ───────────────────────────────────────
 app.use((_req: Request, res: Response) => {

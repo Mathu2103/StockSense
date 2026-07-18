@@ -7,12 +7,11 @@ import { inventoryOperationsService, ProductItem, LedgerEntry } from '../StockOp
 // Analytics subcomponents — organized in Components/analytics/
 import KpiDashboardCards from './analytics/KpiDashboardCards';
 import OverviewTab from './analytics/OverviewTab';
-import VelocityTab from './analytics/VelocityTab';
-import RiskTab from './analytics/RiskTab';
+import AiDemandTab from './analytics/AiDemandTab';
 
 export default function InventoryAnalytics() {
   // ── UI State ────────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'overview' | 'velocity' | 'risk'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'ai-demand'>('overview');
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'year' | 'custom'>('month');
   const [hoveredChartBar, setHoveredChartBar] = useState<string | null>(null);
   const [hoveredDonutSegment, setHoveredDonutSegment] = useState<string | null>(null);
@@ -34,9 +33,7 @@ export default function InventoryAnalytics() {
   }, []);
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
-  const triggerToast = (msg: string) => {
-    toast.success(msg);
-  };
+
   // ── Date-filtered ledger ────────────────────────────────────────────────────
   const filteredLedger = useMemo(() => {
     const now = Date.now();
@@ -78,31 +75,7 @@ export default function InventoryAnalytics() {
     dynamicExpiryLoss.reduce((sum, item) => sum + item.lossValue, 0),
     [dynamicExpiryLoss]);
 
-  const dynamicFastMoving = useMemo(() => {
-    const counts: { [key: string]: { movements: number; qty: number } } = {};
-    filteredLedger.filter(l => l.movementType === 'Sale').forEach(s => {
-      const prod = products.find(p => p.name === s.productName || p.sku === s.sku);
-      if (!prod) return;
-      if (!counts[prod.sku]) counts[prod.sku] = { movements: 0, qty: 0 };
-      counts[prod.sku].movements += 1;
-      counts[prod.sku].qty += Math.abs(s.quantityChange);
-    });
-    return products
-      .map(p => {
-        const log = counts[p.sku] || { movements: 0, qty: 0 };
-        return {
-          name: p.name,
-          category: p.category,
-          movementCount: log.movements,
-          salesVolume: `Rs. ${(log.qty * p.sellingPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-          stockRemaining: p.stock,
-          rating: log.movements > 50 ? 'High Demand' : log.movements > 10 ? 'Normal' : 'Low Demand'
-        };
-      })
-      .filter(item => item.movementCount > 0)
-      .sort((a, b) => b.movementCount - a.movementCount)
-      .slice(0, 5);
-  }, [filteredLedger, products]);
+
 
   const dynamicDeadStock = useMemo(() => {
     return products.map((p) => {
@@ -161,16 +134,7 @@ export default function InventoryAnalytics() {
     });
   }, [filteredLedger, products]);
 
-  const dynamicReorderSuggestions = useMemo(() => {
-    const lowItems = products.filter(p => p.stock <= p.reorderLevel);
-    return lowItems.map(p => ({
-      name: p.name,
-      stock: p.stock,
-      threshold: p.reorderLevel,
-      suggestedQty: Math.max(50, p.reorderLevel * 3 - p.stock),
-      urgency: p.stock === 0 ? 'Critical' : p.stock <= p.reorderLevel ? 'Warning' : 'Normal'
-    })).slice(0, 4);
-  }, [products]);
+
 
   const dynamicHealthStats = useMemo(() => {
     const total = products.length || 1;
@@ -269,6 +233,7 @@ export default function InventoryAnalytics() {
 
               <div className="flex flex-wrap items-center gap-3.5 xl:justify-end">
                 {/* Date Filters */}
+                {activeTab === 'overview' && (
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex bg-[#f1f5f9] p-1 rounded-lg border border-slate-200">
                     {(['today', 'week', 'month', 'year', 'custom'] as const).map((range) => (
@@ -303,6 +268,8 @@ export default function InventoryAnalytics() {
                     </div>
                   )}
                 </div>
+              )}
+
               </div>
             </div>
 
@@ -310,8 +277,7 @@ export default function InventoryAnalytics() {
             <div className="flex border-b border-slate-200 gap-6">
               {([
                 { id: 'overview', label: 'Overview & Health', icon: 'dashboard' },
-                { id: 'velocity', label: 'Product Velocity', icon: 'bolt' },
-                { id: 'risk', label: 'Risk & Loss Audits', icon: 'warning_amber' }
+                { id: 'ai-demand', label: 'AI Demand Forecasting', icon: 'monitoring' }
               ] as const).map(tab => (
                 <button
                   key={tab.id}
@@ -327,15 +293,17 @@ export default function InventoryAnalytics() {
               ))}
             </div>
 
-            {/* KPI Cards — always visible */}
-            <KpiDashboardCards
-              totalInventoryValue={totalInventoryValue}
-              turnoverRate={turnoverRate}
-              totalExpiryLoss={totalExpiryLoss}
-              productsCount={products.length}
-              deadStockCount={deadStockCount}
-              lowStockCount={lowStockCount}
-            />
+            {/* KPI Cards — only on Overview tab */}
+            {activeTab === 'overview' && (
+              <KpiDashboardCards
+                totalInventoryValue={totalInventoryValue}
+                turnoverRate={turnoverRate}
+                totalExpiryLoss={totalExpiryLoss}
+                productsCount={products.length}
+                deadStockCount={deadStockCount}
+                lowStockCount={lowStockCount}
+              />
+            )}
 
             {/* Tab: Overview & Health */}
             {activeTab === 'overview' && (
@@ -350,23 +318,10 @@ export default function InventoryAnalytics() {
               />
             )}
 
-            {/* Tab: Product Velocity */}
-            {activeTab === 'velocity' && (
-              <VelocityTab
-                dynamicFastMoving={dynamicFastMoving}
-                products={products}
-                dynamicReorderSuggestions={dynamicReorderSuggestions}
-                triggerToast={triggerToast}
-              />
-            )}
-
-            {/* Tab: Risk & Loss Audits */}
-            {activeTab === 'risk' && (
-              <RiskTab
-                dynamicDeadStock={dynamicDeadStock}
-                dynamicExpiryLoss={dynamicExpiryLoss}
-                totalExpiryLoss={totalExpiryLoss}
-                triggerToast={triggerToast}
+            {/* Tab: AI Demand Forecasting */}
+            {activeTab === 'ai-demand' && (
+              <AiDemandTab
+                categories={Array.from(new Set(products.map(p => p.category || '').filter(Boolean)))}
               />
             )}
 
