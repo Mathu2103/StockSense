@@ -1,251 +1,171 @@
-# 🤖 AI Demand Forecasting — How It Works
+# 🤖 AI Demand Forecasting — Developer & Manager Guide
 
-> A plain-English, end-to-end explanation of what the AI service does, what data it looks at, how it thinks, and what it gives back.
-
----
-
-## 🧩 What Is This?
-
-The AI Demand Forecasting system looks at **3 years of past sales data** (January 2023 → December 2025) and predicts **how many units of each product will be sold next month** (e.g., January 2026).
-
-It then tells you:
-- How many units you need to **order / restock**
-- Whether stock is **Critical**, **Sufficient**, or **Overstock Risk**
-- A human-readable **explanation** of why it made that prediction
-
-It runs **once per calendar month**, for all active products (220 SKUs).
+> A comprehensive, end-to-end documentation of the StockSense AI Demand Forecasting engine. This document covers data ingestion, feature engineering, demand profiling, validation backtesting, machine learning models, stock recommendations, and backend query routing.
 
 ---
 
-## 📅 What Time Periods Does It Use?
+## 🧩 Architectural Overview
 
-| Period | Purpose |
-|--------|---------|
-| **Jan 2023 → Dec 2025** | Full historical window used for training |
-| **Last 30 days** (Nov 2025 → Dec 2025) | Recent sales trend |
-| **Days -60 to -30** (Oct → Nov 2025) | Previous 30-day period for comparing growth |
-| **Last 90 days** (3 months) | Short-term monthly average |
-| **Last 180 days** (6 months) | Medium-term monthly average |
-| **Same month in past years** (Jan 2023, Jan 2024, Jan 2025) | Seasonal pattern for January |
+The AI Demand Forecasting module is designed to predict product-level sales demand for the upcoming calendar month using historical transaction data (up to 3 years). It helps retail managers optimize inventory levels, maintain safety buffers, and prevent stock-outs.
 
-> ⚠️ The AI **never looks at January 2026 data** — that would be "cheating." It only uses data up to 31 Dec 2025.
-
----
-
-## 🗄️ What Data Does It Pull From the Database?
-
-The AI reads from **5 database tables** for each product:
-
-### 1. 🛒 Daily Sales (`sales_bill_items` + `sales_bills`)
-- How many units were sold each day
-- Whether a discount was applied on that sale
-- The average selling price on that day
-
-### 2. 🔄 Daily Refunds (`sales_refund_items` + `sales_refunds`)
-- How many units were returned each day
-- Subtracted from gross sales to get **net sales** (what actually left the store)
-
-### 3. 📦 Daily GRN — Goods Received (`grn_items` + `goods_receiving_notes`)
-- How many units were received into stock each day from suppliers
-
-### 4. 📋 Stock Adjustments (`stock_adjustments`)
-- Manual stock corrections (write-offs, damage, expiry removals)
-
-### 5. 🏷️ Discount Campaigns (`discounts` + mapping tables)
-- Which products had approved discount campaigns running on which dates
-
----
-
-## ⚙️ Step-by-Step: What Happens When You Click "Generate Forecast"
-
-### Step 1 — Load Raw Data
-All 5 tables above are loaded from PostgreSQL into memory as Pandas DataFrames (tabular data).
-
----
-
-### Step 2 — Clean & Assemble Daily Timeline
-For each product, the AI creates a **single row for every calendar day** from Jan 2023 to Dec 2025, filling in:
-
-| Column | Meaning |
-|--------|---------|
-| `date` | The calendar date |
-| `net_qty_sold` | Gross sales − refunds for that day |
-| `grn_qty_received` | Units received from suppliers |
-| `adjustment_qty` | Manual corrections |
-| `discount_applied` | Was there an active discount on this product that day? |
-
-Days with no sales/movements are filled with zeros — so every product gets a complete, unbroken daily record.
-
----
-
-### Step 3 — Reconstruct Stock History
-Since the database only stores the **current stock level**, the AI works **backwards in time** to estimate what the stock was on each past day.
-
-**Formula used:**
-```
-Stock[yesterday] = Stock[today] + units_sold_today − units_received_today − adjustments_today
+```mermaid
+graph TD
+    A[PostgreSQL Database] -->|Raw Data Ingestion| B[FastAPI Data Loader]
+    B -->|Clean & Panel Merge| C[Data Cleaner]
+    C -->|Backward Stock Reconstruction| D[Feature Engineering]
+    D -->|Demand Profiling Classifier| E[Product Profiler]
+    E -->|Walk-Forward Validation| F[Model Selector]
+    F -->|Fitted Model Predicts Target Month| G[Forecast Coordinator]
+    G -->|Future Discount Sensitivity| G
+    G -->|Safety Stock & Reorders| H[Recommendation Engine]
+    H -->|Trace Evidence Texts| I[Explanation Engine]
+    I -->|Batch Insertion v1/v2| J[DB Operations]
+    J -->|PostgreSQL Storage| A
+    K[Express Node Backend] -->|Direct Prisma Queries| A
+    L[React Frontend] -->|Filterable Grids & Drawers| K
 ```
 
-This gives a `running_stock` column for every day — useful to detect when a product was out of stock.
+---
+
+## 📅 Chronological Timeline Setup
+
+The forecasting engine runs monthly or on-demand:
+1. **Target Month**: The calendar month being forecasted (e.g., January 2026).
+2. **Data Cutoff Date**: The last day of the month preceding the target month (e.g., December 31, 2025). 
+3. **History Range**: Begins on `2023-01-01` and runs until the cutoff date.
+4. **Data Leakage Safeguard**: No data from the target month is accessed during feature generation, model training, or backtesting validation.
 
 ---
 
-### Step 4 — Calculate Features (Numbers the AI Will Use)
-For each product, the AI computes these statistical values from the historical data:
+## 🗄️ Database Ingestion
 
-| Feature | What It Means |
-|---------|--------------|
-| `recent_30_day_sales` | Total net units sold in last 30 days (Dec 2025) |
-| `previous_30_day_sales` | Total net units sold in the 30 days before that (Nov 2025) |
-| `recent_growth_percent` | Growth/decline between the two 30-day periods |
-| `three_month_average` | Average monthly units sold over last 3 months |
-| `six_month_average` | Average monthly units sold over last 6 months |
-| `same_month_historical_average` | Average units sold in January across 2023, 2024, 2025 |
-| `average_daily_sales` | `recent_30_day_sales / 30` |
-| `discount_uplift_percent` | Extra % sales seen on discount days vs normal days |
-| `refund_quantity` | Units returned in last 30 days |
-| `stock_out_estimate` | Days in last 30 where stock was 0 (suppressed sales) |
-| `demand_trend` | GROWING / STABLE / DECLINING |
-| `data_quality` | HIGH / MEDIUM / POOR (based on how many days of history exist) |
+The FastAPI loader queries PostgreSQL for five types of transaction logs up to the cutoff date:
+
+1. **🛒 Sales Data**: Returns daily gross quantity sold, discounted quantity sold, average unit price, and sales revenue per SKU.
+2. **🔄 Refund Data**: Returns daily returned quantities per SKU.
+3. **📦 Goods Received Notes (GRN)**: Returns daily supplier restock quantities.
+4. **📋 Stock Adjustments**: Returns daily manual stock corrections. These are loaded separately as positive adjustments (manual additions) and negative adjustments (reductions, damage, expiry).
+5. **🏷️ Discounts**: Active and approved discount campaigns (approval status `APPROVED`) matching the products and dates.
 
 ---
 
-### Step 5 — Classify Each Product's Demand Profile
-Not every product behaves the same way. The AI puts each product into one of these **demand profiles** before choosing a forecasting model:
+## ⚙️ The Data Cleansing & Reconstruction Pipeline
 
-| Profile | What It Means |
-|---------|--------------|
-| `LIMITED_HISTORY` | Less than 90 days of sales data — not enough to learn patterns |
-| `INTERMITTENT` | Sells rarely (less than 0.6 units/day, zero sales on 65%+ of days) |
-| `DISCOUNT_SENSITIVE` | Sales spike heavily (40%+) when discounts run |
-| `SEASONAL` | Sells very differently in January compared to other months |
-| `TRENDING_UP` | Growing faster than 15% in recent weeks |
-| `TRENDING_DOWN` | Declining faster than 15% in recent weeks |
-| `HIGH_VARIABILITY` | Sales jump around a lot — no predictable pattern |
-| `STABLE` | Consistent, predictable daily sales |
+### 1. Panel Generation
+To avoid gaps in historical records, the system constructs a continuous daily panel for each active product:
+- The timeline starts on the product's `launch_date` and ends on the `cutoff_date`.
+- **Discontinued Handling**: If a product's status is `DISCONTINUED` or `INACTIVE`, the timeline is capped at the product's last recorded transaction date in the sales or adjustment tables to prevent empty panel calculations.
+- Missing days are filled with zeros for quantities and default prices.
+- **Net Sold Quantity** is calculated as:
+  $$\text{Net Sales}[t] = \max(0, \text{Gross Quantity Sold}[t] - \text{Refunded Quantity}[t])$$
 
----
+### 2. Historical Stock Reconstruction
+Since the database only stores the current stock snapshot, the AI reconstructs past stock levels by iterating backward from the current stock level on the cutoff date:
+$$\text{Opening Stock}[t] = \text{Closing Stock}[t] - \text{GRN}[t] - \text{Positive Adjustments}[t] + \text{Net Sales}[t] + \text{Negative Adjustments}[t]$$
+$$\text{Closing Stock}[t-1] = \text{Opening Stock}[t]$$
 
-### Step 6 — Pick the Best Forecasting Model (via Backtesting)
-The AI doesn't just use one model. It **tests 5–6 different models** on each product using a technique called **backtesting**:
+- **Zero-Capping**: Reconstructed opening stock is capped at `0` to prevent negative stock values.
+- **Stock-Out Flags**: If a day's opening or closing stock is reconstructed as `0`, a `stockOutFlag` is set to `True` for that day, indicating a day of suppressed sales.
 
-> Backtesting = "Pretend we are in November 2025. Now predict December 2025 using only data up to November. Compare that prediction to what actually happened in December."
-
-The error metric used is **WAPE** (Weighted Absolute Percentage Error — lower is better).
-
-| Model | Best For |
-|-------|---------|
-| **Moving Average** | Stable products, baseline model |
-| **Seasonal Naive** | Products with strong seasonal patterns |
-| **Linear Regression** | Products with a clear upward/downward trend |
-| **Random Forest** | Complex patterns with multiple influencing factors |
-| **Gradient Boosting** | Same as Random Forest but often more accurate |
-| **Croston** | Intermittent demand (products that sell rarely) |
-
-**Rules applied:**
-1. If data is less than 45 days → automatically uses **Moving Average**
-2. If a complex model (Random Forest / Gradient Boosting) doesn't beat Moving Average by at least 5% → stick with **Moving Average** (simpler is more reliable)
-3. The model with the **lowest WAPE** wins and is fitted on all 3 years of data
+### 3. Feature Engineering
+The AI extracts a range of statistical and trend indicators for each product:
+- `usableHistoryDays`: Total history length in calendar days.
+- `completeHistoryMonths`: Total complete calendar months of history.
+- `recent30Sales` / `previous30Sales`: Net sales in the last 30 days and the preceding 30 days.
+- `recentGrowthPercentage`: Growth/decline rate between the two 30-day windows (safely returns `None` or `0.0` if the previous period has zero sales).
+- `threeMonthAverage` / `sixMonthAverage` / `twelveMonthAverage`: Rolling monthly averages.
+- `sameMonthHistoricalAverage`: Average monthly sales in the target calendar month across past years (e.g., average of Jan 2023, Jan 2024, Jan 2025).
+- `seasonalUpliftPercentage`: Seasonality ratio comparing the target month's historical average to the overall rolling average.
+- `discountUpliftPercentage`: Historical daily sales uplift observed on discount campaign days vs non-discount days.
+- `stockOutDays`: Total days where the product was out of stock.
+- `coefficientOfVariation`: Standard deviation of sales divided by average sales, measuring demand volatility.
+- `averageDemandInterval` (ADI): Average number of days between sales.
 
 ---
 
-### Step 7 — Generate the Prediction
-The winning model predicts the **total units expected to be sold in January 2026**.
+## 🏷️ Demand Behavior Classification
 
-The AI also applies a **discount uplift adjustment** if:
-- There is an active approved discount campaign running in January 2026
-- That product has historically responded well to discounts
+Products are classified into distinct demand profiles to guide model eligibility:
 
----
-
-### Step 8 — Calculate Recommended Restock Quantity
-```
-safety_stock    = predicted_demand × 15%
-recommended_qty = predicted_demand + safety_stock − current_stock
-```
-
-This tells the manager exactly how many units to order so that:
-- The predicted demand is covered
-- An extra 15% safety buffer is maintained for uncertainty
+*   **`LIMITED_HISTORY`**: Usable history days are less than 90 days.
+*   **`INTERMITTENT`**: ADI is greater than 1.3 OR zero sales ratio is greater than 60%. (Typical for slow-moving items).
+*   **`SEASONAL`**: Seasonal uplift percentage for the target month is $\ge 15\%$.
+*   **`TRENDING_UP`**: Trend slope is $> 0.05$ and trend direction is UP.
+*   **`TRENDING_DOWN`**: Trend slope is $< -0.05$ and trend direction is DOWN.
+*   **`HIGH_VARIABILITY`**: Coefficient of variation is greater than 1.0. (High volatility, hard to predict).
+*   **`DISCOUNT_SENSITIVE`**: Historical discount uplift percentage is $\ge 15\%$.
+*   **`STABLE`**: Low volatility, consistent sales patterns.
 
 ---
 
-### Step 9 — Classify Status
+## 🧠 Model Validation & Selection
 
-| Status | Condition |
-|--------|----------|
-| 🔴 **CRITICAL ACTION** | Stock will run out in < 12 days, OR current stock < predicted demand, OR recommended_qty > 0 |
-| 🟡 **OVERSTOCK RISK** | Stock > 150% of predicted demand AND will last > 45 days |
-| 🟢 **SUFFICIENT** | Everything is fine — no action needed |
+### 1. Walk-Forward Validation Backtesting
+Instead of random splitting, which breaks time-series dependencies, models are evaluated using a **Walk-Forward Validation** pipeline:
+- It uses the final three complete months of history as validation windows.
+- For each window, the models are trained on all history preceding that window and evaluated against actual sales during that window.
+- The validation error metrics computed are:
+  - **Mean Absolute Error (MAE)**:
+    $$MAE = \frac{1}{N} \sum_{t=1}^{N} |y_t - \hat{y}_t|$$
+  - **Root Mean Squared Error (RMSE)**:
+    $$RMSE = \sqrt{\frac{1}{N} \sum_{t=1}^{N} (y_t - \hat{y}_t)^2}$$
+  - **Weighted Absolute Percentage Error (WAPE)**:
+    $$WAPE = \frac{\sum |y_t - \hat{y}_t|}{\sum y_t}$$
 
----
+### 2. Candidate Model Selection
+Candidate models are filtered based on the product's demand profile:
+- **`STABLE`**: Moving Average, Linear Regression, Random Forest.
+- **`SEASONAL`**: Seasonal Naive, Moving Average, Random Forest, Gradient Boosting.
+- **`TRENDING`**: Linear Regression, Moving Average, Random Forest, Gradient Boosting.
+- **`INTERMITTENT`**: Croston Method, Moving Average.
+- **`LIMITED_HISTORY`**: Moving Average (30-day window).
+- **`HIGH_VARIABILITY`**: Random Forest, Gradient Boosting, Moving Average.
 
-### Step 10 — Generate a Human-Readable Explanation
-The system writes a short paragraph in plain English explaining the forecast:
-
-- "Net sales increased by 18.3% in the most recent 30 days compared to the previous 30 days."
-- "Historically, January demand is seasonal, averaging 22% above normal months."
-- "Current stock covers approximately 8 days. An immediate restock of 45 units is required."
-
----
-
-### Step 11 — Save to Database
-All results are saved into 3 PostgreSQL tables:
-- `demand_forecast_runs` — one row per forecast run (which month, when it ran)
-- `demand_analysis` — detailed metrics per product (features, model, accuracy)
-- `demand_forecasts` — final output per product (predicted demand, recommended qty, status)
-
----
-
-## 📊 What Does the Dashboard Show?
-
-| Card / Column | Where It Comes From |
-|--------------|-------------------|
-| **Products Forecasted** | Count of all rows in `demand_forecasts` for the run |
-| **Critical Action** | Products where `status = CRITICAL_ACTION` (full run total) |
-| **Sufficient Stock** | Products where `status = SUFFICIENT` (full run total) |
-| **Overstock Risk** | Products where `status = OVERSTOCK_RISK` (full run total) |
-| **Current Stock** | Snapshot of stock at the time of forecast |
-| **Stock Will Last** | `current_stock ÷ average_daily_sales` |
-| **Next Month Demand** | The model's prediction |
-| **Recommended Qty** | How many units to order |
-| **Prediction Reason** | Auto-generated plain-English explanation |
-
-Clicking any row opens a **detail popup** showing all the underlying metrics (growth %, 3-month avg, 6-month avg, same-month historical, discount uplift, refund volume, model used, WAPE accuracy score).
+**Parsimonious Complexity Rules:**
+1. If data history is less than 45 days, the pipeline defaults to a simple Moving Average.
+2. For longer histories, the candidate model with the lowest validation WAPE is selected.
+3. **Complexity Penalty**: A complex model (Random Forest, Gradient Boosting) is only selected if it outperforms the baseline Moving Average model by at least **5% relative WAPE** ($WAPE_{complex} < WAPE_{MA} \times 0.95$).
+4. The winning model is fitted on the entire historical dataset to generate target month predictions.
 
 ---
 
-## 🧠 Accuracy Score
+## 📈 Prediction & Restock Recommendations
 
-The accuracy score shown in the popup is calculated as:
-```
-Accuracy = 1 − WAPE
-```
-For example, a WAPE of 0.18 → Accuracy = 82.0%
+### 1. Daily Prediction and Discount Uplift
+The winning model predicts daily demand for each day in the target month.
+- **Future Discount Adjustments**: If an approved discount campaign is running for the product during the target month, and the selected model is a baseline model (Moving Average, Seasonal Naive, Croston), the predicted demand is adjusted by multiplying it by the historical `discountUpliftPercentage` (uplift capped at **50%** to prevent demand inflation).
 
-A higher score means the chosen model predicted the validation month (December 2025) very accurately.
+### 2. Purchase Order Recommendations
+- **Safety Stock**:
+  $$\text{Safety Stock} = \lceil \text{Predicted Demand} \times 15\% \rceil$$
+- **Required Stock**:
+  $$\text{Required Stock} = \text{Predicted Demand} + \text{Safety Stock}$$
+- **Recommended Purchase Order Quantity**:
+  $$\text{Recommended Quantity} = \max(0, \text{Required Stock} - \text{Current Stock} - \text{Confirmed Incoming Stock})$$
+
+### 3. Inventory Health Status
+- 🔴 **`CRITICAL_ACTION`**: Current stock is below predicted demand or required stock, recommended order is $> 0$, and stock coverage is less than 12 days (or stock is completely depleted).
+- 🟡 **`OVERSTOCK_RISK`**: Current stock is greater than required stock by more than 150%, and stock coverage is greater than 45 days.
+- 🟢 **`SUFFICIENT`**: Current stock safely covers next month's demand and safety buffer.
 
 ---
 
-## 🔁 When Should You Run It?
-
-- **Once at the start of each month**
-- Always run it **after the previous month's sales data is complete**
-- You can use the "Force" option to regenerate if you want to update an existing month's forecast
+## ✍️ Natural Language Explanation Generation
+The explanation engine compiles a detailed paragraph linking the forecast to calculated features:
+- *"Sales increased by 11.2% during the most recent 30-day period compared to the previous 30 days."*
+- *"Historically, January demand is seasonal, averaging 20.0% higher in January."*
+- *"The selected Random Forest model achieved a validation WAPE of 12.5%."*
+- *"An estimated 45 units should be reordered, including a 15% safety stock allowance (8 units)."*
 
 ---
 
-## 📁 Key Files
+## 🗄️ Database & Controller Architecture
 
-| File | What It Does |
-|------|-------------|
-| `app/services/data_loader.py` | Loads all raw data from PostgreSQL |
-| `app/services/data_cleaner.py` | Builds the complete daily timeline per product |
-| `app/services/feature_engineering.py` | Computes all statistical features |
-| `app/services/product_profiler.py` | Classifies each product's demand type |
-| `app/services/model_selector.py` | Runs backtesting and picks the best model |
-| `app/services/recommendation_engine.py` | Computes recommended qty, coverage days, status |
-| `app/services/explanation_engine.py` | Generates the plain-English explanation text |
-| `app/services/db_operations.py` | Saves everything back to PostgreSQL |
-| `app/api/demand_forecast_routes.py` | FastAPI HTTP endpoints (generate, fetch, details) |
+### 1. Versioning & Duplicate Prevention
+- **Versioning**: Subsequent runs for the same target month increment the `version` counter (`v1 -> v2`) rather than deleting previous run records.
+- **Scheduled Runs**: The Node scheduler checks for runs on the 1st day of each month. If a completed run already exists for the month, the scheduler skips triggering a new run to prevent duplicate runs.
 
+### 2. Direct-Query Architecture
+To ensure the system remains responsive even if the Python AI service is offline, all read paths query PostgreSQL directly via Prisma client:
+- **`aiDemandController.ts`**: Queries tables (`DemandForecastRun`, `DemandAnalysis`, `DemandForecast`) directly, joining with `Product` and `Category` tables.
+- **`forecastScheduler.ts`**: Toggles background runs.
