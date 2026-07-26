@@ -65,6 +65,12 @@ model User {
   refunds          Refund[]
   notificationStates UserNotificationState[]
 
+  // Relations to new Combo Suggestion models
+  createdCombos          Combo[]                @relation("CreatedCombos")
+  approvedCombos         Combo[]                @relation("ApprovedCombos")
+  comboApprovalHistories ComboApprovalHistory[]
+  comboNotifications     ComboNotification[]
+
   @@map("users")
 }
 
@@ -94,6 +100,10 @@ model Category {
   // Relations
   subCategories        SubCategory[]
   masterProductClasses MasterProductClass[]
+
+  // Relations to new Combo Suggestion models
+  sourceCategoryAssociations CategoryAssociation[] @relation("SourceCategoryAssociations")
+  targetCategoryAssociations CategoryAssociation[] @relation("TargetCategoryAssociations")
 
   @@map("categories")
 }
@@ -141,6 +151,10 @@ model MasterProductClass {
   supplier    Supplier     @relation(fields: [supplierId], references: [id])
   products    Product[]
 
+  // Relations to new Combo Suggestion models
+  antecedentRules ProductAssociationRule[] @relation("AntecedentClassRules")
+  consequentRules ProductAssociationRule[] @relation("ConsequentClassRules")
+
   @@map("master_product_class")
 }
 
@@ -179,6 +193,21 @@ model Product {
   demandAnalyses   DemandAnalysis[]
   demandForecasts  DemandForecast[]
 
+  // Relations to new Combo Suggestion models
+  antecedentAssociationRules ProductAssociationRule[]    @relation("AntecedentRules")
+  consequentAssociationRules ProductAssociationRule[]    @relation("ConsequentRules")
+  substituteRelations        ProductSubstituteRelation[] @relation("ProductSubstitutes")
+  substitutedByRelations     ProductSubstituteRelation[] @relation("ProductSubstitutedBy")
+  seasonalProductAnalyses    SeasonalProductAnalysis[]
+  seasonalRulesA             SeasonalAssociationRule[]   @relation("SeasonalRulesA")
+  seasonalRulesB             SeasonalAssociationRule[]   @relation("SeasonalRulesB")
+  comboOpportunities         ComboOpportunity[]
+  comboAnchorCandidates      ComboAnchorCandidate[]
+  comboSuggestionsTarget     ComboSuggestion[]           @relation("TargetSuggestions")
+  comboSuggestionsAnchor     ComboSuggestion[]           @relation("AnchorSuggestions")
+  comboSuggestionItems       ComboSuggestionItem[]
+  comboItemsNew              ComboItem[]
+
   @@map("products")
 }
 
@@ -211,6 +240,11 @@ model GrnItem {
   // Relations
   grn     GoodsReceivingNote @relation(fields: [grnId], references: [id])
   product Product            @relation(fields: [sku], references: [sku])
+
+  // Relations to new Combo Suggestion models
+  comboOpportunities   ComboOpportunity[]
+  comboSuggestionItems ComboSuggestionItem[]
+  comboItemsNew        ComboItem[]
 
   @@map("grn_items")
 }
@@ -249,6 +283,9 @@ model Bill {
   cashier   User       @relation(fields: [cashierId], references: [id])
   billItems BillItem[]
   refunds   Refund[]
+
+  // Relations to new Combo Suggestion models
+  comboSales ComboSale[]
 
   @@map("sales_bills")
 }
@@ -476,6 +513,9 @@ model DemandForecastRun {
   analyses              DemandAnalysis[]
   forecasts             DemandForecast[]
 
+  // Relations to new Combo Suggestion models
+  comboOpportunities ComboOpportunity[]
+
   @@index([targetMonth])
   @@map("demand_forecast_runs")
 }
@@ -550,4 +590,519 @@ model DemandForecast {
   @@index([targetMonth])
   @@index([status])
   @@map("demand_forecasts")
+}
+
+// ─────────────────────────────────────
+// COMBO & SUGGESTION MODULE MODELS
+// ─────────────────────────────────────
+
+model ComboBusinessSetting {
+  id           String   @id @default(uuid()) @map("id")
+  settingKey   String   @unique @map("setting_key")
+  settingValue String   @map("setting_value")
+  dataType     String   @map("data_type")
+  description  String?  @map("description")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("combo_business_settings")
+}
+
+model ProductAssociationRun {
+  id                String   @id @default(uuid()) @map("id")
+  analysisStartDate DateTime @map("analysis_start_date") @db.Date
+  analysisEndDate   DateTime @map("analysis_end_date") @db.Date
+  algorithm         String   @map("algorithm")
+  minimumSupport    Float    @map("minimum_support")
+  minimumConfidence Float    @map("minimum_confidence")
+  minimumLift       Float    @map("minimum_lift")
+  transactionCount  Int      @map("transaction_count")
+  productCount      Int      @map("product_count")
+  status            String   @map("status")
+  startedAt         DateTime @default(now()) @map("started_at")
+  completedAt       DateTime? @map("completed_at")
+  errorMessage      String?  @map("error_message")
+  version           Int      @default(1) @map("version")
+  createdBy         String?  @map("created_by")
+
+  // Relations
+  rules                ProductAssociationRule[]
+  categoryAssociations CategoryAssociation[]
+  comboOpportunities   ComboOpportunity[]
+
+  @@map("product_association_runs")
+}
+
+model ProductAssociationRule {
+  id                       String   @id @default(uuid()) @map("id")
+  associationRunId         String   @map("association_run_id")
+  antecedentProductId      String   @map("antecedent_product_id")
+  consequentProductId      String   @map("consequent_product_id")
+  antecedentFamilyId       String?  @map("antecedent_family_id")
+  consequentFamilyId       String?  @map("consequent_family_id")
+  pairPurchaseCount        Int      @map("pair_purchase_count")
+  antecedentPurchaseCount  Int      @map("antecedent_purchase_count")
+  consequentPurchaseCount  Int      @map("consequent_purchase_count")
+  support                  Float    @map("support")
+  confidence               Float    @map("confidence")
+  reverseConfidence        Float    @map("reverse_confidence")
+  lift                     Float    @map("lift")
+  weightedSupport          Float    @map("weighted_support")
+  stabilityMonthCount      Int      @map("stability_month_count")
+  stabilityYearCount       Int      @map("stability_year_count")
+  largeBasketRatio         Float    @map("large_basket_ratio")
+  categoryCompatibilityScore Float  @map("category_compatibility_score")
+  familyCompatibilityScore Float    @map("family_compatibility_score")
+  substituteRiskScore      Float    @map("substitute_risk_score")
+  relationshipScore        Float    @map("relationship_score")
+  relationshipStatus       String   @map("relationship_status")
+  firstObservedDate        DateTime? @map("first_observed_date") @db.Date
+  lastObservedDate         DateTime? @map("last_observed_date") @db.Date
+  createdAt                DateTime @default(now()) @map("created_at")
+
+  // Relations
+  associationRun     ProductAssociationRun @relation(fields: [associationRunId], references: [id], onDelete: Cascade)
+  antecedentProduct  Product               @relation("AntecedentRules", fields: [antecedentProductId], references: [sku])
+  consequentProduct  Product               @relation("ConsequentRules", fields: [consequentProductId], references: [sku])
+  antecedentFamily   MasterProductClass?   @relation("AntecedentClassRules", fields: [antecedentFamilyId], references: [id])
+  consequentFamily   MasterProductClass?   @relation("ConsequentClassRules", fields: [consequentFamilyId], references: [id])
+  anchorCandidates   ComboAnchorCandidate[]
+
+  @@unique([associationRunId, antecedentProductId, consequentProductId])
+  @@index([antecedentProductId])
+  @@index([consequentProductId])
+  @@index([relationshipScore])
+  @@map("product_association_rules")
+}
+
+model CategoryAssociation {
+  id                 String   @id @default(uuid()) @map("id")
+  sourceCategoryId   String   @map("source_category_id")
+  targetCategoryId   String   @map("target_category_id")
+  pairCount          Int      @map("pair_count")
+  support            Float    @map("support")
+  confidence         Float    @map("confidence")
+  lift               Float    @map("lift")
+  relationshipScore  Float    @map("relationship_score")
+  relationshipStatus String   @map("relationship_status")
+  analysisRunId      String   @map("analysis_run_id")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  sourceCategory Category              @relation("SourceCategoryAssociations", fields: [sourceCategoryId], references: [id])
+  targetCategory Category              @relation("TargetCategoryAssociations", fields: [targetCategoryId], references: [id])
+  analysisRun    ProductAssociationRun @relation(fields: [analysisRunId], references: [id], onDelete: Cascade)
+
+  @@unique([analysisRunId, sourceCategoryId, targetCategoryId])
+  @@map("category_associations")
+}
+
+model ProductSubstituteRelation {
+  id                  String   @id @default(uuid()) @map("id")
+  productId           String   @map("product_id")
+  substituteProductId String   @map("substitute_product_id")
+  detectionSource     String   @map("detection_source")
+  substituteScore     Float    @map("substitute_score")
+  status              String   @map("status")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  product           Product @relation("ProductSubstitutes", fields: [productId], references: [sku])
+  substituteProduct Product @relation("ProductSubstitutedBy", fields: [substituteProductId], references: [sku])
+
+  @@unique([productId, substituteProductId])
+  @@map("product_substitute_relations")
+}
+
+model SeasonalEvent {
+  id                 String   @id @default(uuid()) @map("id")
+  name               String   @map("name")
+  description        String?  @map("description")
+  eventType          String   @map("event_type")
+  analysisStartMonth Int      @map("analysis_start_month")
+  analysisStartDay   Int      @map("analysis_start_day")
+  analysisEndMonth   Int      @map("analysis_end_month")
+  analysisEndDay     Int      @map("analysis_end_day")
+  targetYear         Int?     @map("target_year")
+  createdBy          String?  @map("created_by")
+  status             String   @map("status")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  productAnalyses    SeasonalProductAnalysis[]
+  associationRules   SeasonalAssociationRule[]
+  comboOpportunities ComboOpportunity[]
+
+  @@map("seasonal_events")
+}
+
+model SeasonalProductAnalysis {
+  id                       String   @id @default(uuid()) @map("id")
+  seasonalEventId          String   @map("seasonal_event_id")
+  productId                String   @map("product_id")
+  historicalYear           Int      @map("historical_year")
+  seasonalSales            Float    @map("seasonal_sales")
+  normalPeriodSales        Float    @map("normal_period_sales")
+  seasonalUpliftPercentage Float    @map("seasonal_uplift_percentage")
+  seasonalDemandScore      Float    @map("seasonal_demand_score")
+  repeatedYearCount        Int      @map("repeated_year_count")
+  forecastedDemand         Float?   @map("forecasted_demand")
+  expectedExcessStock      Float?   @map("expected_excess_stock")
+  isSeasonal               Boolean  @map("is_seasonal")
+  confidenceLevel          String   @map("confidence_level")
+  createdAt                DateTime @default(now()) @map("created_at")
+
+  // Relations
+  seasonalEvent SeasonalEvent @relation(fields: [seasonalEventId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [sku])
+
+  @@unique([seasonalEventId, productId, historicalYear])
+  @@map("seasonal_product_analyses")
+}
+
+model SeasonalAssociationRule {
+  id                String   @id @default(uuid()) @map("id")
+  seasonalEventId   String   @map("seasonal_event_id")
+  productAId        String   @map("product_a_id")
+  productBId        String   @map("product_b_id")
+  pairCount         Int      @map("pair_count")
+  support           Float    @map("support")
+  confidence        Float    @map("confidence")
+  lift              Float    @map("lift")
+  relationshipScore Float    @map("relationship_score")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  // Relations
+  seasonalEvent SeasonalEvent @relation(fields: [seasonalEventId], references: [id], onDelete: Cascade)
+  productA      Product       @relation("SeasonalRulesA", fields: [productAId], references: [sku])
+  productB      Product       @relation("SeasonalRulesB", fields: [productBId], references: [sku])
+
+  @@unique([seasonalEventId, productAId, productBId])
+  @@map("seasonal_association_rules")
+}
+
+model ComboOpportunity {
+  id                       String   @id @default(uuid()) @map("id")
+  forecastRunId            String   @map("forecast_run_id")
+  associationRunId         String   @map("association_run_id")
+  seasonalEventId          String?  @map("seasonal_event_id")
+  targetProductId          String   @map("target_product_id")
+  targetBatchId            String?  @map("target_batch_id")
+  opportunityType          String   @map("opportunity_type")
+  velocityClass            String   @map("velocity_class")
+  currentStock             Int      @map("current_stock")
+  availableStock           Int      @map("available_stock")
+  predictedDemand          Int      @map("predicted_demand")
+  safetyStock              Int      @map("safety_stock")
+  requiredStock            Int      @map("required_stock")
+  stockCoverageDays        Float    @map("stock_coverage_days")
+  excessStock              Int      @map("excess_stock")
+  daysSinceLastSale        Int      @map("days_since_last_sale")
+  expiryDate               DateTime? @map("expiry_date") @db.Date
+  daysToExpiry             Int?     @map("days_to_expiry")
+  seasonalUpliftPercentage Float?   @map("seasonal_uplift_percentage")
+  priorityScore            Float    @map("priority_score")
+  opportunityStatus        String   @map("opportunity_status")
+  detectedAt               DateTime @default(now()) @map("detected_at")
+  expiresAt                DateTime? @map("expires_at")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  forecastRun      DemandForecastRun     @relation(fields: [forecastRunId], references: [id], onDelete: Cascade)
+  associationRun   ProductAssociationRun @relation(fields: [associationRunId], references: [id], onDelete: Cascade)
+  seasonalEvent    SeasonalEvent?        @relation(fields: [seasonalEventId], references: [id])
+  targetProduct    Product               @relation(fields: [targetProductId], references: [sku])
+  targetBatch      GrnItem?              @relation(fields: [targetBatchId], references: [id])
+  anchorCandidates ComboAnchorCandidate[]
+  comboSuggestions ComboSuggestion[]
+
+  @@unique([forecastRunId, associationRunId, targetProductId, targetBatchId, opportunityType])
+  @@index([targetProductId])
+  @@index([opportunityType])
+  @@index([opportunityStatus])
+  @@map("combo_opportunities")
+}
+
+model ComboAnchorCandidate {
+  id                       String   @id @default(uuid()) @map("id")
+  opportunityId            String   @map("opportunity_id")
+  anchorProductId          String   @map("anchor_product_id")
+  associationRuleId        String   @map("association_rule_id")
+  pairPurchaseCount        Int      @map("pair_purchase_count")
+  support                  Float    @map("support")
+  confidence               Float    @map("confidence")
+  lift                     Float    @map("lift")
+  relationshipScore        Float    @map("relationship_score")
+  anchorVelocityClass      String   @map("anchor_velocity_class")
+  anchorCurrentStock       Int      @map("anchor_current_stock")
+  anchorPredictedDemand    Int      @map("anchor_predicted_demand")
+  anchorSafetyStock        Int      @map("anchor_safety_stock")
+  anchorPromotionalStock   Int      @map("anchor_promotional_stock")
+  anchorStockCoverageDays  Float    @map("anchor_stock_coverage_days")
+  anchorStockOutRisk       Float    @map("anchor_stock_out_risk")
+  normalProfitContribution Float    @map("normal_profit_contribution")
+  compatibilityScore       Float    @map("compatibility_score")
+  stockSafetyScore         Float    @map("stock_safety_score")
+  profitabilityScore       Float    @map("profitability_score")
+  finalCandidateScore      Float    @map("final_candidate_score")
+  candidateRank            Int      @map("candidate_rank")
+  rejectionReason          String?  @map("rejection_reason")
+  status                   String   @map("status")
+  createdAt                DateTime @default(now()) @map("created_at")
+
+  // Relations
+  opportunity     ComboOpportunity       @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  anchorProduct   Product                @relation(fields: [anchorProductId], references: [sku])
+  associationRule ProductAssociationRule @relation(fields: [associationRuleId], references: [id], onDelete: Cascade)
+
+  @@unique([opportunityId, anchorProductId])
+  @@index([opportunityId])
+  @@index([finalCandidateScore])
+  @@map("combo_anchor_candidates")
+}
+
+model ComboSuggestion {
+  id                            String   @id @default(uuid()) @map("id")
+  opportunityId                 String   @map("opportunity_id")
+  suggestionVersion             Int      @default(1) @map("suggestion_version")
+  targetProductId               String   @map("target_product_id")
+  primaryAnchorProductId        String   @map("primary_anchor_product_id")
+  comboSize                     Int      @map("combo_size")
+  suggestionType                String   @map("suggestion_type")
+  normalTotalPrice              Float    @map("normal_total_price")
+  totalCost                     Float    @map("total_cost")
+  minimumSafePrice              Float    @map("minimum_safe_price")
+  recommendedPrice              Float    @map("recommended_price")
+  maximumSafeDiscount           Float    @map("maximum_safe_discount")
+  recommendedDiscountAmount     Float    @map("recommended_discount_amount")
+  recommendedDiscountPercentage Float    @map("recommended_discount_percentage")
+  expectedProfit                Float    @map("expected_profit")
+  expectedMarginPercentage      Float    @map("expected_margin_percentage")
+  customerSaving                Float    @map("customer_saving")
+  maximumComboQuantity          Int      @map("maximum_combo_quantity")
+  recommendationScore           Float    @map("recommendation_score")
+  confidenceLevel               String   @map("confidence_level")
+  riskLevel                     String   @map("risk_level")
+  explanation                   String   @map("explanation")
+  evidenceSummary               String   @map("evidence_summary")
+  suggestionStatus              String   @map("suggestion_status")
+  generatedAt                   DateTime @default(now()) @map("generated_at")
+  expiresAt                     DateTime? @map("expires_at")
+  createdAt                     DateTime @default(now()) @map("created_at")
+  updatedAt                     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  opportunity          ComboOpportunity           @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  targetProduct        Product                    @relation("TargetSuggestions", fields: [targetProductId], references: [sku])
+  primaryAnchorProduct Product                    @relation("AnchorSuggestions", fields: [primaryAnchorProductId], references: [sku])
+  items                ComboSuggestionItem[]
+  evidence             ComboSuggestionEvidence[]
+  combos               Combo[]
+  notifications        ComboNotification[]
+
+  @@index([opportunityId])
+  @@index([suggestionStatus])
+  @@map("combo_suggestions")
+}
+
+model ComboSuggestionItem {
+  id                        String   @id @default(uuid()) @map("id")
+  comboSuggestionId         String   @map("combo_suggestion_id")
+  productId                 String   @map("product_id")
+  batchId                   String?  @map("batch_id")
+  role                      String   @map("role")
+  quantity                  Int      @map("quantity")
+  normalUnitPrice           Float    @map("normal_unit_price")
+  costPrice                 Float    @map("cost_price")
+  allocatedDiscount         Float    @map("allocated_discount")
+  effectiveSellingPrice     Float    @map("effective_selling_price")
+  availablePromotionalStock Int      @map("available_promotional_stock")
+  relationshipScore         Float    @map("relationship_score")
+  createdAt                 DateTime @default(now()) @map("created_at")
+
+  // Relations
+  comboSuggestion ComboSuggestion @relation(fields: [comboSuggestionId], references: [id], onDelete: Cascade)
+  product         Product         @relation(fields: [productId], references: [sku])
+  batch           GrnItem?        @relation(fields: [batchId], references: [id])
+
+  @@map("combo_suggestion_items")
+}
+
+model ComboSuggestionEvidence {
+  id                String   @id @default(uuid()) @map("id")
+  comboSuggestionId String   @map("combo_suggestion_id")
+  evidenceType      String   @map("evidence_type")
+  evidenceKey       String   @map("evidence_key")
+  evidenceValue     String   @map("evidence_value")
+  unit              String?  @map("unit")
+  description       String   @map("description")
+  sourceTable       String?  @map("source_table")
+  sourceRecordId    String?  @map("source_record_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  // Relations
+  comboSuggestion ComboSuggestion @relation(fields: [comboSuggestionId], references: [id], onDelete: Cascade)
+
+  @@map("combo_suggestion_evidences")
+}
+
+model Combo {
+  id                          String   @id @default(uuid()) @map("id")
+  sourceSuggestionId          String?  @map("source_suggestion_id")
+  comboCode                   String   @unique @map("combo_code")
+  name                        String   @map("name")
+  description                 String?  @map("description")
+  comboType                   String   @map("combo_type")
+  normalTotalPrice            Float    @map("normal_total_price")
+  comboPrice                  Float    @map("combo_price")
+  discountAmount              Float    @map("discount_amount")
+  discountPercentage          Float    @map("discount_percentage")
+  totalCost                   Float    @map("total_cost")
+  expectedProfit              Float    @map("expected_profit")
+  expectedMarginPercentage    Float    @map("expected_margin_percentage")
+  maximumQuantity             Int      @map("maximum_quantity")
+  soldQuantity                Int      @default(0) @map("sold_quantity")
+  startDate                   DateTime @map("start_date") @db.Date
+  endDate                     DateTime @map("end_date") @db.Date
+  status                      String   @map("status")
+  createdByInventoryManagerId String   @map("created_by_inventory_manager_id")
+  submittedAt                 DateTime? @map("submitted_at")
+  approvedByAdminId           String?  @map("approved_by_admin_id")
+  approvedAt                  DateTime? @map("approved_at")
+  rejectionReason             String?  @map("rejection_reason")
+  requestChangeMessage        String?  @map("request_change_message")
+  createdAt                   DateTime @default(now()) @map("created_at")
+  updatedAt                   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  sourceSuggestion          ComboSuggestion?        @relation(fields: [sourceSuggestionId], references: [id])
+  createdByInventoryManager User                    @relation("CreatedCombos", fields: [createdByInventoryManagerId], references: [id])
+  approvedByAdmin           User?                   @relation("ApprovedCombos", fields: [approvedByAdminId], references: [id])
+  items                     ComboItem[]
+  approvals                 ComboApprovalHistory[]
+  sales                     ComboSale[]
+  performances              ComboPerformance[]
+  notifications             ComboNotification[]
+
+  @@index([status])
+  @@index([startDate])
+  @@index([endDate])
+  @@map("combos")
+}
+
+model ComboItem {
+  id                String   @id @default(uuid()) @map("id")
+  comboId           String   @map("combo_id")
+  productId         String   @map("product_id")
+  batchId           String?  @map("batch_id")
+  role              String   @map("role")
+  quantity          Int      @map("quantity")
+  normalUnitPrice   Float    @map("normal_unit_price")
+  costPrice         Float    @map("cost_price")
+  allocatedDiscount Float    @map("allocated_discount")
+  effectivePrice    Float    @map("effective_price")
+  stockReserved     Int      @default(0) @map("stock_reserved")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  combo   Combo    @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  product Product  @relation(fields: [productId], references: [sku])
+  batch   GrnItem? @relation(fields: [batchId], references: [id])
+
+  @@unique([comboId, productId])
+  @@map("combo_items")
+}
+
+model ComboApprovalHistory {
+  id              String   @id @default(uuid()) @map("id")
+  comboId         String   @map("combo_id")
+  action          String   @map("action")
+  previousStatus  String   @map("previous_status")
+  newStatus       String   @map("new_status")
+  performedBy     String   @map("performed_by")
+  performedByRole String   @map("performed_by_role")
+  comment         String?  @map("comment")
+  performedAt     DateTime @default(now()) @map("performed_at")
+
+  // Relations
+  combo     Combo @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  performer User  @relation(fields: [performedBy], references: [id])
+
+  @@map("combo_approval_histories")
+}
+
+model ComboSale {
+  id                       String   @id @default(uuid()) @map("id")
+  comboId                  String   @map("combo_id")
+  saleId                   String   @map("sale_id")
+  quantity                 Int      @map("quantity")
+  normalValue              Float    @map("normal_value")
+  comboValue               Float    @map("combo_value")
+  customerSaving           Float    @map("customer_saving")
+  totalCost                Float    @map("total_cost")
+  realizedProfit           Float    @map("realized_profit")
+  realizedMarginPercentage Float    @map("realized_margin_percentage")
+  soldAt                   DateTime @default(now()) @map("sold_at")
+
+  // Relations
+  combo Combo @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  sale  Bill  @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([comboId])
+  @@map("combo_sales")
+}
+
+model ComboPerformance {
+  id                          String   @id @default(uuid()) @map("id")
+  comboId                     String   @map("combo_id")
+  evaluationStartDate         DateTime @map("evaluation_start_date") @db.Date
+  evaluationEndDate           DateTime @map("evaluation_end_date") @db.Date
+  impressions                 Int      @default(0) @map("impressions")
+  viewCount                   Int      @default(0) @map("view_count")
+  purchaseCount               Int      @default(0) @map("purchase_count")
+  unitsSold                   Int      @default(0) @map("units_sold")
+  revenueGenerated            Float    @default(0.0) @map("revenue_generated")
+  profitGenerated             Float    @default(0.0) @map("profit_generated")
+  customerSavings             Float    @default(0.0) @map("customer_savings")
+  targetStockCleared          Int      @default(0) @map("target_stock_cleared")
+  expiryWasteAvoidedQuantity  Int      @default(0) @map("expiry_waste_avoided_quantity")
+  normalTargetSalesBaseline   Float    @default(0.0) @map("normal_target_sales_baseline")
+  promotionalTargetSales      Float    @default(0.0) @map("promotional_target_sales")
+  salesUpliftPercentage       Float    @default(0.0) @map("sales_uplift_percentage")
+  anchorNormalSalesImpact     Float    @default(0.0) @map("anchor_normal_sales_impact")
+  status                      String   @map("status")
+  calculatedAt                DateTime @default(now()) @map("calculated_at")
+
+  // Relations
+  combo Combo @relation(fields: [comboId], references: [id], onDelete: Cascade)
+
+  @@index([comboId])
+  @@map("combo_performance")
+}
+
+model ComboNotification {
+  id                String    @id @default(uuid()) @map("id")
+  userId            String    @map("user_id")
+  userRole          String    @map("user_role")
+  comboSuggestionId String?   @map("combo_suggestion_id")
+  comboId           String?   @map("combo_id")
+  notificationType  String    @map("notification_type")
+  title             String    @map("title")
+  message           String    @map("message")
+  priority          String    @map("priority")
+  isRead            Boolean   @default(false) @map("is_read")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  readAt            DateTime? @map("read_at")
+
+  // Relations
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comboSuggestion ComboSuggestion? @relation(fields: [comboSuggestionId], references: [id])
+  combo           Combo?           @relation(fields: [comboId], references: [id])
+
+  @@map("combo_notifications")
 }

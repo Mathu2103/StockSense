@@ -4,6 +4,7 @@ import InventoryPage from '../pages/inventory/Dashboard/InventoryPage'
 import SettingsPage from '../pages/admin/settings/Settings'
 import ReportsPage from '../pages/admin/Reports/Reports'
 import AccountManagementPage from '../pages/admin/AccountManagement/AccountManagement'
+import AdminComboApproval from '../pages/admin/AdminComboApproval'
 
 export default function AdminRoutes() {
   return (
@@ -13,6 +14,7 @@ export default function AdminRoutes() {
       <Route path="settings" element={<SettingsPage />} />
       <Route path="reports" element={<ReportsPage />} />
       <Route path="accounts" element={<AccountManagementPage />} />
+      <Route path="combo-approvals" element={<AdminComboApproval />} />
     </Routes>
   )
 }

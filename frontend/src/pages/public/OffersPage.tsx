@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { DiscountService } from '../../services/discountService';
+import { comboService } from '../../services/comboService';
 
 export default function OffersPage() {
   const [mounted, setMounted] = useState(false);
   const [combos, setCombos] = useState<any[]>([]);
+  const [publicCombos, setPublicCombos] = useState<any[]>([]);
   const [seasonals, setSeasonals] = useState<any[]>([]);
   const [dailys, setDailys] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,6 +19,7 @@ export default function OffersPage() {
     
     const fetchOffers = async () => {
       try {
+        // 1. Fetch standard discounts
         const response = await DiscountService.getDiscounts();
         if (response.success) {
           const allDiscounts = response.data.filter((d: any) => d.isActive && d.approvalStatus === 'APPROVED');
@@ -25,8 +28,14 @@ export default function OffersPage() {
           setSeasonals(allDiscounts.filter((d: any) => d.type === 'SEASONAL'));
           setDailys(allDiscounts.filter((d: any) => d.type === 'DAILY'));
         }
+
+        // 2. Fetch AI approved public combos
+        const comboData = await comboService.getPublicActiveCombos();
+        if (comboData.success) {
+          setPublicCombos(comboData.data);
+        }
       } catch (error) {
-        console.error("Failed to fetch discounts", error);
+        console.error("Failed to fetch discounts or combos", error);
       } finally {
         setLoading(false);
       }
@@ -43,29 +52,85 @@ export default function OffersPage() {
     (discount.products || []).map((prod: any) => ({ discount, prod }))
   );
 
-  // Example add to cart for public page
-  const handleAddToCart = (prod: any, discount: any) => {
-    // In a real public page, this would add to a local cart state or redirect to login.
-    // For now, we'll just show an alert or placeholder.
-    alert(`Added ${prod.name} to cart with ${discount.discountValue}% off!`);
-  };
-
   return (
     <div className="min-h-screen bg-[#f8f9fc] relative overflow-hidden font-sans pb-32">
       <div className={`relative z-10 max-w-7xl mx-auto px-6 md:px-12 pt-16 transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
         
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#111827]"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#103e2c]"></div>
           </div>
         ) : (
           <>
-            {/* 1. Curated Combos Section */}
+            {/* 1. Curated Public AI Combo Savings Section */}
+            {publicCombos.length > 0 && (
+              <section className="mb-24">
+                <div className="mb-10">
+                  <h2 className="text-3xl font-extrabold text-[#103e2c] mb-1 tracking-tight">Curated Super Saver Combos</h2>
+                  <p className="text-gray-600 text-sm">Perfect complementary pairings at a massive saving.</p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {publicCombos.map((combo: any) => (
+                    <div key={combo.id} className="bg-white rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] overflow-hidden flex flex-col sm:flex-row border border-gray-100 hover:shadow-xl transition-all duration-300">
+                      {/* Products Stack Column */}
+                      <div className="relative w-full sm:w-1/2 bg-gray-50 flex flex-col justify-center items-center p-6 border-r border-gray-100">
+                        <div className="flex items-center gap-4 w-full justify-center">
+                          {combo.items.map((item: any, idx: number) => (
+                            <div key={idx} className="relative flex flex-col items-center">
+                              <div className="w-20 h-20 bg-white rounded-xl overflow-hidden shadow-sm border border-gray-200 flex justify-center items-center p-1">
+                                <img 
+                                  src={item.product?.imageUrl || "https://images.unsplash.com/photo-1497935586351-b67a49e012bf?q=80&w=800&auto=format&fit=crop"} 
+                                  alt={item.product?.name} 
+                                  className="w-full h-full object-cover rounded-lg"
+                                />
+                              </div>
+                              <span className="bg-emerald-700 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full absolute -top-2 -right-2">
+                                {item.quantity}x
+                              </span>
+                              <span className="text-[10px] text-gray-500 font-bold text-center mt-2 line-clamp-1 w-20">
+                                {item.product?.name}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="absolute top-4 left-4 bg-emerald-800 text-white text-[10px] font-extrabold px-3 py-1 rounded-full tracking-wide shadow-sm uppercase">
+                          Save {combo.discountPercentage.toFixed(0)}%
+                        </div>
+                      </div>
+                      
+                      {/* Pricing/Meta Information Column */}
+                      <div className="w-full sm:w-1/2 p-8 flex flex-col justify-between">
+                        <div>
+                          <h3 className="text-xl font-bold text-gray-900 mb-2 leading-tight">{combo.name}</h3>
+                          <p className="text-gray-500 text-xs line-clamp-3 leading-relaxed mb-4">{combo.description}</p>
+                        </div>
+                        
+                        <div>
+                          <div className="flex items-baseline gap-2 mb-1">
+                            <span className="text-gray-400 line-through text-xs font-semibold">Rs. {combo.normalTotalPrice.toFixed(2)}</span>
+                            <span className="text-emerald-700 font-black text-2xl">Rs. {combo.comboPrice.toFixed(2)}</span>
+                          </div>
+                          <p className="text-[11px] text-emerald-800 font-bold">
+                            You Save: Rs. {(combo.normalTotalPrice - combo.comboPrice).toFixed(2)}!
+                          </p>
+                          <div className="mt-4 text-[10px] text-gray-400 font-bold">
+                            Valid till: {new Date(combo.endDate).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* 2. Original Discount Combos Section */}
             {combos.length > 0 && (
               <section className="mb-24">
                 <div className="mb-10">
-                  <h2 className="text-3xl font-bold text-[#103e2c] mb-1">Combo Offers</h2>
-                  <p className="text-gray-600 text-sm">Perfect pairings at a premium price.</p>
+                  <h2 className="text-3xl font-bold text-[#103e2c] mb-1">Store Offers</h2>
+                  <p className="text-gray-600 text-sm">Specially discount rates for basket combos.</p>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -120,7 +185,7 @@ export default function OffersPage() {
               </section>
             )}
 
-            {/* 2. Seasonal Specials Section */}
+            {/* 3. Seasonal Specials Section */}
             {seasonalProducts.length > 0 && (
               <section className="mb-32">
                 <div className="mb-14 text-center">
@@ -168,7 +233,7 @@ export default function OffersPage() {
               </section>
             )}
 
-            {/* 3. Daily Sales Section */}
+            {/* 4. Daily Sales Section */}
             {dailyProducts.length > 0 && (
               <section className="mb-24">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-8 gap-4">
@@ -231,7 +296,7 @@ export default function OffersPage() {
             )}
 
             {/* Empty State if no offers at all */}
-            {combos.length === 0 && seasonals.length === 0 && dailys.length === 0 && (
+            {combos.length === 0 && publicCombos.length === 0 && seasonals.length === 0 && dailys.length === 0 && (
               <div className="text-center py-20">
                 <h3 className="text-2xl font-bold text-gray-600 mb-2">No active offers right now</h3>
                 <p className="text-gray-500">Please check back later for exciting deals and combos!</p>

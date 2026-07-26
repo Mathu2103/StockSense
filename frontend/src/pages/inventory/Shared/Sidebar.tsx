@@ -25,7 +25,8 @@ export default function Sidebar() {
       icon: 'psychology',
       subLinks: [
         { name: 'Overview & Health', path: '/inventory-analytics', icon: 'trending_up' },
-        { name: 'AI Demand Forecasting', path: '/ai-demand-forecasting', icon: 'psychology' }
+        { name: 'AI Demand Forecasting', path: '/ai-demand-forecasting', icon: 'psychology' },
+        { name: 'AI Combo Suggester', path: '/inventory-combo', icon: 'auto_awesome' }
       ]
     },
     

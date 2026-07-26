@@ -23,6 +23,7 @@ import { generateRefundsForBills, RefundInput, RefundItemInput } from './seed/re
 import { generateDailyAdjustments, StockAdjustmentInput } from './seed/adjustment-generator.js';
 import { runValidationChecks } from './seed/validation.js';
 import { batchInsert } from './seed/batch-insert.js';
+import { seedComboSettings } from './seed/seed_combo_settings.js';
 
 // Driver adapter connection setup matching existing pattern
 const connectionString = process.env.DATABASE_URL!;
@@ -279,6 +280,8 @@ async function main() {
   await batchInsert(prisma, 'refund', refunds, 'Refunds');
   await batchInsert(prisma, 'refundItem', refundItems, 'RefundItems');
   await batchInsert(prisma, 'stockAdjustment', adjustments, 'StockAdjustments');
+
+  await seedComboSettings(prisma);
 
   const totalDuration = ((Date.now() - startTime) / 1000).toFixed(2);
 

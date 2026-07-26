@@ -25,6 +25,9 @@ import InventoryOperations from '../pages/inventory/StockOperations/StockOperati
 import Alerts from '../pages/inventory/Alerts/Alerts'
 import Reports from '../pages/inventory/Reports/Reports'
 import SettingsPage from '../pages/admin/settings/Settings'
+import ComboDashboard from '../pages/inventory/ComboManagement/ComboDashboard'
+import OpportunityDetail from '../pages/inventory/ComboManagement/OpportunityDetail'
+import ComboBuilder from '../pages/inventory/ComboManagement/ComboBuilder'
 
 // Protected Route Groups
 import AdminRoutes from './AdminRoutes'
@@ -68,6 +71,15 @@ export default function AppRouter() {
         } />
         <Route path="/ai-demand-forecasting" element={
           <ProtectedRoute allowedRoles={INVENTORY_ROLES}><AiDemandForecastingPage /></ProtectedRoute>
+        } />
+        <Route path="/inventory-combo" element={
+          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><ComboDashboard /></ProtectedRoute>
+        } />
+        <Route path="/inventory-combo/opportunity/:id" element={
+          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><OpportunityDetail /></ProtectedRoute>
+        } />
+        <Route path="/inventory-combo/builder" element={
+          <ProtectedRoute allowedRoles={INVENTORY_ROLES}><ComboBuilder /></ProtectedRoute>
         } />
         <Route path="/manage-products" element={
           <ProtectedRoute allowedRoles={INVENTORY_ROLES}><ProductManagement /></ProtectedRoute>

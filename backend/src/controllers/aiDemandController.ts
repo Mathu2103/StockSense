@@ -6,18 +6,20 @@ const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000/api/
 
 export async function generateForecast(req: AuthRequest, res: Response): Promise<void> {
   try {
-    const { targetMonth, regenerate } = req.body;
+    const { targetMonth, regenerate, force } = req.body;
     if (!targetMonth) {
       res.status(400).json({ success: false, message: 'targetMonth is required.' });
       return;
     }
+
+    const isForce = !!(force || regenerate);
 
     // Call Python FastAPI service to trigger forecast generation
     // We send force as true if regenerate is requested
     const response = await fetch(`${AI_SERVICE_URL}/forecast`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ targetMonth, force: regenerate || false, regenerate: regenerate || false }),
+      body: JSON.stringify({ targetMonth, force: isForce, regenerate: isForce }),
     });
 
     const data = await response.json();
