@@ -225,7 +225,7 @@ def generate_combo_suggestions(db: Session, forecast_run_id: str = None, associa
             ) VALUES (
                 :id, :forecast_run, :assoc_run, NULL, :target_product, :target_batch, :opp_type, :vel_class,
                 :curr_stock, :avail_stock, :pred_demand, :safety, :required, :coverage, :excess, :days_since,
-                :exp_date, :days_to, :priority, 'NEW', :detected, :expires, :created, :updated
+                :exp_date, :days_to, :priority, 'DETECTED', :detected, :expires, :created, :updated
             ) ON CONFLICT (forecast_run_id, association_run_id, target_product_id, target_batch_id, opportunity_type) 
             DO UPDATE SET
                 current_stock = EXCLUDED.current_stock,

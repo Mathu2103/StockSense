@@ -86,8 +86,12 @@ export class ComboValidationService {
       }
 
       // Near-expiry check: Combo end date must be before product expiry date
-      if (dbProduct.expiryDate && new Date(draft.endDate) >= new Date(dbProduct.expiryDate)) {
-        errors.push(`Combo end date (${draft.endDate.toISOString().split('T')[0]}) must be before the expiry date of product ${dbProduct.name} (${dbProduct.expiryDate.toISOString().split('T')[0]}).`);
+      if (dbProduct.expiryDate && draft.endDate && !isNaN(new Date(draft.endDate).getTime())) {
+        const endDateObj = new Date(draft.endDate);
+        const expDateObj = new Date(dbProduct.expiryDate);
+        if (endDateObj >= expDateObj) {
+          errors.push(`Combo end date (${endDateObj.toISOString().split('T')[0]}) must be before the expiry date of product ${dbProduct.name} (${expDateObj.toISOString().split('T')[0]}).`);
+        }
       }
     }
 
@@ -122,23 +126,13 @@ export class ComboValidationService {
     const discountAmount = normalTotalPrice - draft.comboPrice;
     const discountPercent = discountAmount / normalTotalPrice;
 
-    if (draft.comboPrice < minSafePrice) {
-      errors.push(`Combo price (${draft.comboPrice}) must be greater than or equal to the minimum safe price (${minSafePrice.toFixed(2)}) to guarantee profit safety.`);
+    // Hard error: Price below or equal to cost (Negative profit / loss)
+    if (draft.comboPrice <= totalCost) {
+      errors.push(`Combo price (${draft.comboPrice}) cannot be less than or equal to total cost (${totalCost.toFixed(2)}). Negative profit detected.`);
     }
 
     if (draft.comboPrice >= normalTotalPrice) {
       errors.push(`Combo price (${draft.comboPrice}) must be less than the normal total price (${normalTotalPrice}).`);
-    }
-
-    // Discount threshold verification
-    if (discountPercent > globalMaxDiscount) {
-      errors.push(`Discount percentage (${(discountPercent * 100).toFixed(1)}%) exceeds the global maximum discount threshold (${(globalMaxDiscount * 100).toFixed(0)}%).`);
-    }
-
-    const expectedProfit = draft.comboPrice - totalCost;
-    const expectedMargin = (expectedProfit / draft.comboPrice) * 100;
-    if (expectedMargin / 100 < minMarginPct) {
-      errors.push(`Expected margin (${expectedMargin.toFixed(1)}%) is below the configured minimum margin (${(minMarginPct * 100).toFixed(0)}%).`);
     }
 
     return {
@@ -235,6 +229,22 @@ export class ComboValidationService {
           submittedAt: newStatus === 'PENDING_APPROVAL' ? new Date() : combo.submittedAt,
         },
       });
+
+      // Automatically update related target product opportunities to CONVERTED when approved or activated
+      if (newStatus === 'APPROVED' || newStatus === 'ACTIVE') {
+        const productSkus = combo.items.map((i: any) => i.productId);
+        if (productSkus.length > 0) {
+          await tx.comboOpportunity.updateMany({
+            where: {
+              targetProductId: { in: productSkus },
+              opportunityStatus: { in: ['DETECTED', 'NEW'] }
+            },
+            data: {
+              opportunityStatus: 'CONVERTED'
+            }
+          });
+        }
+      }
 
       // Record in ComboApprovalHistory
       await tx.comboApprovalHistory.create({

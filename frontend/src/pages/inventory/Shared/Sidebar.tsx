@@ -1,6 +1,10 @@
 import BaseSidebar, { NavLink } from '@/components/shared/BaseSidebar';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function Sidebar() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
   const isLinkActive = (path: string, currentPath: string, search: string) => {
     if (path === '/procurement') {
       return currentPath === '/procurement' || currentPath === '/suppliers' || currentPath === '/purchase-records';
@@ -26,7 +30,8 @@ export default function Sidebar() {
       subLinks: [
         { name: 'Overview & Health', path: '/inventory-analytics', icon: 'trending_up' },
         { name: 'AI Demand Forecasting', path: '/ai-demand-forecasting', icon: 'psychology' },
-        { name: 'AI Combo Suggester', path: '/inventory-combo', icon: 'auto_awesome' }
+        { name: 'AI Combo Suggester', path: '/inventory-combo', icon: 'auto_awesome' },
+        ...(isAdmin ? [{ name: 'Combo Approvals', path: '/admin/combo-approvals', icon: 'verified' }] : [])
       ]
     },
     

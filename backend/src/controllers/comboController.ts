@@ -59,9 +59,23 @@ export async function getOpportunities(req: AuthRequest, res: Response): Promise
       whereClause.opportunityType = type;
     }
     if (typeof status === 'string' && status) {
-      whereClause.opportunityStatus = status;
+      if (status === 'DETECTED') {
+        whereClause.opportunityStatus = { in: ['DETECTED', 'NEW'] };
+      } else {
+        whereClause.opportunityStatus = status;
+      }
     } else {
       whereClause.opportunityStatus = { notIn: ['IGNORED', 'EXPIRED'] };
+    }
+
+    // Always filter to the most recent AI run so we don't display duplicate opportunities from old historical runs
+    const latestOpp = await (prisma as any).comboOpportunity.findFirst({
+      orderBy: { createdAt: 'desc' },
+      select: { associationRunId: true }
+    });
+
+    if (latestOpp && latestOpp.associationRunId) {
+      whereClause.associationRunId = latestOpp.associationRunId;
     }
 
     const opportunities = await (prisma as any).comboOpportunity.findMany({
@@ -318,23 +332,32 @@ export async function createComboDraft(req: AuthRequest, res: Response): Promise
 
     const { name, comboCode, description, comboType, comboPrice, startDate, endDate, items, adminOverride } = req.body;
 
+    const parseDate = (val: any, fallbackDays: number = 0) => {
+      if (!val) return new Date(Date.now() + fallbackDays * 24 * 60 * 60 * 1000);
+      const d = new Date(val);
+      return isNaN(d.getTime()) ? new Date(Date.now() + fallbackDays * 24 * 60 * 60 * 1000) : d;
+    };
+
     const draftInput = {
       name,
       comboCode,
       description,
       comboType,
       comboPrice,
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
+      startDate: parseDate(startDate, 0),
+      endDate: parseDate(endDate, 30),
       createdByInventoryManagerId: managerId,
       adminOverride,
       items
     };
 
-    // 1. Real-time validation check
-    const validation = await ComboValidationService.validateComboDraft(prisma, draftInput);
-    if (!validation.isValid) {
-      res.status(400).json({ success: false, message: 'Validation failed.', errors: validation.errors });
+    // 1. Basic draft input validation
+    if (!name || !name.trim()) {
+      res.status(400).json({ success: false, message: 'Combo campaign name is required.' });
+      return;
+    }
+    if (!items || items.length === 0) {
+      res.status(400).json({ success: false, message: 'Please add at least 1 product to save a draft.' });
       return;
     }
 
@@ -479,22 +502,31 @@ export async function updateComboDraft(req: AuthRequest, res: Response): Promise
       return;
     }
 
+    const parseDate = (val: any, fallbackDays: number = 0) => {
+      if (!val) return new Date(Date.now() + fallbackDays * 24 * 60 * 60 * 1000);
+      const d = new Date(val);
+      return isNaN(d.getTime()) ? new Date(Date.now() + fallbackDays * 24 * 60 * 60 * 1000) : d;
+    };
+
     const draftInput = {
       name,
       comboCode: originalCombo.comboCode,
       comboType: originalCombo.comboType,
       comboPrice,
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
+      startDate: parseDate(startDate, 0),
+      endDate: parseDate(endDate, 30),
       createdByInventoryManagerId: originalCombo.createdByInventoryManagerId,
       adminOverride,
       items
     };
 
-    // Real-time revalidation
-    const validation = await ComboValidationService.validateComboDraft(prisma, draftInput);
-    if (!validation.isValid) {
-      res.status(400).json({ success: false, message: 'Validation failed.', errors: validation.errors });
+    // Basic draft input validation
+    if (!name || !name.trim()) {
+      res.status(400).json({ success: false, message: 'Combo campaign name is required.' });
+      return;
+    }
+    if (!items || items.length === 0) {
+      res.status(400).json({ success: false, message: 'Please add at least 1 product to save a draft.' });
       return;
     }
 

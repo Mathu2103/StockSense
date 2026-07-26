@@ -1,12 +1,30 @@
 import { useEffect, useState } from 'react';
 import { comboService } from '../../services/comboService';
+import Sidebar from './Shared/Sidebar';
+import AdminHeader from './Shared/AdminHeader';
 
 export default function AdminComboApproval() {
   const [combos, setCombos] = useState<any[]>([]);
   const [selectedCombo, setSelectedCombo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [actioning, setActioning] = useState(false);
-  const [comment, setComment] = useState('');
+
+  // StockSense Custom Modal State
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    type: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES' | 'SUCCESS' | 'ERROR';
+    title: string;
+    message: string;
+    inputText?: string;
+    inputPlaceholder?: string;
+    confirmText?: string;
+    onConfirmSuccess?: () => void;
+  }>({
+    isOpen: false,
+    type: 'APPROVE',
+    title: '',
+    message: ''
+  });
 
   const fetchPendingCombos = async () => {
     try {
@@ -31,48 +49,106 @@ export default function AdminComboApproval() {
     fetchPendingCombos();
   }, []);
 
-  const handleAction = async (action: 'approve' | 'reject' | 'request-changes') => {
+  const openActionModal = (action: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES') => {
     if (!selectedCombo) return;
-    if (action !== 'approve' && !comment) {
-      alert('Review comment is required for rejection or requesting changes.');
+    if (action === 'APPROVE') {
+      setModalConfig({
+        isOpen: true,
+        type: 'APPROVE',
+        title: 'Approve & Activate Campaign?',
+        message: `Are you sure you want to approve "${selectedCombo.name}"? Target product opportunities will be marked as CONVERTED.`,
+        confirmText: 'Approve & Activate'
+      });
+    } else if (action === 'REJECT') {
+      setModalConfig({
+        isOpen: true,
+        type: 'REJECT',
+        title: 'Reject Campaign',
+        message: `Please provide a rejection reason for "${selectedCombo.name}":`,
+        inputPlaceholder: 'e.g. Profit margin too thin, re-assess product quantities...',
+        confirmText: 'Confirm Rejection'
+      });
+    } else {
+      setModalConfig({
+        isOpen: true,
+        type: 'REQUEST_CHANGES',
+        title: 'Request Campaign Changes',
+        message: `Please specify instructions or required price adjustments for "${selectedCombo.name}":`,
+        inputPlaceholder: 'e.g. Increase bundle price to Rs. 1600 or replace target item...',
+        confirmText: 'Send Feedback to Manager'
+      });
+    }
+  };
+
+  const executeAdminAction = async () => {
+    if (!selectedCombo) return;
+    const { type, inputText } = modalConfig;
+
+    if ((type === 'REJECT' || type === 'REQUEST_CHANGES') && (!inputText || !inputText.trim())) {
+      setModalConfig(prev => ({
+        ...prev,
+        message: 'Review instructions/reason is required before submitting action.'
+      }));
       return;
     }
 
     try {
       setActioning(true);
       let payload;
-      if (action === 'approve') {
+      if (type === 'APPROVE') {
         payload = await comboService.approveCombo(selectedCombo.id);
-      } else if (action === 'reject') {
-        payload = await comboService.rejectCombo(selectedCombo.id, comment);
+      } else if (type === 'REJECT') {
+        payload = await comboService.rejectCombo(selectedCombo.id, inputText || '');
       } else {
-        payload = await comboService.requestComboChanges(selectedCombo.id, comment);
+        payload = await comboService.requestComboChanges(selectedCombo.id, inputText || '');
       }
 
       if (payload.success) {
-        alert(`Combo successfully ${action}d!`);
-        setComment('');
-        fetchPendingCombos();
+        setModalConfig({
+          isOpen: true,
+          type: 'SUCCESS',
+          title: 'Action Completed Successfully',
+          message: `Combo campaign draft has been ${type === 'APPROVE' ? 'approved & activated' : type === 'REJECT' ? 'rejected' : 'sent back for changes'}.`,
+          confirmText: 'Continue',
+          onConfirmSuccess: () => fetchPendingCombos()
+        });
       } else {
-        alert(payload.message || 'Operation failed.');
+        setModalConfig({
+          isOpen: true,
+          type: 'ERROR',
+          title: 'Operation Failed',
+          message: payload.message || 'Error executing action.'
+        });
       }
-    } catch (err) {
-      alert('Failed to complete action.');
+    } catch (err: any) {
+      setModalConfig({
+        isOpen: true,
+        type: 'ERROR',
+        title: 'Server Error',
+        message: err.response?.data?.message || 'Failed to complete action.'
+      });
     } finally {
       setActioning(false);
     }
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 font-sans text-gray-900 bg-gray-50/50 min-h-screen">
-      <div>
-        <h1 className="text-3xl font-extrabold text-gray-900">Combo Campaign Approvals</h1>
-        <p className="text-gray-500 text-sm mt-1">Administrator review queue for proposed AI and custom discount configurations.</p>
-      </div>
+    <div className="flex h-screen bg-[#f8f9fa] text-slate-800 font-sans overflow-hidden">
+      <Sidebar />
 
-      {loading ? (
-        <div className="text-center py-20 text-gray-400">Loading approvals queue...</div>
-      ) : combos.length === 0 ? (
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        <AdminHeader />
+
+        <main className="flex-1 overflow-y-auto px-6 py-6 bg-[#f8f9fa]">
+          <div className="max-w-[1400px] w-full mx-auto space-y-6">
+            <div>
+              <h1 className="text-3xl font-extrabold text-gray-900">Combo Campaign Approvals</h1>
+              <p className="text-gray-500 text-sm mt-1">Administrator review queue for proposed AI and custom discount configurations.</p>
+            </div>
+
+            {loading ? (
+              <div className="text-center py-20 text-gray-400">Loading approvals queue...</div>
+            ) : combos.length === 0 ? (
         <div className="bg-white rounded-2xl p-12 text-center border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.02)] space-y-2">
           <span className="material-symbols-outlined text-[48px] text-emerald-700">verified_user</span>
           <h3 className="text-lg font-bold text-gray-800">Approvals queue is clear!</h3>
@@ -181,43 +257,32 @@ export default function AdminComboApproval() {
                     <p className="text-base font-extrabold text-emerald-800 mt-1">{selectedCombo.expectedMarginPercentage?.toFixed(1)}%</p>
                   </div>
                 </div>
-              </div>
 
-              {/* Review inputs and actions */}
-              <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.02)] space-y-4">
-                <h3 className="text-lg font-bold text-gray-800">Admin Review Decision</h3>
-                
-                <div className="space-y-1">
-                  <label className="text-xs text-gray-400 font-bold uppercase">Review Comments / Rejection Details</label>
-                  <textarea 
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    placeholder="Enter approval details, revision instructions, or rejection reasons..."
-                    rows={3}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:bg-white focus:border-emerald-700 transition-all"
-                  />
-                </div>
-
-                <div className="flex gap-3 justify-end pt-2">
+                {/* Direct Admin Review Action Buttons */}
+                <div className="flex gap-3 justify-end pt-4 border-t border-gray-100">
                   <button
-                    onClick={() => handleAction('reject')}
+                    type="button"
+                    onClick={() => openActionModal('REJECT')}
                     disabled={actioning}
-                    className="bg-red-50 text-red-700 border border-red-200 font-bold px-6 py-2.5 rounded-xl hover:bg-red-100 transition-all cursor-pointer text-sm"
+                    className="bg-red-50 text-red-700 border border-red-200 font-extrabold px-5 py-2.5 rounded-xl hover:bg-red-100 transition-all cursor-pointer text-xs"
                   >
-                    Reject
+                    Reject Campaign
                   </button>
                   <button
-                    onClick={() => handleAction('request-changes')}
+                    type="button"
+                    onClick={() => openActionModal('REQUEST_CHANGES')}
                     disabled={actioning}
-                    className="bg-amber-50 text-amber-700 border border-amber-200 font-bold px-6 py-2.5 rounded-xl hover:bg-amber-100 transition-all cursor-pointer text-sm"
+                    className="bg-amber-50 text-amber-800 border border-amber-200 font-extrabold px-5 py-2.5 rounded-xl hover:bg-amber-100 transition-all cursor-pointer text-xs"
                   >
                     Request Changes
                   </button>
                   <button
-                    onClick={() => handleAction('approve')}
+                    type="button"
+                    onClick={() => openActionModal('APPROVE')}
                     disabled={actioning}
-                    className="bg-[#103e2c] text-white font-bold px-6 py-2.5 rounded-xl hover:bg-[#165a40] transition-all cursor-pointer text-sm shadow-sm"
+                    className="bg-[#103e2c] text-white font-extrabold px-6 py-2.5 rounded-xl hover:bg-[#165a40] transition-all cursor-pointer text-xs shadow-sm flex items-center gap-1.5"
                   >
+                    <span className="material-symbols-outlined text-[16px]">check_circle</span>
                     Approve Campaign
                   </button>
                 </div>
@@ -225,7 +290,82 @@ export default function AdminComboApproval() {
 
             </div>
           )}
+        </div>
+      )}
+          </div>
+        </main>
+      </div>
 
+      {/* StockSense Custom Themed Admin Action Modal */}
+      {modalConfig.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-all animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 shadow-2xl max-w-md w-full border border-gray-100 space-y-5 animate-scale-up">
+            {/* Modal Header & Icon */}
+            <div className="flex items-start gap-3.5">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                modalConfig.type === 'APPROVE' || modalConfig.type === 'SUCCESS' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                modalConfig.type === 'REQUEST_CHANGES' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
+                'bg-red-50 text-red-700 border border-red-100'
+              }`}>
+                <span className="material-symbols-outlined text-[26px]">
+                  {modalConfig.type === 'APPROVE' || modalConfig.type === 'SUCCESS' ? 'check_circle' :
+                   modalConfig.type === 'REQUEST_CHANGES' ? 'edit_note' : 'cancel'}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-gray-900 leading-snug">{modalConfig.title}</h3>
+                <p className="text-xs text-gray-500 leading-relaxed">{modalConfig.message}</p>
+              </div>
+            </div>
+
+            {/* Textarea Input for Reject / Request Changes */}
+            {(modalConfig.type === 'REJECT' || modalConfig.type === 'REQUEST_CHANGES') && (
+              <div className="space-y-1">
+                <label className="text-[11px] text-gray-400 font-bold uppercase tracking-wider">
+                  {modalConfig.type === 'REJECT' ? 'Rejection Reason (Required)' : 'Feedback / Revision Instructions (Required)'}
+                </label>
+                <textarea
+                  value={modalConfig.inputText || ''}
+                  onChange={(e) => setModalConfig(prev => ({ ...prev, inputText: e.target.value }))}
+                  placeholder={modalConfig.inputPlaceholder || 'Enter instructions...'}
+                  rows={3}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-2xl p-3 text-xs outline-none focus:bg-white focus:border-emerald-700 transition-all font-medium text-gray-800"
+                />
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="flex justify-end gap-2.5 border-t border-gray-100 pt-3">
+              {modalConfig.type !== 'SUCCESS' && modalConfig.type !== 'ERROR' && (
+                <button
+                  type="button"
+                  onClick={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={actioning}
+                onClick={() => {
+                  if (modalConfig.type === 'SUCCESS' || modalConfig.type === 'ERROR') {
+                    setModalConfig(prev => ({ ...prev, isOpen: false }));
+                    if (modalConfig.onConfirmSuccess) modalConfig.onConfirmSuccess();
+                  } else {
+                    executeAdminAction();
+                  }
+                }}
+                className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 ${
+                  modalConfig.type === 'REJECT' ? 'bg-red-600 hover:bg-red-700 text-white' :
+                  modalConfig.type === 'REQUEST_CHANGES' ? 'bg-amber-600 hover:bg-amber-700 text-white' :
+                  'bg-[#103e2c] hover:bg-[#165a40] text-white'
+                }`}
+              >
+                {actioning ? 'Processing...' : modalConfig.confirmText || 'Confirm Action'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { comboService } from '../../../services/comboService';
+import { useAuth } from '../../../hooks/useAuth';
 import Sidebar from '../Shared/Sidebar';
 import InventoryHeader from '../Shared/InventoryHeader';
 
 export default function ComboDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [combos, setCombos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,6 +96,36 @@ export default function ComboDashboard() {
     }
   };
 
+  const handleQuickApprove = async (comboId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const res = await comboService.approveCombo(comboId);
+      if (res.success) {
+        fetchDashboardData();
+      } else {
+        alert(res.message || 'Failed to approve combo.');
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Error approving combo campaign.');
+    }
+  };
+
+  const handleQuickReject = async (comboId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const comment = prompt('Enter rejection reason for this combo:');
+    if (comment === null) return;
+    try {
+      const res = await comboService.rejectCombo(comboId, comment);
+      if (res.success) {
+        fetchDashboardData();
+      } else {
+        alert(res.message || 'Failed to reject combo.');
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Error rejecting combo campaign.');
+    }
+  };
+
   const getPriorityBadgeClass = (score: number) => {
     if (score >= 80) return 'bg-red-50 text-red-700 border border-red-200';
     if (score >= 50) return 'bg-amber-50 text-amber-700 border border-amber-200';
@@ -122,6 +156,25 @@ export default function ComboDashboard() {
           {runningAnalysis ? 'Executing AI Engine...' : 'Run AI Analysis'}
         </button>
       </div>
+
+      {/* Admin Pending Approval Notification Banner */}
+      {isAdmin && combos.some(c => c.status === 'PENDING_APPROVAL') && (
+        <div className="bg-gradient-to-r from-emerald-950 via-[#103e2c] to-emerald-900 text-white p-4 rounded-2xl shadow-md flex items-center justify-between gap-4 border border-emerald-700/50 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-400/20 text-amber-300 flex items-center justify-center shrink-0 border border-amber-300/30">
+              <span className="material-symbols-outlined text-[24px]">notifications_active</span>
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-white">
+                {combos.filter(c => c.status === 'PENDING_APPROVAL').length} Combo Campaign(s) Pending Admin Approval
+              </h4>
+              <p className="text-xs text-emerald-200 mt-0.5">
+                Review and click "Approve & Convert" below to activate the campaign and mark target opportunities as CONVERTED.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards Grid */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -224,20 +277,26 @@ export default function ComboDashboard() {
                         </span>
                       </td>
                       <td className="py-4 px-2 text-right">
-                        {opp.opportunityStatus === 'DETECTED' ? (
-                          <div className="flex gap-2 justify-end">
+                        {opp.opportunityStatus === 'DETECTED' || opp.opportunityStatus === 'NEW' ? (
+                          <div className="inline-flex items-center gap-2">
+                            <div className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-100 font-extrabold text-[10px] uppercase px-2.5 py-1 rounded-lg shadow-sm">
+                              <span>Detected</span>
+                              <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                            </div>
                             <button
+                              type="button"
                               onClick={(e) => handleIgnore(opp.id, e)}
-                              className="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-gray-100 cursor-pointer"
+                              className="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-gray-100 transition-colors"
+                              title="Ignore Opportunity"
                             >
-                              <span className="material-symbols-outlined text-[18px]">delete</span>
+                              <span className="material-symbols-outlined text-[16px]">do_not_disturb_on</span>
                             </button>
-                            <span className="material-symbols-outlined text-gray-300 text-[18px] self-center">chevron_right</span>
                           </div>
                         ) : (
-                          <span className="text-emerald-700 font-extrabold text-[10px] uppercase bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-                            Converted
-                          </span>
+                          <div className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-100 font-extrabold text-[10px] uppercase px-2.5 py-1 rounded-lg shadow-sm">
+                            <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                            <span>Converted</span>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -291,6 +350,26 @@ export default function ComboDashboard() {
                     <span>Price: <strong>Rs. {combo.comboPrice.toFixed(0)}</strong></span>
                     <span>Margin: <strong className="text-emerald-800">{combo.expectedMarginPercentage.toFixed(1)}%</strong></span>
                   </div>
+
+                  {isAdmin && combo.status === 'PENDING_APPROVAL' && (
+                    <div className="pt-2.5 border-t border-gray-100 flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={(e) => handleQuickReject(combo.id, e)}
+                        className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 transition-all cursor-pointer"
+                      >
+                        Reject
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleQuickApprove(combo.id, e)}
+                        className="px-3 py-1 rounded-lg text-[10px] font-extrabold text-white bg-[#103e2c] hover:bg-[#165a40] transition-all shadow-sm cursor-pointer flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                        Approve & Convert
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
