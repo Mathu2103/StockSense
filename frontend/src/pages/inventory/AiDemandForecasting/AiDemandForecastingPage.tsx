@@ -4,9 +4,27 @@ import Sidebar from '../Shared/Sidebar';
 import InventoryHeader from '../Shared/InventoryHeader';
 import { aiDemandService, ForecastRun, ProductForecastSummary, ProductForecastDetail } from '../../../services/aiDemandService';
 
+const BEHAVIOUR_DESCRIPTIONS: Record<string, string> = {
+  STABLE: "Demand remains relatively consistent over time.",
+  TRENDING_UP: "Recent demand shows a sustained increasing trend.",
+  TRENDING_DOWN: "Recent demand shows a sustained decreasing trend.",
+  SEASONAL: "Demand repeatedly increases or decreases during particular periods of the year.",
+  INTERMITTENT: "The product has many zero-sales periods with occasional demand.",
+  HIGH_VARIABILITY: "Sales fluctuate significantly over time, making future demand less predictable.",
+  DISCOUNT_SENSITIVE: "Historical sales show a meaningful increase when discounts are active.",
+  LIMITED_HISTORY: "There is insufficient historical data for stronger demand-pattern analysis."
+};
+
+const getNextMonthStr = () => {
+  const d = new Date();
+  d.setMonth(d.getMonth() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
+
 export default function AiDemandForecastingPage() {
   // ── State ──────────────────────────────────────────────────────────────────
-  const [selectedMonth, setSelectedMonth] = useState<string>('2026-01');
+  const [maxMonthStr] = useState<string>(getNextMonthStr());
+  const [selectedMonth, setSelectedMonth] = useState<string>(getNextMonthStr());
   const [historyRuns, setHistoryRuns] = useState<ForecastRun[]>([]);
   const [selectedRunId, setSelectedRunId] = useState<string>('');
   
@@ -126,10 +144,40 @@ export default function AiDemandForecastingPage() {
     }
   }, [search, statusFilter, categoryFilter, sortBy, sortOrder, page, selectedRunId]);
 
+  // Synchronize selectedRunId when selectedMonth changes
+  useEffect(() => {
+    if (historyRuns.length > 0) {
+      const parsedTarget = new Date(`${selectedMonth}-01T00:00:00.000Z`).getTime();
+      
+      const currentRun = historyRuns.find(r => r.id === selectedRunId);
+      const isCurrentRunMatchingMonth = currentRun && new Date(currentRun.targetMonth).getTime() === parsedTarget;
+      
+      if (!isCurrentRunMatchingMonth) {
+        const existingRun = historyRuns.find(r => new Date(r.targetMonth).getTime() === parsedTarget && r.status === 'COMPLETED');
+        if (existingRun) {
+          setSelectedRunId(existingRun.id);
+          setPage(1);
+        } else {
+          setSelectedRunId('');
+          setForecasts([]);
+          setTotalCount(0);
+          setStatusCounts({});
+          setTotalRecommendedUnits(0);
+          setAvgAccuracy(0);
+        }
+      }
+    }
+  }, [selectedMonth, historyRuns]);
+
   // Handle run selection dropdown change
   const handleRunChange = (runId: string) => {
     setSelectedRunId(runId);
     setPage(1);
+    const run = historyRuns.find(r => r.id === runId);
+    if (run) {
+      const monthStr = new Date(run.targetMonth).toISOString().slice(0, 7);
+      setSelectedMonth(monthStr);
+    }
   };
 
   // ── Trigger Forecast Generation ───────────────────────────────────────────
@@ -220,6 +268,7 @@ export default function AiDemandForecastingPage() {
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Target:</span>
                   <input
                     type="month"
+                    max={maxMonthStr}
                     value={selectedMonth}
                     onChange={(e) => setSelectedMonth(e.target.value)}
                     className="bg-transparent text-xs font-black text-slate-700 outline-none cursor-pointer"
@@ -346,44 +395,54 @@ export default function AiDemandForecastingPage() {
 
             {/* Summary Cards */}
             {activeRun && activeRun.status === 'COMPLETED' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-                  <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
-                    <span className="material-symbols-outlined text-[24px] block">inventory_2</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
+                  <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
+                    <span className="material-symbols-outlined text-[22px] block">inventory_2</span>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400">Total SKUs</p>
-                    <p className="text-xl font-black text-slate-800 mt-0.5">{activeRun.totalProducts || totalCount}</p>
+                    <p className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400">Total SKUs</p>
+                    <p className="text-lg font-black text-slate-800 mt-0.5">{activeRun.totalProducts || totalCount}</p>
                   </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-                  <div className="p-3 bg-rose-50 text-rose-600 rounded-xl">
-                    <span className="material-symbols-outlined text-[24px] block">error</span>
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
+                  <div className="p-2.5 bg-rose-50 text-rose-600 rounded-xl">
+                    <span className="material-symbols-outlined text-[22px] block">error</span>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400">Critical Action</p>
-                    <p className="text-xl font-black text-slate-800 mt-0.5">{statusCounts['CRITICAL_ACTION'] || 0}</p>
+                    <p className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400">Critical Action</p>
+                    <p className="text-lg font-black text-slate-800 mt-0.5">{statusCounts['CRITICAL_ACTION'] || 0}</p>
                   </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-                  <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
-                    <span className="material-symbols-outlined text-[24px] block">check_circle</span>
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
+                  <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl">
+                    <span className="material-symbols-outlined text-[22px] block">reorder</span>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400">Sufficient</p>
-                    <p className="text-xl font-black text-slate-800 mt-0.5">{statusCounts['SUFFICIENT'] || 0}</p>
+                    <p className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400">Reorder Required</p>
+                    <p className="text-lg font-black text-slate-800 mt-0.5">{statusCounts['REORDER_REQUIRED'] || 0}</p>
                   </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-                  <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
-                    <span className="material-symbols-outlined text-[24px] block">warning</span>
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
+                  <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
+                    <span className="material-symbols-outlined text-[22px] block">check_circle</span>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400">Overstock Risk</p>
-                    <p className="text-xl font-black text-slate-800 mt-0.5">{statusCounts['OVERSTOCK_RISK'] || 0}</p>
+                    <p className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400">Sufficient</p>
+                    <p className="text-lg font-black text-slate-800 mt-0.5">{statusCounts['SUFFICIENT'] || 0}</p>
+                  </div>
+                </div>
+
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
+                  <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
+                    <span className="material-symbols-outlined text-[22px] block">warning</span>
+                  </div>
+                  <div>
+                    <p className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400">Overstock Risk</p>
+                    <p className="text-lg font-black text-slate-800 mt-0.5">{statusCounts['OVERSTOCK_RISK'] || 0}</p>
                   </div>
                 </div>
 
@@ -434,6 +493,7 @@ export default function AiDemandForecastingPage() {
                     >
                       <option value="">All Statuses</option>
                       <option value="CRITICAL_ACTION">Critical Action</option>
+                      <option value="REORDER_REQUIRED">Reorder Required</option>
                       <option value="SUFFICIENT">Sufficient</option>
                       <option value="OVERSTOCK_RISK">Overstock Risk</option>
                     </select>
@@ -522,6 +582,12 @@ export default function AiDemandForecastingPage() {
                                   Critical Action
                                 </span>
                               )}
+                              {row.status === 'REORDER_REQUIRED' && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-100">
+                                  <span className="material-symbols-outlined text-[12px] block">reorder</span>
+                                  Reorder Required
+                                </span>
+                              )}
                               {row.status === 'SUFFICIENT' && (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-100">
                                   <span className="material-symbols-outlined text-[12px] block">check_circle</span>
@@ -529,7 +595,7 @@ export default function AiDemandForecastingPage() {
                                 </span>
                               )}
                               {row.status === 'OVERSTOCK_RISK' && (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-100">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-100">
                                   <span className="material-symbols-outlined text-[12px] block">warning</span>
                                   Overstock Risk
                                 </span>
@@ -601,13 +667,20 @@ export default function AiDemandForecastingPage() {
 
                       {/* Behavior Tags */}
                       <div className="space-y-2">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Demand Behavior Tags</h4>
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Demand Behavior & Data Quality</h4>
                         <div className="flex flex-wrap gap-2">
-                          <span className="px-2.5 py-1 rounded bg-blue-50 text-blue-700 text-[10px] font-black border border-blue-100 uppercase tracking-wide">
+                          <span
+                            title={BEHAVIOUR_DESCRIPTIONS[productDetail.primaryBehaviour] || "Demand classification profile"}
+                            className="px-2.5 py-1 rounded bg-blue-50 text-blue-700 text-[10px] font-black border border-blue-100 uppercase tracking-wide cursor-help"
+                          >
                             {productDetail.primaryBehaviour} (Primary)
                           </span>
                           {productDetail.additionalBehaviourTags?.map(tag => (
-                            <span key={tag} className="px-2.5 py-1 rounded bg-slate-100 text-slate-600 text-[10px] font-bold border border-slate-200 uppercase tracking-wide">
+                            <span
+                              key={tag}
+                              title={BEHAVIOUR_DESCRIPTIONS[tag] || "Additional behavior tag"}
+                              className="px-2.5 py-1 rounded bg-slate-100 text-slate-600 text-[10px] font-bold border border-slate-200 uppercase tracking-wide cursor-help"
+                            >
                               {tag}
                             </span>
                           ))}
@@ -615,29 +688,93 @@ export default function AiDemandForecastingPage() {
                             productDetail.dataQuality === 'GOOD' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
                             productDetail.dataQuality === 'MODERATE' ? 'bg-amber-50 text-amber-700 border-amber-100' :
                             'bg-rose-50 text-rose-700 border-rose-100'
-                          }`}>
+                          }`}
+                          title={productDetail.dataQuality === 'GOOD' ? 'Sufficient usable historical records exist for robust forecasting.' : 'Limited historical sales duration.'}
+                          >
                             Data Quality: {productDetail.dataQuality}
                           </span>
                         </div>
                       </div>
 
+                      {/* Inventory Status & Low-Confidence Callouts */}
+                      <div className="space-y-3">
+                        {/* Status Card */}
+                        <div className={`p-4 rounded-xl border flex items-center justify-between gap-4 ${
+                          productDetail.status === 'CRITICAL_ACTION' ? 'bg-rose-50 border-rose-200 text-rose-800' :
+                          productDetail.status === 'REORDER_REQUIRED' ? 'bg-amber-50 border-amber-200 text-amber-800' :
+                          productDetail.status === 'OVERSTOCK_RISK' ? 'bg-blue-50 border-blue-200 text-blue-800' :
+                          'bg-emerald-50 border-emerald-200 text-emerald-800'
+                        }`}>
+                          <div className="flex items-center gap-3">
+                            <span className="material-symbols-outlined text-[24px]">
+                              {productDetail.status === 'CRITICAL_ACTION' ? 'error' :
+                               productDetail.status === 'REORDER_REQUIRED' ? 'reorder' :
+                               productDetail.status === 'OVERSTOCK_RISK' ? 'warning' : 'check_circle'}
+                            </span>
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-wider opacity-75">Inventory Status</p>
+                              <h4 className="text-sm font-black mt-0.5">
+                                {productDetail.status === 'CRITICAL_ACTION' ? 'CRITICAL ACTION' :
+                                 productDetail.status === 'REORDER_REQUIRED' ? 'REORDER REQUIRED' :
+                                 productDetail.status === 'OVERSTOCK_RISK' ? 'OVERSTOCK RISK' : 'SUFFICIENT'}
+                              </h4>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] font-extrabold uppercase opacity-75">Stock vs Required</p>
+                            <p className="text-sm font-black mt-0.5">
+                              {productDetail.stockVsRequiredPercentage !== undefined
+                                ? `${productDetail.stockVsRequiredPercentage.toFixed(0)}%`
+                                : productDetail.requiredStock > 0
+                                ? `${Math.round((productDetail.currentStock / productDetail.requiredStock) * 100)}%`
+                                : '100%'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Low Confidence Warning Callout */}
+                        {productDetail.reliabilityLevel === 'LOW' && (
+                          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3.5 flex items-start gap-3">
+                            <span className="material-symbols-outlined text-amber-600 text-[20px] shrink-0 mt-0.5">warning</span>
+                            <div>
+                              <p className="text-xs font-black text-amber-800 uppercase tracking-wider">⚠ LOW CONFIDENCE FORECAST</p>
+                              <p className="text-[11px] text-amber-800 font-semibold mt-0.5 leading-relaxed">
+                                The recommended order quantity of <strong className="font-extrabold">{productDetail.recommendedQuantity} units</strong> is based on a model with relatively high historical validation error ({productDetail.wape !== undefined ? `${(productDetail.wape * 100).toFixed(1)}%` : 'N/A'} WAPE). Manager review is recommended before placing the order.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
                       {/* Forecast metrics summary */}
-                      <div className="grid grid-cols-4 gap-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                        <div className="text-center border-r border-slate-200">
+                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <div className="text-center border-r border-slate-200 pr-2">
                           <p className="text-[9px] font-extrabold uppercase text-slate-400">Current Stock</p>
                           <p className="text-md font-black text-slate-800 mt-1">{productDetail.currentStock}</p>
                         </div>
-                        <div className="text-center border-r border-slate-200">
+                        <div className="text-center border-r border-slate-200 pr-2">
                           <p className="text-[9px] font-extrabold uppercase text-slate-400">Predicted Demand</p>
                           <p className="text-md font-black text-[#0b8252] mt-1">{productDetail.predictedDemand}</p>
                         </div>
-                        <div className="text-center border-r border-slate-200">
-                          <p className="text-[9px] font-extrabold uppercase text-slate-400">Safety Buffer ({productDetail.safetyStock > 0 ? '15%' : '0%'})</p>
+                        <div className="text-center border-r border-slate-200 pr-2">
+                          <p className="text-[9px] font-extrabold uppercase text-slate-400">Safety Buffer</p>
                           <p className="text-md font-black text-slate-700 mt-1">{productDetail.safetyStock}</p>
                         </div>
-                        <div className="text-center">
+                        <div className="text-center border-r border-slate-200 pr-2">
+                          <p className="text-[9px] font-extrabold uppercase text-slate-400">Required Stock</p>
+                          <p className="text-md font-black text-slate-800 mt-1">{productDetail.requiredStock}</p>
+                        </div>
+                        <div className="text-center border-r border-slate-200 pr-2">
                           <p className="text-[9px] font-extrabold uppercase text-slate-400">Order Recommend</p>
                           <p className="text-md font-black text-purple-700 mt-1">{productDetail.recommendedQuantity}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[9px] font-extrabold uppercase text-slate-400">Coverage</p>
+                          <p className="text-md font-black text-slate-800 mt-1">
+                            {productDetail.stockCoverageDays !== undefined && productDetail.stockCoverageDays !== null && productDetail.stockCoverageDays < 900
+                              ? `${Math.round(productDetail.stockCoverageDays)}d`
+                              : '>90d'}
+                          </p>
                         </div>
                       </div>
 

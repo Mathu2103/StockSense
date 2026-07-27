@@ -220,12 +220,23 @@ export default function AiDemandTab({ categories = [] }: AiDemandTabProps) {
               <span className="material-symbols-outlined text-[24px]">error</span>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400">Critical Action Required</p>
+              <p className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400">Critical Action</p>
               <p className="text-xl font-black text-slate-800 mt-1">{statusCounts['CRITICAL_ACTION'] || 0}</p>
             </div>
           </div>
 
-          {/* Card 3: Sufficient */}
+          {/* Card 3: Reorder Required */}
+          <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex items-center gap-4">
+            <div className="p-3 bg-amber-50 text-amber-600 rounded-lg">
+              <span className="material-symbols-outlined text-[24px]">reorder</span>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400">Reorder Required</p>
+              <p className="text-xl font-black text-slate-800 mt-1">{statusCounts['REORDER_REQUIRED'] || 0}</p>
+            </div>
+          </div>
+
+          {/* Card 4: Sufficient */}
           <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex items-center gap-4">
             <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
               <span className="material-symbols-outlined text-[24px]">check_circle</span>
@@ -236,9 +247,9 @@ export default function AiDemandTab({ categories = [] }: AiDemandTabProps) {
             </div>
           </div>
 
-          {/* Card 4: Overstock Risk */}
+          {/* Card 5: Overstock Risk */}
           <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-amber-50 text-amber-600 rounded-lg">
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
               <span className="material-symbols-outlined text-[24px]">warning</span>
             </div>
             <div>
@@ -273,6 +284,7 @@ export default function AiDemandTab({ categories = [] }: AiDemandTabProps) {
               >
                 <option value="">All Statuses</option>
                 <option value="CRITICAL_ACTION">Critical Action</option>
+                <option value="REORDER_REQUIRED">Reorder Required</option>
                 <option value="SUFFICIENT">Sufficient</option>
                 <option value="OVERSTOCK_RISK">Overstock Risk</option>
               </select>
@@ -351,6 +363,12 @@ export default function AiDemandTab({ categories = [] }: AiDemandTabProps) {
                             Critical Action
                           </span>
                         )}
+                        {row.status === 'REORDER_REQUIRED' && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-bold">
+                            <span className="material-symbols-outlined text-[12px]">reorder</span>
+                            Reorder Required
+                          </span>
+                        )}
                         {row.status === 'SUFFICIENT' && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold">
                             <span className="material-symbols-outlined text-[12px]">check_circle</span>
@@ -358,7 +376,7 @@ export default function AiDemandTab({ categories = [] }: AiDemandTabProps) {
                           </span>
                         )}
                         {row.status === 'OVERSTOCK_RISK' && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-bold">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold">
                             <span className="material-symbols-outlined text-[12px]">warning</span>
                             Overstock Risk
                           </span>

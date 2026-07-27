@@ -29,7 +29,7 @@ export interface ProductForecastSummary {
   selectedModel: string;
   accuracyScore?: number;
   predictionReason: string;
-  status: 'CRITICAL_ACTION' | 'SUFFICIENT' | 'OVERSTOCK_RISK';
+  status: 'CRITICAL_ACTION' | 'REORDER_REQUIRED' | 'SUFFICIENT' | 'OVERSTOCK_RISK';
 }
 
 export interface RunDetailsResponse {
@@ -51,7 +51,8 @@ export interface ProductForecastDetail {
   requiredStock: number;
   recommendedQuantity: number;
   stockCoverageDays?: number;
-  status: 'CRITICAL_ACTION' | 'SUFFICIENT' | 'OVERSTOCK_RISK';
+  stockVsRequiredPercentage?: number;
+  status: 'CRITICAL_ACTION' | 'REORDER_REQUIRED' | 'SUFFICIENT' | 'OVERSTOCK_RISK';
   selectedModel: string;
   accuracyScore?: number;
   predictionReason: string;

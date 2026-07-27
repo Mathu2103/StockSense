@@ -9,7 +9,6 @@ interface AlertSummaryProps {
   expiryAlerts: number;
   deadStockAlerts: number;
   overstockAlerts: number;
-  reorderSuggestions: number;
   discountAlerts: number;
   smartInsights: string[];
   setActiveTab: (t: Tab) => void;
@@ -24,7 +23,6 @@ export default function AlertSummary({
   expiryAlerts,
   deadStockAlerts,
   overstockAlerts,
-  reorderSuggestions,
   discountAlerts,
   smartInsights,
   setActiveTab,

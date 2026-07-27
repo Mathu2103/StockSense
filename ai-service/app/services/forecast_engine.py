@@ -205,15 +205,16 @@ def run_monthly_forecasting(
             # Confirmed incoming stock from pending GRNs or orders (default 0)
             confirmed_incoming = 0
             
-            safety_stock, required_stock, recommended_qty, stock_coverage, f_status = calculate_recommendation(
-                predicted_demand, current_stock, safety_stock_pct, avg_daily_demand, confirmed_incoming
+            safety_stock, required_stock, recommended_qty, stock_coverage, f_status, stock_vs_req_pct = calculate_recommendation(
+                predicted_demand, current_stock, safety_stock_pct, avg_daily_demand, confirmed_incoming, days_in_month
             )
 
             # F. Generate plain-English explanation
             target_month_name = calendar.month_name[month]
             explanation = generate_forecast_explanation(
                 feat_row, predicted_demand, current_stock, safety_stock, recommended_qty, 
-                stock_coverage, f_status, model_name, wape, target_month_name, safety_stock_pct
+                stock_coverage, f_status, model_name, wape, target_month_name, safety_stock_pct,
+                reliability_level=reliability, stock_vs_required_pct=stock_vs_req_pct
             )
 
             # G. Append rows mapped to schema

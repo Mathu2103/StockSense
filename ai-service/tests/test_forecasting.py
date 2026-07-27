@@ -207,22 +207,27 @@ def test_walk_forward_and_selector():
 
 # 9. Safety Stock and Reorder Test
 def test_safety_stock_and_reorder():
-    # predicted_demand = 200, current_stock = 50, safety_stock_pct = 15% (0.15)
+    # predicted_demand = 200, current_stock = 50, safety_stock_pct = 15% (0.15), target_month_days = 30
     # safety stock = ceil(200 * 0.15) = 30
     # required stock = 200 + 30 = 230
     # recommended order = 230 - 50 - 0 = 180
-    safety, required, recommended, coverage, status = calculate_recommendation(
+    # forecast daily demand = 200 / 30 = 6.6667 units/day
+    # stock coverage = 50 / 6.6667 = 7.5 days
+    # stock vs required pct = (50 / 230) * 100 = 21.7%
+    safety, required, recommended, coverage, status, stock_vs_req_pct = calculate_recommendation(
         predicted_demand=200,
         current_stock=50,
         safety_stock_pct=0.15,
         average_daily_sales=5.0,
-        confirmed_incoming_stock=0
+        confirmed_incoming_stock=0,
+        target_month_days=30
     )
     assert safety == 30
     assert required == 230
     assert recommended == 180
-    assert coverage == 10.0
+    assert round(coverage, 1) == 7.5
     assert status == "CRITICAL_ACTION"
+    assert round(stock_vs_req_pct, 1) == 21.7
 
 # 10. Explanation Verification Test
 def test_explanation_verification():
@@ -262,12 +267,15 @@ def test_explanation_verification():
         selected_model="Moving Average",
         wape_score=0.15,
         target_month_name="January",
-        safety_stock_pct=0.15
+        safety_stock_pct=0.15,
+        reliability_level="HIGH",
+        stock_vs_required_pct=11.6
     )
 
     assert "Moving Average" in explanation
     assert "WAPE of 15.0%" in explanation
     assert "increased by 11.1%" in explanation
     assert "historically 20.0% higher" in explanation
-    assert "out of stock for 3 days" in explanation
-    assert "reordered" in explanation
+    assert "3 stock-out day(s)" in explanation
+    assert "CRITICAL ACTION" in explanation
+

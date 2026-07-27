@@ -277,6 +277,7 @@ export async function getProductForecastDetail(req: AuthRequest, res: Response):
       rmse: forecast.RMSE,
       wape: forecast.WAPE,
       reliabilityLevel: forecast.reliabilityLevel,
+      stockVsRequiredPercentage: forecast.requiredStock > 0 ? (forecast.currentStock / forecast.requiredStock) * 100.0 : 100.0,
 
       // Analysis
       recent30DaySales: analysis.recent30Sales,

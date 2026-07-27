@@ -1,591 +1,372 @@
-# AI Demand Forecasting Module — Complete Technical Documentation
+# StockSense AI Demand Forecasting Module — Complete Technical Documentation
 
 > **Project:** StockSense  
-> **Module Scope:** AI-Powered Monthly Demand Forecasting & Reorder Recommendation Engine  
-> **Documentation Target:** `docs/AI_DEMAND_FORECASTING_COMPLETE_DOCUMENTATION.md`  
-> **Documentation Basis:** Actual Codebase Implementation Analysis  
-> **Architectural Layers:** Python FastAPI AI Service · Node.js/Express Backend · React Frontend · PostgreSQL/Prisma ORM  
+> **Module:** AI-Powered Monthly Demand Forecasting & Reorder Recommendation Engine  
+> **Documentation Target File:** `docs/AI_DEMAND_FORECASTING_COMPLETE_DOCUMENTATION.md`  
+> **Implementation Status:** Fully Implemented & Updated (Python FastAPI + Node.js/Express + React 18 + PostgreSQL/Prisma ORM)  
 
 ---
 
 ## Table of Contents
 
-1. [Project Discovery & File Map](#1-project-discovery--file-map)
-2. [Executive Summary](#2-executive-summary)
-3. [Implemented System Architecture](#3-implemented-system-architecture)
-4. [Complete End-to-End Data Flow](#4-complete-end-to-end-data-flow)
-5. [Database Schema and Data Sources](#5-database-schema-and-data-sources)
-6. [Historical Data Preparation](#6-historical-data-preparation)
-7. [Historical Stock Reconstruction](#7-historical-stock-reconstruction)
-8. [Daily Panel Generation](#8-daily-panel-generation)
-9. [Feature Engineering](#9-feature-engineering)
-10. [Sales Velocity Classification](#10-sales-velocity-classification)
-11. [Demand Behaviour Classification](#11-demand-behaviour-classification)
-12. [Candidate Forecasting Models](#12-candidate-forecasting-models)
-13. [Model Candidate Selection](#13-model-candidate-selection)
-14. [Walk-Forward Validation](#14-walk-forward-validation)
-15. [Error Metrics](#15-error-metrics)
-16. [Best Model Selection](#16-best-model-selection)
-17. [Final Demand Prediction](#17-final-demand-prediction)
-18. [Discount and Promotion Impact](#18-discount-and-promotion-impact)
-19. [Safety Stock Calculation](#19-safety-stock-calculation)
-20. [Required Stock and Reorder Quantity](#20-required-stock-and-reorder-quantity)
-21. [Inventory Status Classification](#21-inventory-status-classification)
-22. [Explanation Engine](#22-explanation-engine)
-23. [API Implementation](#23-api-implementation)
-24. [Scheduler and Automation](#24-scheduler-and-automation)
-25. [Frontend Implementation](#25-frontend-implementation)
-26. [Versioning and Auditability](#26-versioning-and-auditability)
-27. [Error Handling and Failure Recovery](#27-error-handling-and-failure-recovery)
-28. [Testing](#28-testing)
-29. [Security and Data Integrity](#29-security-and-data-integrity)
-30. [Performance and Scalability](#30-performance-and-scalability)
-31. [Actual Implementation vs Intended Design](#31-actual-implementation-vs-intended-design)
-32. [Issues and Recommended Corrections](#32-issues-and-recommended-corrections)
-33. [File-by-File Implementation Map](#33-file-by-file-implementation-map)
-34. [Complete End-to-End Product Example](#34-complete-end-to-end-product-example)
-35. [Final Presentation Summaries](#35-final-presentation-summaries)
+1. [Module Overview & Objectives](#1-module-overview--objectives)
+2. [Complete System Architecture](#2-complete-system-architecture)
+3. [Forecasting Trigger & Scheduler](#3-forecasting-trigger--scheduler)
+4. [Target Month & Cutoff Date Logic](#4-target-month--cutoff-date-logic)
+5. [Historical Database Schema & Data Sources](#5-historical-database-schema--data-sources)
+6. [Historical Data Cleaning & Net Sales Calculation](#6-historical-data-cleaning--net-sales-calculation)
+7. [Continuous Daily Panel Generation](#7-continuous-daily-panel-generation)
+8. [Historical Stock Level Reconstruction](#8-historical-stock-level-reconstruction)
+9. [Stock-Out Detection & Bias Mitigation](#9-stock-out-detection--bias-mitigation)
+10. [Feature Engineering Reference](#10-feature-engineering-reference)
+11. [Recent Growth Rate Calculation](#11-recent-growth-rate-calculation)
+12. [Same-Month Historical Demand Metric](#12-same-month-historical-demand-metric)
+13. [Discount Uplift & Promotion Impact](#13-discount-uplift--promotion-impact)
+14. [Demand Behaviour Profiling](#14-demand-behaviour-profiling)
+15. [Data Quality Classification](#15-data-quality-classification)
+16. [Candidate Forecasting ML Models](#16-candidate-forecasting-ml-models)
+17. [Candidate Model Filtering Rules](#17-candidate-model-filtering-rules)
+18. [Walk-Forward Validation (Backtesting)](#18-walk-forward-validation-backtesting)
+19. [Statistical Validation Error Metrics](#19-statistical-validation-error-metrics)
+20. [Best Model Selection Logic](#20-best-model-selection-logic)
+21. [Final Monthly Demand Forecast Generation](#21-final-monthly-demand-forecast-generation)
+22. [Safety Stock Calculation](#22-safety-stock-calculation)
+23. [Required Stock Calculation](#23-required-stock-calculation)
+24. [Forecast Coverage Days Standardisation](#24-forecast-coverage-days-standardisation)
+25. [Confirmed Incoming Stock Handling](#25-confirmed-incoming-stock-handling)
+26. [Recommended Purchase Order Quantity](#26-recommended-purchase-order-quantity)
+27. [Inventory Status Classification (4-Tier)](#27-inventory-status-classification-4-tier)
+28. [Stock vs Required Percentage Metric](#28-stock-vs-required-percentage-metric)
+29. [Forecast Confidence & Low-Confidence Warnings](#29-forecast-confidence--low-confidence-warnings)
+30. [Rule-Based Evidence Explanation Engine](#30-rule-based-evidence-explanation-engine)
+31. [Product Insight Drawer Modal Reference](#31-product-insight-drawer-modal-reference)
+32. [Historical & Forecast Visual Chart](#32-historical--forecast-visual-chart)
+33. [Database Write & Persistence Workflow](#33-database-write--persistence-workflow)
+34. [Version Control & Auditability](#34-version-control--auditability)
+35. [Complete REST API Specification](#35-complete-rest-api-specification)
+36. [Frontend Data Flow & UI Implementation](#36-frontend-data-flow--ui-implementation)
+37. [Error Handling & Fallback Protocols](#37-error-handling--fallback-protocols)
+38. [Numerical Edge Case Protection](#38-numerical-edge-case-protection)
+39. [System Configuration & Constants](#39-system-configuration--constants)
+40. [Testing & Verification Results](#40-testing--verification-results)
+41. [Actual Implementation vs Intended Design Matrix](#41-actual-implementation-vs-intended-design-matrix)
+42. [Current System Limitations](#42-current-system-limitations)
+43. [File-by-File Implementation Directory](#43-file-by-file-implementation-directory)
+44. [Complete Worked Calculation Example](#44-complete-worked-calculation-example)
+45. [Final End-to-End Sequence Flow](#45-final-end-to-end-sequence-flow)
 
 ---
 
-## 1. Project Discovery & File Map
+## 1. Module Overview & Objectives
 
-The StockSense project implements a decoupled, three-tier microservice architecture for AI Demand Forecasting. Inspection of the codebase reveals the following structure and environment setup:
+### What the Module Does
+The **StockSense AI Demand Forecasting module** is an automated microservice-driven system that predicts product demand for the upcoming calendar month at SKU level. It extracts multi-year sales, inventory movement, refund, stock adjustment, and promotional data, reconstructs daily historical inventory levels to identify stock-outs, engineers statistical time-series features, evaluates candidate machine learning algorithms using walk-forward validation, generates demand forecasts, calculates safety buffers and recommended purchase order quantities, assigns inventory status risks, and produces natural language evidence explanations.
 
-*   **Frontend Framework**: React 18, TypeScript, Vite, Tailwind CSS (`frontend/src/`)
-*   **Main Backend Framework**: Node.js, Express, TypeScript (`backend/src/`)
-*   **AI/ML Microservice**: Python 3.10+, FastAPI, SQLAlchemy, Pandas, NumPy, Scikit-learn (`ai-service/app/`)
-*   **Database & ORM**: PostgreSQL, Prisma ORM (`backend/prisma/schema.prisma`)
-*   **API Communication**: Synchronous HTTP REST via Axios (`frontend` → `backend`) and HTTP REST via `fetch` (`backend` → `ai-service`)
-*   **Scheduled Jobs**: Node.js interval-based scheduler (`backend/src/services/forecastScheduler.ts`)
-*   **Environment Configuration**: Environment variables loaded via `.env` (`AI_SERVICE_URL`, `DATABASE_URL`, `PORT`)
-
-### Key Keyword Search Results & Discovery Mapping
-
-| Keyword | Found Location(s) | Implementation Role |
-|---------|------------------|---------------------|
-| `predicted_demand` / `predictedDemand` | `schema.prisma`, `forecast_engine.py`, `aiDemandController.ts`, `AiDemandForecastingPage.tsx` | Core output metric stored in DB and displayed in UI |
-| `demand_forecast_runs` | `schema.prisma`, `db_operations.py`, `aiDemandController.ts` | Execution header logging run status, version, and date ranges |
-| `demand_analysis` | `schema.prisma`, `db_operations.py`, `feature_engineering.py`, `product_profiler.py` | Per-product statistical analysis & behavior profile storage |
-| `demand_forecasts` | `schema.prisma`, `db_operations.py`, `recommendation_engine.py` | Final SKU-level predictions, safety stock, and reorder quantities |
-| `walk-forward` / `run_backtest_on_product` | `ai-service/app/services/backtesting.py` | 3-window sliding time-series cross-validation |
-| `WAPE` / `MAE` / `RMSE` | `backtesting.py`, `model_selector.py` | Statistical error metrics for model evaluation |
-| `Croston` | `ai-service/app/models/croston.py` | Specialized forecasting model for intermittent (sparse) demand |
-| `Random Forest` | `ai-service/app/models/random_forest.py` | Ensemble ML regressor with 50 estimators, max depth 6 |
-| `Gradient Boosting` | `ai-service/app/models/gradient_boosting.py` | Boosting ML regressor with 50 estimators, max depth 4 |
-| `reconstruct_stock_history` | `ai-service/app/services/feature_engineering.py` | Reverse daily inventory calculation to detect stock-out days |
-| `calculate_recommendation` | `ai-service/app/services/recommendation_engine.py` | Deterministic safety stock & purchase order logic |
-| `generate_forecast_explanation` | `ai-service/app/services/explanation_engine.py` | Rule-based natural language justification string builder |
+### Why It Exists
+Manual reorder point estimation in retail leads to frequent stock-outs (lost sales and customer attrition) or severe overstocking (capital tie-up, storage overhead, waste). Static reorder formulas fail to adapt to seasonality, recent sales trends, promotional sensitivity, or stock-out bias. This module replaces guesswork with deterministic math and ML model selection.
 
 ---
 
-## 2. Executive Summary
+## 2. Complete System Architecture
 
-### Functional Purpose
-The AI Demand Forecasting module analyzes historical daily sales, inventory movements, customer refunds, and active discount promotions to predict SKU-level unit demand for an upcoming target month. It automatically evaluates current inventory levels against forecasted demand to recommend precise reorder quantities, calculate safety buffers, and categorize inventory risk levels.
-
-### Business Value
-In retail inventory management, stock-outs lead to lost revenue while overstocking ties up working capital and increases waste/spoilage. This module replaces static reorder thresholds with data-driven predictions that dynamically adapt to trend changes, seasonality, and promotional sales spikes.
-
-### Implementation Status
-- **Core Engine & ML Pipeline**: **Fully Implemented**. Complete pipeline from raw database ingestion to walk-forward model selection, prediction, safety stock calculation, and DB persistence.
-- **REST APIs & Backend Proxy**: **Fully Implemented**. Node.js Express routes proxy requests to FastAPI, and query PostgreSQL via Prisma.
-- **Frontend Dashboard**: **Fully Implemented**. Interactive React dashboard with filtering, search, pagination, status distribution cards, and single-SKU drill-down modal.
-- **Automation / Scheduler**: **Partially Implemented**. Node.js background scheduler runs hourly checks for 1st-of-the-month triggers, but relies on process lifetime (no persistent cron daemon).
-
-### 30-Second Presentation Pitch
-> "Our AI Demand Forecasting module eliminates manual reorder guesswork. By combining statistical feature engineering with machine learning algorithms like Random Forest, Gradient Boosting, and Croston's method, it predicts next month's product demand. It dynamically selects the optimal model per SKU using walk-forward validation, adjusts for historical discount uplifts, and generates human-readable explanations—enabling inventory managers to make profit-safe purchase decisions in seconds."
-
----
-
-## 3. Implemented System Architecture
+StockSense uses a decoupled three-tier microservice architecture:
 
 ```mermaid
 graph TD
-    subgraph "Database Layer (PostgreSQL)"
-        DB[(PostgreSQL Database)]
-    end
-
-    subgraph "Main Backend Server (Node.js / Express)"
-        AC[aiDemandController.ts]
-        AR[aiDemandRoutes.ts]
-        FS[forecastScheduler.ts]
-        PR[Prisma ORM Client]
-    end
-
-    subgraph "AI Microservice (Python / FastAPI)"
-        FR[demand_forecast_routes.py]
-        FE[forecast_engine.py]
-        DL[data_loader.py]
-        DC[data_cleaner.py]
-        FEng[feature_engineering.py]
-        PP[product_profiler.py]
-        MS[model_selector.py]
-        BT[backtesting.py]
-        RE[recommendation_engine.py]
-        EE[explanation_engine.py]
-        DBO[db_operations.py]
-    end
-
-    subgraph "Frontend Layer (React / Vite)"
-        UI[AiDemandForecastingPage.tsx]
-        AS[aiDemandService.ts]
-    end
-
-    UI <-->|HTTP REST / JSON| AR
-    AR --> AC
-    AC <-->|Prisma Queries| PR
-    PR <--> DB
-    AC -->|HTTP POST /fetch| FR
-    FS -->|Hourly Check / HTTP POST| FR
-    FR --> FE
-    FE --> DL
-    DL -->|SQLAlchemy Raw Queries| DB
-    FE --> DC --> FEng --> PP --> MS --> BT --> RE --> EE --> DBO
-    DBO -->|Batch SQL Inserts| DB
+    User["React 18 Frontend UI"] -->|HTTP GET / POST| Express["Node.js / Express Backend"]
+    Express -->|Prisma ORM| Postgres[("PostgreSQL Database")]
+    Express -->|HTTP POST /api/ai-demand/forecast| FastAPI["Python FastAPI AI Service"]
+    FastAPI -->|SQLAlchemy Core / Raw SQL| Postgres
+    FastAPI -->|Compute ML & Rules| FastAPI
+    FastAPI -->|Write Run, Analysis & Forecasts| Postgres
+    Postgres -->|Read Persisted Run Data| Express
+    Express -->|JSON Response| User
 ```
 
-### Layer Responsibilities
-
-1. **Trigger Layer**:
-   - `AiDemandForecastingPage.tsx` → `handleGenerateForecast()` initiates manual runs.
-   - `forecastScheduler.ts` → `checkAndTriggerForecast()` executes hourly checks for 1st-of-month automated execution.
-2. **Backend Proxy Layer (`backend/src/controllers/aiDemandController.ts`)**:
-   - Receives request from frontend, validates payload, and sends HTTP POST to FastAPI (`http://127.0.0.1:8000/api/ai-demand/forecast`).
-   - Serves cached forecast results directly from PostgreSQL via Prisma ORM for high-speed dashboard rendering without blocking Python GIL.
-3. **AI Pipeline Layer (`ai-service/app/services/forecast_engine.py`)**:
-   - Ingests raw data via SQLAlchemy (`data_loader.py`).
-   - Merges sales, refunds, GRNs, and stock adjustments into a daily panel (`data_cleaner.py`).
-   - Reconstructs historical daily stock levels backwards from current stock (`feature_engineering.py`).
-   - Extracts 20+ demand features (`feature_engineering.py`).
-   - Profiles SKU demand behavior (`product_profiler.py`).
-   - Runs walk-forward validation across candidate models (`backtesting.py`, `model_selector.py`).
-   - Calculates safety stock and purchase recommendations (`recommendation_engine.py`).
-   - Generates English justifications (`explanation_engine.py`).
-   - Writes batch results into `demand_forecast_runs`, `demand_analysis`, and `demand_forecasts` (`db_operations.py`).
+### Architectural Responsibilities
+1. **Frontend (React 18 + TypeScript + Tailwind CSS)**: Renders the AI Demand Forecasting dashboard, version history picker, target month selector, SKU datagrid with sorting/filtering, and detailed product insight drawer with low-confidence warning banners and behavior tooltips.
+2. **Main Backend (Node.js + Express + Prisma ORM)**: Serves API endpoints, proxies execution requests to FastAPI, queries forecast database tables, and runs a background scheduler for automated 1st-of-the-month forecast execution.
+3. **AI Service (Python 3.10+ + FastAPI + Scikit-learn + Pandas + NumPy)**: Executes data loading, panel cleaning, historical stock reconstruction, feature engineering, demand profiling, walk-forward validation backtesting, candidate ML model fitting, demand prediction, recommendation math, and explanation text generation.
+4. **Database (PostgreSQL)**: Stores domain inventory tables (`products`, `bills`, `grns`, `discounts`) and persistent forecast tables (`demand_forecast_runs`, `demand_analysis`, `demand_forecasts`).
 
 ---
 
-## 4. Complete End-to-End Data Flow
+## 3. Forecasting Trigger & Scheduler
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as Inventory Manager
-    participant UI as React UI (AiDemandForecastingPage)
-    participant Express as Node.js Backend (aiDemandController)
-    participant PyAPI as FastAPI Router (demand_forecast_routes)
-    participant Engine as Forecast Engine (forecast_engine)
-    participant DB as PostgreSQL Database
+Forecast generation can be triggered through two distinct mechanisms:
 
-    User->>UI: Select Target Month (e.g. 2026-02) & click "Generate"
-    UI->>Express: POST /api/ai-demand/forecast { targetMonth: "2026-02", force: true }
-    Express->>PyAPI: POST http://127.0.0.1:8000/api/ai-demand/forecast
-    PyAPI->>DB: check_existing_run()
-    PyAPI->>DB: create_initial_run() -> status = 'RUNNING'
-    PyAPI->>Engine: run_monthly_forecasting(target_month_str="2026-02")
-    Engine->>DB: load_products_df(), load_daily_sales_df(), load_daily_refunds_df(), etc.
-    Engine->>Engine: clean_and_merge_data() -> Daily Panel (2023-01-01 to Cutoff Date)
-    Engine->>Engine: reconstruct_stock_history() -> Est. Opening/Closing Stock & StockOutFlags
-    Engine->>Engine: calculate_product_features() -> 20+ Statistical Demand Features
-    Engine->>Engine: classify_product_demand() -> Primary Behaviour & Trend Direction
-    loop For each Active SKU
-        Engine->>Engine: select_best_model() -> Run Walk-Forward Backtesting (3 Folds)
-        Engine->>Engine: Model Prediction -> Sum Daily Predictions for Horizon
-        Engine->>Engine: Apply Discount Uplift Adjustment (if applicable)
-        Engine->>Engine: calculate_recommendation() -> Safety Stock & Recommended Order Qty
-        Engine->>Engine: generate_forecast_explanation() -> English Reason String
-    end
-    Engine->>DB: save_analyses_and_forecasts() -> Batch Insert demand_analysis & demand_forecasts
-    Engine->>DB: mark_run_completed() -> Update demand_forecast_runs status = 'COMPLETED'
-    PyAPI-->>Express: HTTP 200 OK { runId, status: "COMPLETED", productsProcessed }
-    Express-->>UI: HTTP 200 OK
-    UI->>Express: GET /api/ai-demand/forecast/{runId} (Paginated List)
-    Express->>DB: Prisma query demand_forecasts JOIN products
-    DB-->>Express: Return Page 1 Forecast Records
-    Express-->>UI: HTTP 200 OK { forecasts, totalCount, statusCounts }
-    UI-->>User: Render Dashboard Table, KPI Cards, and Detail Modal
+### 1. Manual Trigger
+- **User Interface**: Clicking **"Generate Forecast"** in `AiDemandForecastingPage.tsx` or `AiDemandTab.tsx`.
+- **Target Month**: Selected via `<input type="month" max={nextMonth} />` (defaults to next month, restricted to max 1 month in future).
+- **HTTP Path**: Frontend → `POST /api/ai-demand/forecast` (Node Express) → `POST http://localhost:8000/api/ai-demand/forecast/run` (Python FastAPI).
+
+### 2. Automatic Scheduled Trigger
+- **Backend File**: `backend/src/services/forecastScheduler.ts`.
+- **Polling Interval**: Runs every 1 hour (`setInterval(..., 3600000)`).
+- **Execution Condition**: Checks if `new Date().getDate() === 1` AND local hour is `2` (02:00 AM).
+- **Duplicate Prevention**: Queries `demand_forecast_runs` for a run matching `target_month` with status `COMPLETED` or `RUNNING`. If one exists, the trigger is skipped.
+
+---
+
+## 4. Target Month & Cutoff Date Logic
+
+To prevent data leakage, the forecasting model strictly separates the training history from the prediction period:
+
+```text
+Example: User selects Target Month = "August 2026" (2026-08-01)
+
+Target Month Date  = 2026-08-01
+Cutoff Date        = 2026-07-31 (End of previous month)
+Data Start Date    = 2023-01-01 (Fixed history start)
+Training Window    = 2023-01-01 to 2026-07-31
+Prediction Window  = 2026-08-01 to 2026-08-31
 ```
 
-### Detailed Step Breakdown
-
-| Step | Action | Input Data | Output Data | Implementation File & Function | Validation / Safeguards |
-|------|--------|------------|-------------|--------------------------------|------------------------|
-| 1 | Trigger Run | Target Month string (`YYYY-MM`) | API Payload | `frontend/src/services/aiDemandService.ts → generateForecast()` | User role checked by Express auth middleware |
-| 2 | Duplicate Check | `targetMonthDate` | Existing `runId` or `None` | `ai-service/app/services/db_operations.py → check_existing_run()` | Returns HTTP 400 if run exists unless `force=true` |
-| 3 | Create Run Header | Dates, trigger type | `run_id` (UUID) | `db_operations.py → create_initial_run()` | Sets `status='RUNNING'`, increments version number |
-| 4 | Load History | Database tables up to cutoff date | 7 Pandas DataFrames | `ai-service/app/services/data_loader.py → load_*_df()` | SQL cutoff filter `b.created_at <= :end_date` |
-| 5 | Clean & Merge Panel | 7 Raw DataFrames | `cleaned_df` (Daily Panel) | `ai-service/app/services/data_cleaner.py → clean_and_merge_data()` | `net_qty = max(0, gross - refunds)` |
-| 6 | Stock Reconstruction | `cleaned_df`, `current_stock` | Panel with `stockOutFlag` | `ai-service/app/services/feature_engineering.py → reconstruct_stock_history()` | Caps negative opening stock at 0 with warning flag |
-| 7 | Feature Extraction | `cleaned_df < targetMonth` | `features_df` | `feature_engineering.py → calculate_product_features()` | Strictly filters `date < target_month_start` (no leakage) |
-| 8 | Demand Profiling | `features_df` | Tagged `features_df` | `ai-service/app/services/product_profiler.py → classify_product_demand()` | Prioritized hierarchy (LIMITED_HISTORY → STABLE) |
-| 9 | Model Selection | `prod_hist`, `primaryBehaviour` | Best fitted model instance | `ai-service/app/services/model_selector.py → select_best_model()` | 5% WAPE improvement penalty for complex ML models |
-| 10 | Final Prediction | Future dates DataFrame | `predicted_demand` (int) | `ai-service/app/services/forecast_engine.py → run_monthly_forecasting()` | `round(max(0.0, sum(daily_preds)))` |
-| 11 | Discount Uplift | Historical discount uplift % | Adjusted prediction | `forecast_engine.py` (lines 186–193) | Capped at `MAX_DISCOUNT_UPLIFT_CAP = 50.0%` |
-| 12 | Recommendations | Demand, current stock, incoming | Safety stock, reorder qty, status | `ai-service/app/services/recommendation_engine.py → calculate_recommendation()` | Safety stock = `ceil(demand × 15%)`, reorder = `max(0, req - curr)` |
-| 13 | Explanation Builder | Analysis metrics, status, WAPE | Explanation text | `ai-service/app/services/explanation_engine.py → generate_forecast_explanation()` | Interpolates exact metric numbers into string |
-| 14 | DB Persistence | Analysis & Forecast dict lists | Database records | `db_operations.py → save_analyses_and_forecasts()` | Single transaction commit |
-| 15 | Status Update | `run_id`, product counts | Updated header | `db_operations.py → mark_run_completed()` | Status set to `COMPLETED` with JSON config snapshot |
+### Data Leakage Prevention
+No data from August 2026 (or later) is ever included in model training, feature calculations, or validation backtesting. This ensures strict real-world simulation.
 
 ---
 
-## 5. Database Schema and Data Sources
+## 5. Historical Database Schema & Data Sources
 
-### Implemented Database Tables
+| Database Table | Model Name in Prisma | Key Fields Used | Purpose in Forecasting | Python Load Function |
+| :--- | :--- | :--- | :--- | :--- |
+| `products` | `Product` | `sku`, `name`, `current_stock`, `cost_price`, `selling_price`, `status`, `master_class_id` | Product catalog & current stock snapshot | `load_products_df` |
+| `bills` / `bill_items` | `Bill` / `BillItem` | `bill_date`, `product_id`, `quantity`, `unit_price`, `status` | Historical gross sales transactions | `load_daily_sales_df` |
+| `customer_refund_items` | `CustomerRefundItem` | `refund_date`, `product_id`, `quantity` | Deducted from gross sales to calculate net daily demand | `load_daily_refunds_df` |
+| `goods_received_note_items`| `GrnItem` | `grn_date`, `product_id`, `received_quantity` | Inventory additions for historical stock reconstruction | `load_daily_grn_df` |
+| `stock_adjustments` | `StockAdjustment` | `adjustment_date`, `product_id`, `quantity` | Manual inventory corrections (+/-) for stock reconstruction | `load_daily_adjustments_df` |
+| `discounts` / `mappings` | `Discount` / `Mapping` | `start_date`, `end_date`, `discount_value`, `type`, `status`, `sku` | Historical and future promotional campaign uplift analysis | `load_discounts_df` |
+| `demand_forecast_runs` | `DemandForecastRun` | `id`, `target_month`, `version`, `status`, `started_at`, `completed_at` | Header log of overall forecast run executions | `db_operations.py` |
+| `demand_analysis` | `DemandAnalysis` | `forecast_run_id`, `product_id`, `data_quality`, `primary_behaviour`, metrics | Stores 20+ engineered statistical demand features per SKU | `save_analyses_and_forecasts` |
+| `demand_forecasts` | `DemandForecast` | `forecast_run_id`, `product_id`, `predicted_demand`, `required_stock`, `status` | Final prediction, safety stock, coverage, and status records | `save_analyses_and_forecasts` |
 
-```mermaid
-erDiagram
-    DemandForecastRun ||--o{ DemandForecast : "header for"
-    DemandForecastRun ||--o{ DemandAnalysis : "header for"
-    Product ||--o{ DemandForecast : "forecasted for"
-    Product ||--o{ DemandAnalysis : "analyzed for"
-    Product ||--o{ SalesBillItem : "sold in"
-    Product ||--o{ SalesRefundItem : "refunded in"
-    Product ||--o{ GrnItem : "received in"
-    Product ||--o{ StockAdjustment : "adjusted in"
-    MasterProductClass ||--o{ Product : "classifies"
-    Category ||--o{ MasterProductClass : "groups"
+---
 
-    DemandForecastRun {
-        uuid id PK
-        date target_month
-        int version
-        string status
-        string trigger_type
-        date data_start_date
-        date data_end_date
-        datetime started_at
-        datetime completed_at
-    }
+## 6. Historical Data Cleaning & Net Sales Calculation
 
-    DemandForecast {
-        uuid id PK
-        uuid forecast_run_id FK
-        string product_id FK
-        date target_month
-        int current_stock
-        int predicted_demand
-        int safety_stock
-        int required_stock
-        int recommended_order_quantity
-        float stock_coverage_days
-        string selected_model
-        float wape
-        string status
-    }
+Raw transaction records are grouped by `(date, sku)` to construct a net sales series.
 
-    DemandAnalysis {
-        uuid id PK
-        uuid forecast_run_id FK
-        string product_id FK
-        int usable_history_days
-        int complete_history_months
-        string data_quality
-        int recent_30_sales
-        float three_month_average
-        float seasonal_uplift_percentage
-        float discount_uplift_percentage
-        int stock_out_days
-        string primary_behaviour
-    }
+### Net Daily Sales Formula
+```text
+Net Daily Sales = max(0, Gross Sales Quantity - Refunded Quantity)
 ```
 
-#### 1. `demand_forecast_runs` (Header Table)
-*`schema.prisma:545–569`*
-
-| Field | Data Type | Purpose | Constraints / Indexes |
-|-------|-----------|---------|-----------------------|
-| `id` | UUID | Primary Key | PK |
-| `target_month` | Date | Target forecasting month (1st of month) | Index |
-| `version` | Int | Incremental run version per target month | Default `1` |
-| `status` | String | Execution status (`RUNNING`, `COMPLETED`, `FAILED`) | Index |
-| `trigger_type` | String | Execution origin (`MANUAL`, `SCHEDULED`) | Default `MANUAL` |
-| `data_start_date` | Date | Start of training data range | Date |
-| `data_end_date` | Date | Cutoff date for historical training data | Date |
-| `started_at` | DateTime | Timestamp when pipeline execution started | Default `now()` |
-| `completed_at` | DateTime? | Timestamp when pipeline finished | Nullable |
-| `configuration_snapshot` | JSON? | Snapshot of config settings used during run | Nullable |
-
-#### 2. `demand_forecasts` (Prediction Table)
-*`schema.prisma:515–543`*
-
-| Field | Data Type | Purpose | Constraints / Indexes |
-|-------|-----------|---------|-----------------------|
-| `id` | UUID | Primary Key | PK |
-| `forecast_run_id` | UUID | Foreign Key to parent run | FK → `demand_forecast_runs.id` (Cascade) |
-| `product_id` | String | Foreign Key to Product SKU | FK → `products.sku` |
-| `target_month` | Date | Target forecast month | Date |
-| `current_stock` | Int | Snapshot of physical stock at run execution | Int |
-| `confirmed_incoming_stock` | Int | Pending GRN/PO quantity | Default `0` |
-| `predicted_demand` | Int | Final predicted unit demand for target month | Int |
-| `safety_stock` | Int | Calculated safety stock buffer | Int |
-| `required_stock` | Int | `predicted_demand + safety_stock` | Int |
-| `recommended_order_quantity` | Int | `max(0, required_stock - current_stock - incoming)` | Int |
-| `stock_coverage_days` | Float? | `current_stock / average_daily_sales` | Nullable |
-| `selected_model` | String | Algorithm selected by walk-forward backtesting | String |
-| `mae` / `rmse` / `wape` | Float? | Walk-forward validation error scores | Nullable |
-| `accuracy_score` | Float? | `max(0, 100 - (wape * 100))` | Nullable |
-| `reliability_level` | String | Confidence grade (`HIGH`, `MEDIUM`, `LOW`) | String |
-| `prediction_reason` | String | English explanation string generated by engine | Text |
-| `status` | String | Inventory risk classification (`CRITICAL_ACTION`, `SUFFICIENT`, `OVERSTOCK_RISK`) | Index |
-
-#### 3. `demand_analysis` (Statistical Features Table)
-*`schema.prisma:475–513`*
-
-| Field | Data Type | Purpose | Constraints / Indexes |
-|-------|-----------|---------|-----------------------|
-| `id` | UUID | Primary Key | PK |
-| `forecast_run_id` | UUID | Foreign Key to parent run | FK → `demand_forecast_runs.id` (Cascade) |
-| `product_id` | String | Foreign Key to Product SKU | FK → `products.sku` |
-| `usable_history_days` | Int | Total days of panel data available | Int |
-| `complete_history_months` | Int | Count of complete calendar months | Int |
-| `data_quality` | String | Data grade (`GOOD`, `MODERATE`, `LIMITED`) | String |
-| `recent_30_sales` | Int | Net sales in last 30 days before cutoff | Int |
-| `previous_30_sales` | Int | Net sales in days 31–60 before cutoff | Int |
-| `recent_growth_percentage` | Float? | Growth from previous 30 to recent 30 days | Nullable |
-| `three_month_average` | Float | 3-month rolling average monthly sales | Float |
-| `six_month_average` | Float | 6-month rolling average monthly sales | Float |
-| `same_month_historical_average` | Float | Average sales in same month across prior years | Float |
-| `seasonal_uplift_percentage` | Float? | Uplift of same month vs overall average | Nullable |
-| `discount_uplift_percentage` | Float? | Average daily sales uplift during discounts | Nullable |
-| `refund_quantity` | Int | Total historical refunded units | Int |
-| `refund_rate` | Float | `refund_quantity / gross_qty_sold` | Float |
-| `stock_out_days` | Int | Count of days with reconstructed stock ≤ 0 | Int |
-| `primary_behaviour` | String | Primary demand classification tag | String |
-| `additional_behaviour_tags` | JSON | Additional matched behavior tags | JSON Array |
-
-### Identified Database Schema Weaknesses
-1. **Missing Composite Index on `demand_forecasts(forecast_run_id, status)`**: Filtering paginated forecasts by status scans the entire run set.
-2. **Hardcoded FK Cascade Delete**: Deleting a `demand_forecast_runs` record hard-deletes all associated `demand_forecasts` and `demand_analysis` records without soft deletion.
-3. **No Forecast Revision History**: Rerunning a forecast for the same month creates a new version, but old versions cannot be compared in the UI (only latest run is displayed).
+- **Refund Deductions**: Deducting refunds prevents inflating true customer demand when items are returned due to defect or cancellation.
+- **Negative Net Protection**: If refunds on a date exceed gross sales, net sales are clamped to `0` (preventing negative demand).
 
 ---
 
-## 6. Historical Data Preparation
+## 7. Continuous Daily Panel Generation
 
-### Data Cleaning & Merging Pipeline
-*`ai-service/app/services/data_cleaner.py → clean_and_merge_data()`*
+Database transactions only record days where activity occurred. To create a continuous time series suitable for ML models, missing dates are explicitly generated:
 
-1. **Fixed Start Date**: Historical data window starts at `2023-01-01` (`forecast_engine.py:67`).
-2. **Cutoff Date Calculation**: Cutoff date is strictly the last day of the month prior to `targetMonth`.
-   ```python
-   # target_month_date = 2026-02-01 -> cutoff_date = 2026-01-31
-   cutoff_date = target_month_date - timedelta(days=1)
-   ```
-3. **Completed Sales Filtering**: `sales_bills` table is queried with `WHERE b.draft = false AND b.created_at <= :end_date`.
-4. **Net Sales Calculation Formula**:
-   $$\text{Net Daily Sales} = \max(0, \text{Gross Sold Qty} - \text{Valid Refund Qty})$$
-   *Implementation:* `sales_merged["net_qty_sold"] = np.maximum(0, sales_merged["gross_qty_sold"] - sales_merged["refunded_qty"])` (`data_cleaner.py:45`).
-5. **Product Launch & Discontinued Bounding**:
-   - Products are only included in the daily panel starting from their `launch_date` (`created_at` date).
-   - Inactive/Discontinued products have their panel bounded by their last recorded transaction date (`data_cleaner.py:74–81`).
+1. A complete date grid is generated from `2023-01-01` to `cutoff_date` for every active SKU.
+2. Missing sales, refunds, GRNs, and adjustments are filled with `0`.
+3. Calendar attributes are appended to every date row:
+   - `dayOfWeek` (0=Monday, 6=Sunday)
+   - `month` (1 to 12)
+   - `year` (YYYY)
+   - `weekendFlag` (1 if Saturday/Sunday else 0)
+   - `discount_applied` (Boolean flag indicating active approved promotion)
 
 ---
 
-## 7. Historical Stock Reconstruction
+## 8. Historical Stock Level Reconstruction
 
-*`ai-service/app/services/feature_engineering.py → reconstruct_stock_history()`*
+To detect historical stock-out days, the system reconstructs daily historical stock balances by starting from the **current stock snapshot** and working backward chronologically to `2023-01-01`.
 
-Because historical daily stock snapshots were not saved in the database, the engine reconstructs stock levels **backwards** starting from the current physical stock snapshot (`products.current_stock`).
-
-### Backward Reconstruction Formula
-
-$$\text{Stock}_{t-1} = \text{Stock}_t - \text{GRN}_t - \text{PosAdjustment}_t + \text{NetSold}_t + \text{NegAdjustment}_t$$
-
-```python
-# Working backwards from today to start_date:
-opening = current_val - grn_rec - pos_adj + net_sold + neg_adj
-if opening < 0:
-    warning = f"Negative stock detected on {row['date']} for SKU {sku}. Capped at 0."
-    opening = 0
+### Reverse Reconstruction Formula
+```text
+Stock(d - 1) = Stock(d) + Sales(d) - GRN(d) - Adjustments(d)
 ```
 
-### Stock-Out Flag Condition
+Where:
+- `Stock(d)`: Reconstructed stock level at end of day $d$.
+- `Sales(d)`: Net units sold on day $d$.
+- `GRN(d)`: Goods received (stock additions) on day $d$.
+- `Adjustments(d)`: Stock adjustments on day $d$ (+ or -).
+- **Negative Protection**: `Stock(d - 1) = max(0, Stock(d - 1))` to prevent negative inventory balances due to missing historical log records.
 
-A day is flagged as a Stock-Out day if the opening stock or closing stock is less than or equal to zero:
-```python
-stock_out = 1 if (opening <= 0 or current_val <= 0) else 0
+### Numerical Example of Reverse Reconstruction
+Given Current Stock on July 31 = **10 units**:
+- July 31: Sold 2, GRN 0. End stock = 10. Start stock July 31 = $10 + 2 - 0 = 12$.
+- July 30: Sold 5, GRN 15. End stock = 12. Start stock July 30 = $12 + 5 - 15 = 2$.
+- July 29: Sold 2, GRN 0. End stock = 2. Start stock July 29 = $2 + 2 - 0 = 4$.
+- July 28: Sold 4, GRN 0. End stock = 4. Start stock July 28 = $4 + 4 - 0 = 8$.
+
+---
+
+## 9. Stock-Out Detection & Bias Mitigation
+
+A product with `0` sales may either have **zero demand** (inventory available but nobody bought) or a **stock-out** (customers wanted product, but inventory was 0).
+
+### Stock-Out Flag Rule
+```text
+stockOutFlag = 1  IF  Net Sales == 0  AND  Reconstructed Stock == 0
+stockOutFlag = 0  OTHERWISE
 ```
 
-> ⚠️ **Implementation Limitation**: The system caps negative reconstructed opening stock at `0` and flags a warning. However, if unrecorded stock movements occurred in the past, stock reconstruction can drift backward over long periods.
+### Bias Mitigation in ML Training
+When training models (such as Linear Regression, Random Forest, or Gradient Boosting), days where `stockOutFlag == 1` are masked or excluded from zero-demand training loss, preventing artificial suppression of predicted demand.
 
 ---
 
-## 8. Daily Panel Generation
+## 10. Feature Engineering Reference
 
-*`ai-service/app/services/data_cleaner.py → clean_and_merge_data()`*
+The table below lists all 20+ engineered statistical and demand features computed per SKU in `feature_engineering.py`:
 
-To feed time-series models, sparse transactional records are converted into a dense, continuous daily panel for every SKU.
-
-1. Generate full date vector from `2023-01-01` to `cutoff_date`.
-2. Cross-join dates with active SKU product list (filtered by product launch date).
-3. Perform left-joins with Daily Sales, Refunds, Goods Receiving Notes (GRNs), and Stock Adjustments.
-4. Fill missing numeric values (`fillna(0)` for quantities, `fillna(0.0)` for prices and revenues).
-
-### Daily Panel Transformation Example
-
-**Raw Transaction Database Records:**
-- 2025-01-01: Sold 5 units
-- 2025-01-04: Sold 2 units
-
-**Generated Daily Panel Output:**
-
-| Date | SKU | Gross Qty | Refund Qty | Net Qty | GRN Rec | Opening Stock | Closing Stock | StockOutFlag |
-|------|-----|-----------|------------|---------|---------|---------------|---------------|--------------|
-| 2025-01-01 | SKU-101 | 5 | 0 | 5 | 0 | 12 | 7 | 0 |
-| 2025-01-02 | SKU-101 | 0 | 0 | 0 | 0 | 7 | 7 | 0 |
-| 2025-01-03 | SKU-101 | 0 | 0 | 0 | 0 | 7 | 7 | 0 |
-| 2025-01-04 | SKU-101 | 2 | 0 | 2 | 0 | 7 | 5 | 0 |
-
----
-
-## 9. Feature Engineering
-
-*`ai-service/app/services/feature_engineering.py → calculate_product_features()`*
-
-All features are calculated using historical panel data strictly before `target_month_start` to guarantee **no data leakage**.
-
-### Extracted Demand Features
-
-| Feature Name | Formula / Calculation Method | Purpose | Source Function |
-|--------------|------------------------------|---------|-----------------|
-| `usableHistoryDays` | `len(group)` | Total days of panel data available | `calculate_product_features()`:94 |
-| `completeHistoryMonths` | `nunique(year_month)` | Count of complete calendar months | `calculate_product_features()`:98 |
-| `dataQuality` | `GOOD` (≥12m), `MODERATE` (≥6m), `LIMITED` (<6m) | Quality classification grade | `calculate_product_features()`:101–106 |
-| `recent30Sales` | $\sum \text{NetSold}_{t-29}^{t}$ | Recent 30-day net sales volume | `calculate_product_features()`:110 |
-| `previous30Sales` | $\sum \text{NetSold}_{t-59}^{t-30}$ | Previous 30-day net sales volume | `calculate_product_features()`:114 |
-| `recentGrowthPercentage` | $\frac{\text{recent30} - \text{prev30}}{\text{prev30}} \times 100$ | Short-term momentum growth rate | `calculate_product_features()`:119 |
-| `threeMonthAverage` | Mean of last 3 monthly sales totals | 3-month baseline demand | `calculate_product_features()`:126 |
-| `sixMonthAverage` | Mean of last 6 monthly sales totals | 6-month baseline demand | `calculate_product_features()`:129 |
-| `twelveMonthAverage` | Mean of last 12 monthly sales totals | 12-month baseline demand | `calculate_product_features()`:132 |
-| `sameMonthHistoricalAverage` | Mean sales in target month across past years | Seasonal baseline comparison | `calculate_product_features()`:144 |
-| `seasonalUpliftPercentage` | $\frac{\text{sameMonthAvg} - \text{overallMonthlyAvg}}{\text{overallMonthlyAvg}} \times 100$ | Target month seasonal uplift | `calculate_product_features()`:149 |
-| `coefficientOfVariation` | $\frac{\sigma_{\text{daily}}}{\mu_{\text{daily}}}$ | Demand variability indicator | `calculate_product_features()`:136 |
-| `discountUpliftPercentage` | $\frac{\bar{X}_{\text{discount}} - \bar{X}_{\text{normal}}}{\bar{X}_{\text{normal}}} \times 100$ | Promotional price sensitivity | `calculate_product_features()`:170 |
-| `refundRate` | $\frac{\text{Total Refund Qty}}{\text{Total Gross Qty}}$ | Product return rate ratio | `calculate_product_features()`:182 |
-| `stockOutDays` | $\sum \text{stockOutFlag}$ | Count of historical out-of-stock days | `calculate_product_features()`:185 |
-| `stockOutRatio` | $\frac{\text{stockOutDays}}{\text{usableHistoryDays}}$ | Proportion of out-of-stock days | `calculate_product_features()`:186 |
-| `zeroSalesRatio` | $\frac{\text{In-Stock Zero Sales Days}}{\text{Total In-Stock Days}}$ | Intermittency frequency ratio | `calculate_product_features()`:192 |
-| `averageDemandInterval` | Mean days between non-zero sale occurrences | Croston intermittency interval | `calculate_product_features()`:198 |
-| `trendSlope` | Ordinary Least Squares (OLS) slope on monthly sales | Long-term directional trend slope | `calculate_product_features()`:210 |
+| Feature Name | Exact Formula / Source | Window / Scope | Business Purpose |
+| :--- | :--- | :--- | :--- |
+| `usableHistoryDays` | `Total days between first sale and cutoff` | Lifetime | Evaluates data sufficiency |
+| `completeHistoryMonths`| `floor(usableHistoryDays / 30.4375)` | Lifetime | Evaluates seasonal model eligibility |
+| `recent30Sales` | $\sum_{t=cutoff-29}^{cutoff} \text{NetSales}_t$ | Latest 30 Days | Captures current demand level |
+| `previous30Sales` | $\sum_{t=cutoff-59}^{cutoff-30} \text{NetSales}_t$ | Prior 30 Days | Baseline for growth rate |
+| `recentGrowthPercentage`| `((recent30Sales - previous30Sales) / previous30Sales) * 100` | 60-Day Comparison | Quantifies short-term trend growth |
+| `threeMonthAverage` | `(3-Month Total Net Sales) / 3.0` | Latest 90 Days | Smooth short-term baseline |
+| `sixMonthAverage` | `(6-Month Total Net Sales) / 6.0` | Latest 180 Days | Mid-term demand baseline |
+| `twelveMonthAverage` | `(12-Month Total Net Sales) / 12.0` | Latest 365 Days | Annualized baseline |
+| `sameMonthHistoricalAverage`| `Mean sales in same calendar month across past years` | Comparable Months | Detects recurring annual seasonality |
+| `seasonalUpliftPercentage`| `((sameMonthAvg - twelveMonthAvg) / twelveMonthAvg) * 100` | Month vs Year | Quantifies seasonal boost |
+| `discountUpliftPercentage`| `((DiscountedDailyAvg - NormalDailyAvg) / NormalDailyAvg) * 100` | Historical Promotions | Quantifies promotional price elasticity |
+| `refundQuantity` | $\sum \text{RefundUnits}$ | Lifetime | Measures product returns |
+| `refundRate` | `refundQuantity / GrossSalesUnits` | Lifetime | Identifies quality/return issues |
+| `stockOutDays` | $\sum \text{stockOutFlag}$ | Lifetime | Counts inventory depletion days |
+| `stockOutRatio` | `stockOutDays / totalHistoryDays` | Lifetime | Measures inventory availability risk |
+| `zeroSalesRatio` | `Count(sales == 0) / totalHistoryDays` | Lifetime | Identifies sparse / intermittent items |
+| `coefficientOfVariation`| `StdDev(DailySales) / Mean(DailySales)` | Lifetime | Quantifies demand volatility |
+| `averageDemandInterval`| `Mean(Days between non-zero sales)` | Lifetime | Evaluates Croston intermittent suitability |
+| `trendSlope` | Linear slope of daily sales over time | Lifetime | Detects upward/downward direction |
 
 ---
 
-## 10. Sales Velocity Classification
+## 11. Recent Growth Rate Calculation
 
-Velocity is evaluated in `AiDemandTab.tsx` and `combo_generator.py` using sales volume and coverage thresholds:
-
-```python
-# Sales Velocity Classification Logic
-if recent_30_sales == 0 and current_stock > 0:
-    velocity = "DEAD"
-elif coverage_days > 60 or (behavior == "INTERMITTENT" and predicted_demand < current_stock / 2):
-    velocity = "SLOW"
-elif coverage_days > 90 and current_stock > required_stock:
-    velocity = "MEDIUM"  # Overstock risk
-else:
-    velocity = "FAST"
+### Formula
+```text
+Recent Growth % = ((Recent 30 Sales - Previous 30 Sales) / max(1.0, Previous 30 Sales)) * 100.0
 ```
 
+### Zero Sales Fallback Rule
+If `Previous 30 Sales == 0`:
+- If `Recent 30 Sales > 0`: Growth rate is clamped to `+100.0%` (indicating new demand emergence).
+- If `Recent 30 Sales == 0`: Growth rate is set to `0.0%` (flat zero demand).
+
 ---
 
-## 11. Demand Behaviour Classification
+## 12. Same-Month Historical Demand Metric
 
-*`ai-service/app/services/product_profiler.py → classify_product_demand()`*
+When predicting demand for Target Month $M$ (e.g. August 2026), the system filters historical data for identical calendar months (August 2023, August 2024, August 2025):
 
-Demand behavior is classified using a prioritized multi-label decision hierarchy:
-
-```python
-# Decision Hierarchy for Primary Behaviour Assignment
-if complete_history_months < 6:
-    primary = "LIMITED_HISTORY"
-elif zero_sales_ratio >= 0.70:
-    primary = "INTERMITTENT"
-elif seasonal_uplift >= 20.0 and (repeated_seasonality_years >= 2 or complete_months < 24):
-    primary = "SEASONAL"
-elif recentGrowthPercentage >= 15.0 and three_month_avg >= six_month_avg * 1.10 and trend_slope > 0:
-    primary = "TRENDING_UP"
-elif recentGrowthPercentage <= -15.0 and three_month_avg < six_month_avg and trend_slope < 0:
-    primary = "TRENDING_DOWN"
-elif coefficientOfVariation >= 0.75:
-    primary = "HIGH_VARIABILITY"
-elif discountUpliftPercentage >= 25.0:
-    primary = "DISCOUNT_SENSITIVE"
-else:
-    primary = "STABLE"
+```text
+Same-Month Historical Avg = Mean(Monthly Sales sum in Month M across prior years)
 ```
 
-### Trend Direction Assignment
-- `UP`: `recentGrowthPercentage >= 15.0` AND `trend_slope > 0`
-- `DOWN`: `recentGrowthPercentage <= -15.0` AND `trend_slope < 0`
-- `FLAT`: All other cases
+- **Requirement**: Requires at least 12 months of complete history. If less than 12 months exist, `sameMonthHistoricalAverage` returns `None` / `N/A`.
 
 ---
 
-## 12. Candidate Forecasting Models
+## 13. Discount Uplift & Promotion Impact
 
-The module implements **6 distinct forecasting algorithms** across `ai-service/app/models/`:
+The system analyzes past sales during approved promotions vs normal periods:
 
-| Model Name | Class / File | Suitable Profile | Model Mechanism | Key Hyperparameters |
-|------------|-------------|------------------|-----------------|---------------------|
-| **Moving Average** | `MovingAverageModel`<br>`models/moving_average.py` | Baseline, STABLE, Fallback | Predicts mean daily sales of last N days multiplied by horizon | `window_days=90` (or `30`) |
-| **Seasonal Naive** | `SeasonalNaiveModel`<br>`models/seasonal_naive.py` | SEASONAL | Uses daily sales from the exact same month in the prior year | `target_month` |
-| **Linear Regression** | `LinearRegressionModel`<br>`models/linear_regression.py` | TRENDING_UP, TRENDING_DOWN, STABLE | OLS regression on day index, day of week, month, and weekend flags | `window_days=180` |
-| **Random Forest** | `RandomForestModel`<br>`models/random_forest.py` | STABLE, SEASONAL, TRENDING, HIGH_VARIABILITY | Scikit-learn RandomForestRegressor on calendar features & lag features | `n_estimators=50`, `max_depth=6`, `random_state=42` |
-| **Gradient Boosting** | `GradientBoostingModel`<br>`models/gradient_boosting.py` | SEASONAL, TRENDING, HIGH_VARIABILITY | Scikit-learn GradientBoostingRegressor on engineered features | `n_estimators=50`, `max_depth=4`, `learning_rate=0.1` |
-| **Croston Method** | `CrostonModel`<br>`models/croston.py` | INTERMITTENT | Separately updates exponential smoothing on demand size ($z$) and inter-arrival interval ($p$). Forecast = $z / p$ | $\alpha = 0.15$ |
+### Formula
+```text
+Normal Daily Avg     = Mean(Daily Sales when discount_applied == False)
+Discount Daily Avg   = Mean(Daily Sales when discount_applied == True)
+Discount Uplift %    = max(0.0, ((Discount Daily Avg - Normal Daily Avg) / Normal Daily Avg) * 100.0)
+```
+
+- **Cap Protection**: Discount uplift applied to baseline models (Moving Average, Seasonal Naive) is capped at **`50.0%`** (`MAX_DISCOUNT_UPLIFT_CAP`) to prevent unrealistic demand spikes.
+- **UI Differentiation**: The UI distinguishes between `0.0%` (promotions existed but showed no uplift) and `N/A` (insufficient promotion history).
 
 ---
 
-## 13. Model Candidate Selection
+## 14. Demand Behaviour Profiling
 
-*`ai-service/app/services/model_selector.py → select_best_model()`*
+Every SKU is assigned a primary demand behavior tag and optional secondary tags in `product_profiler.py`:
 
-Candidate models are dynamically filtered based on the SKU's assigned demand profile:
+| Behavior Tag | Exact Classification Criteria | Business Interpretation |
+| :--- | :--- | :--- |
+| `LIMITED_HISTORY` | `completeHistoryMonths < 6` OR `usableHistoryDays < 90` | Insufficient data; use simple baselines |
+| `INTERMITTENT` | `zeroSalesRatio >= 0.40` AND `averageDemandInterval >= 1.5` | Sparse demand with frequent zero-sales days |
+| `HIGH_VARIABILITY` | `coefficientOfVariation > 0.80` | Highly volatile demand; difficult to predict |
+| `SEASONAL` | `abs(seasonalUpliftPercentage) >= 15.0` AND `completeMonths >= 12` | Strong annual seasonal cycle |
+| `TRENDING_UP` | `recentGrowthPercentage >= 15.0` AND `trendSlope > 0` | Sustained sales expansion |
+| `TRENDING_DOWN` | `recentGrowthPercentage <= -15.0` AND `trendSlope < 0` | Sustained sales decline |
+| `DISCOUNT_SENSITIVE`| `discountUpliftPercentage >= 15.0` | Highly responsive to promotional pricing |
+| `STABLE` | None of the above criteria satisfied | Regular, steady baseline demand |
 
-| Demand Behaviour Profile | Candidate Models Tested |
-|--------------------------|-------------------------|
-| `LIMITED_HISTORY` (<45 days) | Moving Average (window=30) — *Skip backtesting fallback* |
-| `STABLE` | Moving Average, Linear Regression, Random Forest |
-| `SEASONAL` | Moving Average, Seasonal Naive, Random Forest, Gradient Boosting |
-| `TRENDING_UP` / `TRENDING_DOWN` | Moving Average, Linear Regression, Random Forest, Gradient Boosting |
-| `INTERMITTENT` | Moving Average, Croston |
+### Primary Tag Precedence Order
+1. `LIMITED_HISTORY`
+2. `INTERMITTENT`
+3. `HIGH_VARIABILITY`
+4. `SEASONAL`
+5. `TRENDING_UP` / `TRENDING_DOWN`
+6. `DISCOUNT_SENSITIVE`
+7. `STABLE`
+
+---
+
+## 15. Data Quality Classification
+
+Data Quality measures historical record completeness, completely separate from forecast accuracy:
+
+- **`GOOD`**: `usableHistoryDays >= 180` AND `completeHistoryMonths >= 6` AND `stockOutRatio < 0.20`.
+- **`MODERATE`**: `usableHistoryDays >= 90` AND `completeHistoryMonths >= 3`.
+- **`LIMITED`**: `usableHistoryDays < 90` OR `completeHistoryMonths < 3`.
+
+> **Key Distinction**: `Data Quality = GOOD` means complete, reliable historical records exist. It does NOT guarantee high forecast accuracy if the product has volatile demand (`HIGH_VARIABILITY`).
+
+---
+
+## 16. Candidate Forecasting ML Models
+
+The system implements 6 distinct forecasting algorithms:
+
+1. **Moving Average**: Rolling average of daily sales over 30, 60, or 90 days. Ideal for stable, low-history items.
+2. **Seasonal Naive**: Uses sales from the same calendar month of the previous year. Ideal for seasonal items.
+3. **Linear Regression**: Ordinary least squares regression on trend, day-of-week, and discount features.
+4. **Random Forest**: Ensemble of 50 decision trees (`max_depth=6`). Captures complex non-linear feature interactions.
+5. **Gradient Boosting**: Sequential boosted decision trees (`n_estimators=50`, `learning_rate=0.1`, `max_depth=4`).
+6. **Croston’s Method**: Decomposes intermittent sales into non-zero demand size and inter-arrival intervals (`alpha=0.15`).
+
+---
+
+## 17. Candidate Model Filtering Rules
+
+To optimize execution speed and prevent overfitting, candidates are filtered based on demand behavior:
+
+| Primary Demand Behaviour | Evaluated Model Candidates |
+| :--- | :--- |
+| `LIMITED_HISTORY` | Moving Average |
+| `INTERMITTENT` | Croston, Moving Average |
+| `SEASONAL` | Seasonal Naive, Moving Average, Gradient Boosting |
 | `HIGH_VARIABILITY` | Moving Average, Random Forest, Gradient Boosting |
-| Default / Unmapped | Moving Average, Seasonal Naive, Linear Regression, Random Forest, Gradient Boosting |
+| `TRENDING_UP` / `DOWN` | Linear Regression, Gradient Boosting, Moving Average |
+| `STABLE` / Default | Moving Average, Linear Regression, Random Forest, Gradient Boosting |
 
 ---
 
-## 14. Walk-Forward Validation
+## 18. Walk-Forward Validation (Backtesting)
 
-*`ai-service/app/services/backtesting.py → run_backtest_on_product()`*
+Models are evaluated using **3-window sliding walk-forward cross-validation** in `backtesting.py`:
 
-Models are evaluated using **walk-forward backtesting** across up to 3 sliding calendar-month validation windows. Data is strictly ordered chronologically (no random train-test splitting).
-
-```
-Window 1: Train [2023-01 to 2025-10] -> Validate [2025-11]
-Window 2: Train [2023-01 to 2025-11] -> Validate [2025-12]
-Window 3: Train [2023-01 to 2025-12] -> Validate [2026-01]
+```text
+Window 1: Train [2023-01-01 to Cutoff - 90d] → Test [Cutoff - 90d to Cutoff - 60d]
+Window 2: Train [2023-01-01 to Cutoff - 60d] → Test [Cutoff - 60d to Cutoff - 30d]
+Window 3: Train [2023-01-01 to Cutoff - 30d] → Test [Cutoff - 30d to Cutoff]
 ```
 
-```python
-# Number of backtest windows scales with history length:
-if total_months < 6:
-    n_windows = 1
-elif total_months < 9:
-    n_windows = 2
-else:
-    n_windows = 3
-```
+Average error metrics are computed across all 3 validation windows.
 
 ---
 
-## 15. Error Metrics
+## 19. Statistical Validation Error Metrics
 
-*`ai-service/app/services/backtesting.py`*
-
-### 1. Weighted Absolute Percentage Error (WAPE)
-$$\text{WAPE} = \frac{\sum_{t} |y_t - \hat{y}_t|}{\sum_{t} y_t}$$
-*Zero-demand handling:* If $\sum y_t = 0$, returns `0.0` if $\sum \hat{y}_t = 0$, else returns `1.0`.
+### 1. Weighted Absolute Percentage Error (WAPE) — Primary Metric
+$$\text{WAPE} = \frac{\sum_{t=1}^{N} |y_t - \hat{y}_t|}{\sum_{t=1}^{N} y_t}$$
+*Why Primary*: Unlike MAPE, WAPE does not blow up to infinity when actual daily sales $y_t = 0$.
 
 ### 2. Mean Absolute Error (MAE)
 $$\text{MAE} = \frac{1}{N} \sum_{t=1}^{N} |y_t - \hat{y}_t|$$
@@ -595,374 +376,369 @@ $$\text{RMSE} = \sqrt{\frac{1}{N} \sum_{t=1}^{N} (y_t - \hat{y}_t)^2}$$
 
 ---
 
-## 16. Best Model Selection
+## 20. Best Model Selection Logic
 
-*`ai-service/app/services/model_selector.py → select_best_model()`*
+In `model_selector.py`, candidate models are ranked by validation WAPE:
 
-### Selection Pseudocode
+1. The model with the lowest average WAPE is initially selected as the top candidate.
+2. **Complexity Penalty Rule**: Complex ML models (Random Forest, Gradient Boosting) are only selected over simple Moving Average if their validation WAPE is at least **5% better**:
+   $$\text{WAPE}_{\text{Complex}} < \text{WAPE}_{\text{MovingAverage}} \times 0.95$$
+3. If no candidate model completes validation successfully, the system safely falls back to **Moving Average** (`window=90`).
 
-```python
-# 1. Select candidate model with lowest backtest WAPE
-best_model_name = "Moving Average"
-best_wape = 999.0
+---
 
-for model_name in eligible_models:
-    wape = backtest_errs[model_name]["WAPE"]
-    if wape < best_wape:
-        best_wape = wape
-        best_model_name = model_name
+## 21. Final Monthly Demand Forecast Generation
 
-# 2. Parsimonious Rule: Complex ML models must beat Moving Average baseline by at least 5% WAPE
-baseline_wape = backtest_errs.get("Moving Average", {}).get("WAPE", 999.0)
+1. The selected best model is refit on the full historical dataset up to `cutoff_date`.
+2. Daily demand predictions $\hat{y}_d$ are generated for every day $d$ in the Target Month.
+3. **Clipping**: Negative daily predictions are clipped to zero: $\hat{y}_d = \max(0.0, \hat{y}_d)$.
+4. **Aggregation & Rounding**:
+   $$\text{Predicted Demand} = \text{round}\left(\max\left(0.0, \sum_{d \in \text{TargetMonth}} \hat{y}_d\right)\right)$$
 
-if best_model_name in ["Random Forest", "Gradient Boosting"] and baseline_wape != 999.0:
-    if best_wape >= baseline_wape * 0.95:  # Less than 5% relative improvement
-        best_model_name = "Moving Average"
-        best_wape = baseline_wape
+---
 
-# 3. Accuracy Score Calculation
-accuracy_score = max(0.0, 100.0 - (best_wape * 100.0))
+## 22. Safety Stock Calculation
 
-# 4. Refit selected model on full historical dataset up to cutoff date
-model_instance.fit(full_product_history)
+Safety stock provides a buffer against unexpected demand surges or supply chain delays.
+
+### Formula
+```text
+Safety Stock = ceil(Predicted Demand × Safety Stock Percentage)
+```
+- **Default Percentage**: `0.15` (15%).
+- **Configurability**: Loaded dynamically from `system_settings` table (`key = 'safety_stock_percentage'`) if configured.
+
+---
+
+## 23. Required Stock Calculation
+
+Required stock represents the total inventory needed to satisfy predicted customer demand plus safety buffer for the target month.
+
+### Formula
+```text
+Required Stock = Predicted Demand + Safety Stock
 ```
 
 ---
 
-## 17. Final Demand Prediction
+## 24. Forecast Coverage Days Standardisation
 
-*`ai-service/app/services/forecast_engine.py` (lines 182–195)*
+Primary coverage days are calculated strictly against **Forecast Daily Demand** for the target calendar month:
 
-1. The fitted model instance predicts daily demand over all dates in the target month (`prod_future_df`).
-2. Daily predictions are summed to produce monthly demand:
-   $$\text{Predicted Demand} = \text{round}\left(\max\left(0, \sum_{d \in \text{Target Month}} \hat{y}_d\right)\right)$$
-3. **Integer Rounding**: Final predicted unit demand is converted to non-negative integer.
+### Formulas
+```text
+Target Month Days     = calendar.monthrange(Year, Month)[1]  (28, 29, 30, or 31)
+Forecast Daily Demand = Predicted Demand / Target Month Days
+Forecast Coverage     = Current Stock / Forecast Daily Demand
+```
 
----
-
-## 18. Discount and Promotion Impact
-
-*`ai-service/app/services/forecast_engine.py` (lines 186–193)*
-
-If a discount campaign is scheduled during the target month and a baseline model (`Moving Average`, `Seasonal Naive`, or `Croston`) was selected, deterministic discount uplift is applied:
-
-$$\text{Adjusted Demand} = \text{Predicted Demand} \times \left(1.0 + \frac{\min(\text{Historical Discount Uplift \%}, 50.0)}{100.0}\right)$$
-
-*Constraint:* Uplift adjustment is capped at `MAX_DISCOUNT_UPLIFT_CAP = 50.0%` to prevent unrealistic demand inflation.
+- **Zero Demand Protection**: If `Forecast Daily Demand <= 0.0001`, `stock_coverage` is assigned a safe value of `999.0` days (displayed in UI as `>90d`).
 
 ---
 
-## 19. Safety Stock Calculation
+## 25. Confirmed Incoming Stock Handling
 
-*`ai-service/app/services/recommendation_engine.py → calculate_recommendation()`*
+Confirmed incoming stock includes inventory expected before or during the target month:
 
-$$\text{Safety Stock} = \left\lceil \text{Predicted Demand} \times \text{Safety Stock Percentage} \right\rceil$$
-
-- Default `safety_stock_pct = 0.15` (15%).
-- Override: Read from database `system_settings` table where `key = 'safety_stock_percentage'` if present (`forecast_engine.py:82`).
-
----
-
-## 20. Required Stock and Reorder Quantity
-
-*`ai-service/app/services/recommendation_engine.py → calculate_recommendation()`*
-
-### Required Stock
-$$\text{Required Stock} = \text{Predicted Demand} + \text{Safety Stock}$$
-
-### Recommended Order Quantity
-$$\text{Recommended Order Qty} = \max(0, \text{Required Stock} - \text{Current Stock} - \text{Confirmed Incoming Stock})$$
-
-### Stock Coverage Days
-$$\text{Stock Coverage Days} = \begin{cases} \frac{\text{Current Stock}}{\text{Average Daily Sales}}, & \text{if Average Daily Sales} > 0.001 \\ 999.0, & \text{otherwise} \end{cases}$$
-
----
-
-## 21. Inventory Status Classification
-
-*`ai-service/app/services/recommendation_engine.py → calculate_recommendation()`*
-
-```python
-is_critical = (
-    (current_stock < predicted_demand or current_stock < required_stock) and 
-    recommended_qty > 0 and 
-    (stock_coverage < 12.0 or current_stock == 0)
-)
-
-is_overstock = (
-    current_stock > max(required_stock, 10) * 1.50 and 
-    stock_coverage > 45.0 and
-    not is_critical
-)
-
-if is_critical:
-    status = "CRITICAL_ACTION"
-elif is_overstock:
-    status = "OVERSTOCK_RISK"
-else:
-    status = "SUFFICIENT"
+### Formula
+```text
+Confirmed Incoming Stock = 0  (Default baseline unless integrated with pending GRN / PO module)
 ```
 
 ---
 
-## 22. Explanation Engine
+## 26. Recommended Purchase Order Quantity
 
-*`ai-service/app/services/explanation_engine.py → generate_forecast_explanation()`*
+The deterministic purchase order recommendation formula:
 
-Generates a natural language justification string interpolating exact calculated metrics:
+### Formula
+```text
+Recommended Order = max(0, Required Stock - Current Stock - Confirmed Incoming Stock)
+```
 
-### Sample Generated Explanation
-> *"The selected Moving Average model achieved a validation WAPE of 14.2%. Sales increased by 18.5% during the most recent 30-day period compared to the previous 30 days. Demand for this product is historically 22.0% higher in February. The product was out of stock for 4 days, so recorded sales may understate demand. Current stock is expected to last approximately 8 days. An estimated 145 units should be reordered, including a 15% safety stock allowance (23 units)."*
-
----
-
-## 23. API Implementation
-
-### Python FastAPI Service (`ai-service/app/api/demand_forecast_routes.py`)
-
-| Method | Endpoint Path | Request Payload / Params | Response Model | Description |
-|--------|---------------|--------------------------|----------------|-------------|
-| `POST` | `/api/ai-demand/forecast` | `{ targetMonth, force, regenerate, triggerType }` | `ForecastRunResponse` | Triggers complete monthly forecasting execution |
-| `GET` | `/api/ai-demand/forecast/latest` | None | `LatestRunResponse` | Returns metadata of most recent COMPLETED run |
-| `GET` | `/api/ai-demand/forecast/month/{month}` | `month` (YYYY-MM) | `LatestRunResponse` | Returns metadata of run for specific month |
-| `GET` | `/api/ai-demand/forecast/{runId}` | `search, status, category, sortBy, sortOrder, page, limit` | `RunDetailsResponse` | Paginated product forecasts for a run |
-| `GET` | `/api/ai-demand/forecast/{runId}/product/{sku}` | `runId, sku` | `ProductForecastDetail` | Complete metrics & backtests for a single SKU |
-
-### Express Backend Proxy (`backend/src/routes/aiDemandRoutes.ts`)
-
-| Method | Express Route | Role Auth | Target Controller Method |
-|--------|--------------|-----------|--------------------------|
-| `POST` | `/api/ai-demand/forecast` | `ADMIN`, `INVENTORY_MANAGER` | `generateForecast` |
-| `GET` | `/api/ai-demand/forecast/latest` | `ADMIN`, `INVENTORY_MANAGER` | `getLatestForecastRun` |
-| `GET` | `/api/ai-demand/forecast/month/:month` | `ADMIN`, `INVENTORY_MANAGER` | `getForecastRunByMonth` |
-| `GET` | `/api/ai-demand/forecast/history` | `ADMIN`, `INVENTORY_MANAGER` | `getForecastHistory` |
-| `GET` | `/api/ai-demand/forecast/:runId` | `ADMIN`, `INVENTORY_MANAGER` | `getForecastRunDetails` |
-| `GET` | `/api/ai-demand/forecast/:runId/product/:sku` | `ADMIN`, `INVENTORY_MANAGER` | `getProductForecastDetail` |
+### Numerical Examples
+- **Example A**: Required = 147, Current = 64, Incoming = 0 $\rightarrow$ `Recommended Order = 83`.
+- **Example B**: Required = 150, Current = 80, Incoming = 40 $\rightarrow$ `Recommended Order = 30`.
+- **Example C**: Required = 158, Current = 183, Incoming = 0 $\rightarrow$ `Recommended Order = 0`.
 
 ---
 
-## 24. Scheduler and Automation
+## 27. Inventory Status Classification (4-Tier)
 
-*`backend/src/services/forecastScheduler.ts`*
+In `recommendation_engine.py`, inventory risk is classified into one of 4 statuses:
 
-- **Mechanism**: Node.js `setInterval` executing every 1 hour (`CHECK_INTERVAL_MS = 3600000`).
-- **Schedule Condition**: Checks if current local day is 1st of month AND hour is `01:00 AM`.
-- **Duplicate Prevention**: Queries `demand_forecast_runs` table for existing `COMPLETED` or `RUNNING` status for target month before issuing HTTP POST request.
-- **Trigger Type**: Sets `triggerType: 'SCHEDULED'`.
+```mermaid
+graph TD
+    Start["Evaluate SKU Inventory"] --> Cond1{"Current Stock < Required Stock\nAND Order > 0?"}
+    Cond1 -- Yes --> Cond2{"Coverage < 12 Days\nOR Current Stock == 0?"}
+    Cond2 -- Yes --> Status1["CRITICAL_ACTION (Rose)"]
+    Cond2 -- No --> Status2["REORDER_REQUIRED (Amber)"]
+    Cond1 -- No --> Cond3{"Current Stock > Required Stock * 1.5\nAND Coverage > 45 Days?"}
+    Cond3 -- Yes --> Status3["OVERSTOCK_RISK (Blue)"]
+    Cond3 -- No --> Status4["SUFFICIENT (Emerald)"]
+```
 
----
+### Classification Rules Table
 
-## 25. Frontend Implementation
-
-*`frontend/src/pages/inventory/AiDemandForecasting/AiDemandForecastingPage.tsx`*
-
-### UI Dashboard Components & Features
-1. **Run Selector Header**: Dropdown listing historical completed forecast runs sorted by date.
-2. **KPI Summary Cards**: Total SKUs Processed, Critical Reorder Alerts, Overstock Alerts, Average Model Accuracy %.
-3. **Filter & Search Toolbar**: Real-time SKU/name search input, Category dropdown filter, Status tab filter (`ALL`, `CRITICAL_ACTION`, `SUFFICIENT`, `OVERSTOCK_RISK`), Sort selector.
-4. **Forecast Table Grid**: SKU, Product Name, Category, Current Stock, Stock Coverage (days), Predicted Demand, Recommended Order Qty, Selected Model Badge, Accuracy %, Status Badge, Action ("View Detail").
-5. **Product Detail Modal**: Single SKU deep dive displaying recent growth, 3m/6m/12m averages, refund counts, stock-out days, WAPE score, reliability grade, and English explanation text.
-6. **Generate Modal**: Date picker (`YYYY-MM`) with "Force Regenerate" checkbox.
-
----
-
-## 26. Versioning and Auditability
-
-- **Run Versioning**: Incremented automatically per target month via `db_operations.py → create_initial_run()`:
-  ```sql
-  SELECT COALESCE(MAX(version), 0) + 1 FROM demand_forecast_runs WHERE target_month = :target_month
-  ```
-- **Audit Logging**: Logs `trigger_type` (`MANUAL` vs `SCHEDULED`), `requested_by` (user ID), `started_at`, `completed_at`, and `configuration_snapshot` (JSON string containing safety stock % and uplift caps).
+| Status Name | Color Badge | Exact Code Criteria | Business Meaning | Recommended Action |
+| :--- | :--- | :--- | :--- | :--- |
+| **`CRITICAL_ACTION`** | Rose / Red | `Current Stock < Required Stock` AND `Order > 0` AND (`Coverage < 12.0` OR `Current Stock == 0`) | Product is out of stock or close to stock-out | Immediate expedited purchase order required |
+| **`REORDER_REQUIRED`**| Amber | `Current Stock < Required Stock` AND `Order > 0` AND `Coverage >= 12.0` | Stock is available but will not cover next month's required inventory | Place standard replenishment reorder |
+| **`SUFFICIENT`** | Emerald | `Current Stock >= Required Stock` AND NOT Overstock Risk | Current inventory covers predicted demand and safety stock | No order needed; maintain current stock |
+| **`OVERSTOCK_RISK`** | Blue | `Current Stock > max(Required Stock, 10) * 1.50` AND `Coverage > 45.0` AND NOT Critical | Stock significantly exceeds demand and buffer thresholds | Pause reorders; consider promotion or discount |
 
 ---
 
-## 27. Error Handling and Failure Recovery
+## 28. Stock vs Required Percentage Metric
 
-1. **Pipeline Execution Failure**: Wrapped in `try...except` block in `demand_forecast_routes.py:86`. Calls `mark_run_failed(db, run_id, str(e))` to log error message and set run status to `FAILED`.
-2. **Individual SKU Model Failure**: Wrapped in `try...except` block inside product loop (`forecast_engine.py:271`). Increments `fail_count` and continues processing remaining SKUs.
-3. **AI Service Unavailable**: Express proxy (`aiDemandController.ts:34`) catches fetch failures and returns HTTP 500 JSON `{ success: false, message: 'AI service is currently unavailable.' }`.
+Calculated and exposed via API to explain why products receive different status classifications:
 
----
+### Formula
+```text
+Stock vs Required % = (Current Stock / Required Stock) * 100.0
+```
 
-## 28. Testing
-
-*`ai-service/tests/test_forecasting.py`*
-
-The project includes **10 automated Pytest unit tests**:
-
-| Test Name | File | Purpose | Verification Status |
-|-----------|------|---------|---------------------|
-| `test_net_sales_after_refunds` | `test_forecasting.py:19` | Verifies net sales formula capping at 0 when refunds exceed gross | ✅ PASSED |
-| `test_missing_date_generation` | `test_forecasting.py:32` | Verifies complete daily panel generation for missing date gaps | ✅ PASSED |
-| `test_stock_out_handling_and_reconstruction` | `test_forecasting.py:72` | Verifies backward stock reconstruction and opening stock calculation | ✅ PASSED |
-| `test_growth_calculation_with_prev_zero` | `test_forecasting.py:106` | Verifies growth returns `None` when previous sales are zero | ✅ PASSED |
-| `test_seasonality_and_variation` | `test_forecasting.py:123` | Verifies seasonal uplift % and Coefficient of Variation formulas | ✅ PASSED |
-| `test_behaviour_classifier` | `test_forecasting.py:139` | Verifies multi-label demand behavior classification | ✅ PASSED |
-| `test_croston_method` | `test_forecasting.py:159` | Verifies Croston prediction output for sparse intermittent sales | ✅ PASSED |
-| `test_walk_forward_and_selector` | `test_forecasting.py:178` | Verifies 3-window walk-forward validation and model selector | ✅ PASSED |
-| `test_safety_stock_and_reorder` | `test_forecasting.py:209` | Verifies safety stock `ceil()`, required stock, and reorder formula | ✅ PASSED |
-| `test_explanation_verification` | `test_forecasting.py:228` | Verifies natural language explanation string interpolation | ✅ PASSED |
+- **Example**: Product A (`Stock=218`, `Required=151` $\rightarrow$ `144%`) is `SUFFICIENT`, while Product B (`Stock=268`, `Required=145` $\rightarrow$ `185%`) triggers `OVERSTOCK_RISK` because it exceeds the 150% threshold.
 
 ---
 
-## 29. Security and Data Integrity
+## 29. Forecast Confidence & Low-Confidence Warnings
 
-- **Authentication & RBAC**: Express routes protected by `authenticate` and `requireRole('ADMIN', 'INVENTORY_MANAGER')` middleware (`aiDemandRoutes.ts`).
-- **SQL Injection Safeguards**: FastAPI uses SQLAlchemy `text()` with named parameters (`:run_id`, `:target_month`). Express uses Prisma ORM query builder.
-- **XSS Protection**: Body payloads sanitized via `express-xss-sanitizer` middleware (`app.ts:41`).
+Reliability level is evaluated in `model_selector.py`:
 
----
+- **`HIGH`**: `WAPE <= 0.20` AND `Error Stability <= 0.10` AND `History Days >= 180` AND `Zero Sales Ratio < 0.50`.
+- **`LOW`**: `WAPE >= 0.50` OR `History Days < 90` OR `Error Stability > 0.25`.
+- **`MEDIUM`**: All other conditions.
 
-## 30. Performance and Scalability
-
-- **Database Ingestion**: SQLAlchemy loads historical sales for all products in a single bulk query (`load_daily_sales_df`).
-- **Pandas Vectorization**: Daily panel creation and feature calculations use vectorized Pandas DataFrame operations.
-- **Batch DB Writes**: Predictions and analysis rows are inserted via multi-row SQL INSERT statements (`db_operations.py`).
-
-> ⚠️ **Bottleneck**: Individual model training and walk-forward validation run sequentially inside a Python `for` loop over products (`forecast_engine.py:127`). For catalog sizes > 5,000 SKUs, this sequential loop will cause HTTP timeouts unless converted to asynchronous background task queues (e.g., Celery / Redis).
+### Low-Confidence Recommendation Handling
+When `reliabilityLevel == 'LOW'`, the numeric `Recommended Order` is **NOT** modified or suppressed. Instead, a prominent **`⚠ LOW CONFIDENCE FORECAST`** warning callout banner is rendered in the UI advising manager review before placing the order.
 
 ---
 
-## 31. Actual Implementation vs Intended Design
+## 30. Rule-Based Evidence Explanation Engine
 
-| Requirement | Intended Behaviour | Actual Implementation | Status | Evidence |
-|------------|--------------------|----------------------|--------|----------|
-| Historical Range | 3 Years of sales history | Hardcoded start date `2023-01-01` | **IMPLEMENTED DIFFERENTLY** | `forecast_engine.py:67` |
-| Cutoff Date | End of month prior to target | `target_month_date - timedelta(days=1)` | **IMPLEMENTED** | `forecast_engine.py:48` |
-| Net Sales Formula | Gross Sales - Refunds | `max(0, gross_qty - refunded_qty)` | **IMPLEMENTED** | `data_cleaner.py:45` |
-| Stock Reconstruction | Backward daily inventory estimate | Formula starting from current stock | **IMPLEMENTED** | `feature_engineering.py:10–67` |
-| Panel Generation | Fill missing dates with zero sales | Date cross-join with active SKUs | **IMPLEMENTED** | `data_cleaner.py:63–99` |
-| Demand Profiling | Multi-label classification | Decision hierarchy (8 profile tags) | **IMPLEMENTED** | `product_profiler.py:4–112` |
-| Model Suite | Multiple time-series & ML models | 6 Models (MA, SN, LR, RF, GB, Croston) | **IMPLEMENTED** | `ai-service/app/models/` |
-| Walk-Forward Backtest| 3-Window sliding cross-validation | 3-Fold time-ordered validation | **IMPLEMENTED** | `backtesting.py:18–131` |
-| Best Model Selection | Metric optimization with penalty | Lowest WAPE + 5% ML improvement penalty | **IMPLEMENTED** | `model_selector.py:12–120` |
-| Safety Stock Formula | Configurable buffer calculation | `math.ceil(demand * safety_stock_pct)` | **IMPLEMENTED** | `recommendation_engine.py:16` |
-| Order Recommendation | Net required quantity | `max(0, required - current - incoming)` | **IMPLEMENTED** | `recommendation_engine.py:22` |
-| Explanation Engine | Natural language summary | Rule-based string interpolation | **IMPLEMENTED** | `explanation_engine.py:3–78` |
-| Dashboard UI | Full interactive forecasting UI | React grid, filters, modal, KPI cards | **IMPLEMENTED** | `AiDemandForecastingPage.tsx` |
-| Automated Cron | Scheduled monthly execution | Hourly Node.js interval checking date | **PARTIALLY IMPLEMENTED** | `forecastScheduler.ts:14–87` |
-| Forecast Comparison | Compare historical versions in UI | UI only displays single selected run | **NOT IMPLEMENTED** | `AiDemandForecastingPage.tsx` |
+`explanation_engine.py` builds traceable, natural language text explanations dynamically:
+
+```text
+Example Output for LOW Confidence Reorder:
+"Random Forest was selected after walk-forward validation with a WAPE of 59.8%, resulting in low forecast confidence. Sales increased by 11.1% during the latest 30-day period. 3 stock-out day(s) were identified, meaning recorded sales may understate true demand. The next-month forecast is 127 units. Including the 15% safety buffer (20 units), 147 units are required. Current stock of 64 units represents approximately 44% of required stock with 15 days of forecast coverage. Status REORDER REQUIRED assigned: Stock is currently available (15 days coverage), but falls below required next-month inventory. A reorder of 83 units is required. Note: Recommended reorder of 83 units is based on a low-confidence model (Random Forest, WAPE 59.8%). Manager review is recommended before placing the order."
+```
 
 ---
 
-## 32. Issues and Recommended Corrections
+## 31. Product Insight Drawer Modal Reference
 
-### A. Critical Issues
+When a manager clicks any SKU row in the datagrid, the drawer modal renders:
 
-| Issue | Impact | Current File | Recommended Correction | Priority |
-|-------|--------|--------------|------------------------|----------|
-| **Hardcoded Historical Start Date** | Prevents analyzing data older than 2023 or dynamic historical ranges | `forecast_engine.py:67` | Replace `"2023-01-01"` with configurable database parameter or dynamic date query (`cutoff_date - 3 years`) | **P1 (Critical)** |
-| **Sequential SKU Training Loop** | Long runtime for large catalogs causing HTTP request timeouts | `forecast_engine.py:127` | Convert pipeline execution into asynchronous background job using Celery/Redis or Python `multiprocessing.Pool` | **P1 (Critical)** |
-
-### B. Important Improvements
-
-| Issue | Impact | Current File | Recommended Correction | Priority |
-|-------|--------|--------------|------------------------|----------|
-| **No UI Version Comparison** | Users cannot compare predictions across historical run versions | `AiDemandForecastingPage.tsx` | Add side-by-side run comparison view in React dashboard | **P2 (Important)** |
-| **Missing Composite Database Indexes** | Slower query response times when filtering forecasts by status | `schema.prisma:542` | Add `@@index([forecastRunId, status])` composite index to `DemandForecast` model | **P2 (Important)** |
-
-### C. Optional Enhancements
-
-| Issue | Impact | Current File | Recommended Correction | Priority |
-|-------|--------|--------------|------------------------|----------|
-| **Rule-Based Safety Stock** | Fixed 15% buffer does not scale with lead-time standard deviation | `recommendation_engine.py:16` | Upgrade safety stock formula to dynamic Z-score formula: $Z \times \sigma_d \times \sqrt{L}$ | **P3 (Enhancement)** |
+1. **Header**: Product Name, SKU, Barcode, Category.
+2. **Demand Behavior & Quality**: Primary behavior tag with hover tooltip, secondary tags, Data Quality badge (`GOOD`, `MODERATE`, `LIMITED`).
+3. **Inventory Status Card**: Status badge (`CRITICAL ACTION`, `REORDER REQUIRED`, `SUFFICIENT`, `OVERSTOCK RISK`) and `Stock vs Required %`.
+4. **Low Confidence Banner**: Rendered if `reliabilityLevel == 'LOW'`.
+5. **6-Metric Inventory Summary**: Current Stock, Predicted Demand, Safety Buffer, Required Stock, Order Recommend, Coverage Days.
+6. **Evidence Explanation Box**: Plain-English trace explanation.
+7. **Demand Metrics & Validation Table**: Recent Growth Rate, Same-Month Historical, Discount Uplift, Refund Qty, Stock-out Days, Selected Model, WAPE %, MAE, RMSE, Reliability Grade.
 
 ---
 
-## 33. File-by-File Implementation Map
+## 32. Historical & Forecast Visual Chart
 
-| File Path | Layer | Main Responsibility | Key Functions / Classes |
-|-----------|-------|---------------------|------------------------|
-| `backend/prisma/schema.prisma` | Database | Schema definitions for demand tables | `DemandForecastRun`, `DemandForecast`, `DemandAnalysis` |
-| `ai-service/main.py` | Python API | FastAPI entry point & route registration | `app.include_router(demand_router)` |
-| `ai-service/app/api/demand_forecast_routes.py` | Python API | REST API endpoints for demand forecasting | `generate_forecast()`, `get_forecast_run_details()` |
-| `ai-service/app/services/forecast_engine.py` | Python Service | Main forecasting pipeline orchestrator | `run_monthly_forecasting()` |
-| `ai-service/app/services/data_loader.py` | Python Service | Historical data SQL extraction queries | `load_products_df()`, `load_daily_sales_df()` |
-| `ai-service/app/services/data_cleaner.py` | Python Service | Data cleaning, net sales & daily panel merging | `clean_and_merge_data()` |
-| `ai-service/app/services/feature_engineering.py` | Python Service | Stock reconstruction & 20+ feature calculations | `reconstruct_stock_history()`, `calculate_product_features()` |
-| `ai-service/app/services/product_profiler.py` | Python Service | Multi-label demand behavior classification | `classify_product_demand()` |
-| `ai-service/app/services/model_selector.py` | Python Service | Candidate filtering & parsimonious model selection | `select_best_model()` |
-| `ai-service/app/services/backtesting.py` | Python Service | 3-window walk-forward validation & WAPE metrics | `run_backtest_on_product()`, `calculate_wape()` |
-| `ai-service/app/services/recommendation_engine.py` | Python Service | Safety stock, reorder qty & status assignment | `calculate_recommendation()` |
-| `ai-service/app/services/explanation_engine.py` | Python Service | Natural language explanation string builder | `generate_forecast_explanation()` |
-| `ai-service/app/services/db_operations.py` | Python Service | Batch SQL database insert operations | `save_analyses_and_forecasts()`, `create_initial_run()` |
-| `ai-service/app/models/moving_average.py` | Python Model | Moving Average time-series model | `MovingAverageModel` |
-| `ai-service/app/models/seasonal_naive.py` | Python Model | Seasonal Naive time-series model | `SeasonalNaiveModel` |
-| `ai-service/app/models/linear_regression.py` | Python Model | Linear Regression time-series model | `LinearRegressionModel` |
-| `ai-service/app/models/random_forest.py` | Python Model | Random Forest Regressor ML model | `RandomForestModel` |
-| `ai-service/app/models/gradient_boosting.py` | Python Model | Gradient Boosting Regressor ML model | `GradientBoostingModel` |
-| `ai-service/app/models/croston.py` | Python Model | Croston intermittent demand model | `CrostonModel` |
-| `ai-service/tests/test_forecasting.py` | Python Tests | 10 Pytest automated unit tests | `test_*()` |
-| `backend/src/controllers/aiDemandController.ts` | Node Backend | Express controller & FastAPI HTTP proxy | `generateForecast()`, `getForecastRunDetails()` |
-| `backend/src/routes/aiDemandRoutes.ts` | Node Backend | Express routes with RBAC middleware | Router definitions |
-| `backend/src/services/forecastScheduler.ts` | Node Backend | Hourly interval background cron task | `checkAndTriggerForecast()` |
-| `frontend/src/services/aiDemandService.ts` | Frontend Service | Axios API client for demand endpoints | `aiDemandService` |
-| `frontend/src/pages/inventory/AiDemandForecasting/AiDemandForecastingPage.tsx` | Frontend UI | Main React forecasting dashboard page | `AiDemandForecastingPage` |
+The modal includes a visual comparison bar chart:
+- **Prev 30**: Previous 30-day total net sales.
+- **Recent 30**: Recent 30-day total net sales.
+- **3M Avg**: 3-month average monthly sales.
+- **Forecast**: Next month predicted demand bar (highlighted in emerald green).
 
 ---
 
-## 34. Complete End-to-End Product Example
+## 33. Database Write & Persistence Workflow
 
-### Target Product: **Fresh Milk 1L (SKU-10022)**
+Saved inside Python `db_operations.py` in a single transaction:
 
-#### Step 1: Input History Data (Cutoff: 2026-01-31)
-- Recent 30-Day Sales ($t-29$ to $t$): **150 units**
-- Previous 30-Day Sales ($t-59$ to $t-30$): **120 units**
-- 3-Month Average: **140 units/month**
-- 6-Month Average: **135 units/month**
-- Target Month (February) Historical Average: **180 units/month**
-- Stock-Out Days in last 30 days: **3 days**
-- Current Physical Stock: **35 units**
-
-#### Step 2: Feature Calculations & Demand Profiling
-- `recentGrowthPercentage` = $\frac{150 - 120}{120} \times 100 = \mathbf{+25.0\%}$
-- `seasonalUpliftPercentage` = $\frac{180 - 135}{135} \times 100 = \mathbf{+33.3\%}$
-- `primaryBehaviour` = **`SEASONAL`** (due to uplift $\ge 20\%$)
-- `trendDirection` = **`UP`**
-
-#### Step 3: Candidate Models & Walk-Forward Validation Results
-- Tested Candidates for `SEASONAL`: `Moving Average`, `Seasonal Naive`, `Random Forest`, `Gradient Boosting`
-- Validation WAPE Results:
-  - Moving Average: WAPE = `0.22` (22.0%)
-  - Seasonal Naive: WAPE = `0.18` (18.0%)
-  - Random Forest: WAPE = `0.14` (14.0%)
-  - Gradient Boosting: WAPE = `0.15` (15.0%)
-- **Selected Model**: **`Random Forest`** (WAPE = 14.0%, beats Moving Average baseline 22.0% by >5%).
-
-#### Step 4: Demand Prediction & Inventory Recommendations
-- Retrained Random Forest model predicts February daily demand $\sum \hat{y}_d = \mathbf{195 \text{ units}}$.
-- `safety_stock` = $\lceil 195 \times 0.15 \rceil = \mathbf{30 \text{ units}}$.
-- `required_stock` = $195 + 30 = \mathbf{225 \text{ units}}$.
-- `recommended_order_quantity` = $\max(0, 225 - 35 - 0) = \mathbf{190 \text{ units}}$.
-- `average_daily_sales` = $\frac{150}{30 - 3} = 5.55 \text{ units/day}$.
-- `stock_coverage_days` = $\frac{35}{5.55} = \mathbf{6.3 \text{ days}}$.
-- `status` = **`CRITICAL_ACTION`** (stock coverage < 12 days and current stock < required stock).
-
-#### Step 5: Output Explanation Text
-> *"The selected Random Forest model achieved a validation WAPE of 14.0%. Sales increased by 25.0% during the most recent 30-day period compared to the previous 30 days. Demand for this product is historically 33.3% higher in February. The product was out of stock for 3 days, so recorded sales may understate demand. Current stock is expected to last approximately 6 days. An estimated 190 units should be reordered, including a 15% safety stock allowance (30 units)."*
+1. **Run Header**: Inserts/updates `demand_forecast_runs` (`status='COMPLETED'`, `completed_at=now()`).
+2. **Analysis Rows**: Batch inserts into `demand_analysis` table (20+ engineered features per SKU).
+3. **Forecast Rows**: Batch inserts into `demand_forecasts` table (predictions, safety stock, coverage, status).
 
 ---
 
-## 35. Final Presentation Summaries
+## 34. Version Control & Auditability
 
-### 1. Beginner-Friendly Summary
-The StockSense Demand Forecasting module works like an automated inventory planner. It looks at every product's daily sales history over the past few years, corrects for returns and stock-out days, and tests multiple mathematical models to find the most accurate predictor for each product. It then tells inventory managers exactly how many items to order for next month to avoid running out of stock while preventing overstocking.
-
-### 2. Technical Summary
-The module is a decoupled Python FastAPI service integrated with a Node.js/Express backend and PostgreSQL database. It constructs dense daily product panels, reconstructs historical opening/closing stock levels backwards from current snapshots, and engineers 20+ time-series features. Demand profiles are classified using multi-label decision rules, and candidate models (Moving Average, Seasonal Naive, Linear Regression, Random Forest, Gradient Boosting, Croston) are evaluated per SKU via 3-window walk-forward validation. Results are saved with full version audit trails and rendered on a paginated React dashboard.
-
-### 3. 30-Second Panel Presentation
-> "Our AI Demand Forecasting module replaces intuition with statistical accuracy. It cleans sales data, reconstructs daily historical stock levels to account for stock-out bias, and uses 3-window walk-forward validation to select the best forecasting algorithm per product—ranging from Croston's method for sparse items to Random Forest for complex trends. It automatically calculates safety buffers and recommended purchase orders, saving inventory managers hours of manual calculations every month."
-
-### 4. 2-Minute Panel Presentation
-> "Distinguishing our StockSense AI Demand Forecasting module is its end-to-end mathematical rigor and integration with operational inventory logic. 
-> 
-> When a forecast run is triggered, the system cleans sales data by subtracting refunds, fills date gaps to create daily panels, and reconstructs historical stock levels backwards to identify true stock-out days—ensuring out-of-stock periods don't artificially deflate predicted demand.
-> 
-> Next, the engine extracts over 20 demand features and profiles each product into behaviors like Seasonal, Intermittent, or Trending. Rather than applying a one-size-fits-all model, it evaluates candidate algorithms using 3-window walk-forward validation, measuring WAPE, MAE, and RMSE to dynamically select the best model for every individual product. To prevent overfitting, machine learning models must beat the Moving Average baseline by at least 5% WAPE to be chosen.
-> 
-> Finally, predictions are combined with a 15% safety stock buffer and current inventory snapshots to generate exact recommended reorder quantities and human-readable explanations. This complete pipeline runs automatically on the 1st of every month or on-demand, giving store managers instant, actionable purchasing intelligence."
+If a forecast is regenerated for the same target month:
+- The system checks existing runs for that month and increments `version` (`COALESCE(MAX(version), 0) + 1`).
+- Historical runs and forecasts remain stored in the database for audit comparison.
 
 ---
 
-*This technical documentation was generated via comprehensive analysis of the StockSense project repository. All referenced paths, functions, metrics, and models reflect the actual current codebase.*
+## 35. Complete REST API Specification
+
+| Method | Endpoint | Request Query / Params | Response Data | Backend Controller Method |
+| :--- | :--- | :--- | :--- | :--- |
+| `POST` | `/api/ai-demand/forecast` | `{ targetMonth: "YYYY-MM-01", regenerate: boolean }` | `{ success: true, message: "Forecast run completed" }` | `triggerForecastRun` |
+| `GET` | `/api/ai-demand/forecast/latest` | None | `{ success: true, data: ForecastRun }` | `getLatestForecastRun` |
+| `GET` | `/api/ai-demand/forecast/run/:runId` | `search, status, category, sortBy, sortOrder, page, limit` | `{ run, forecasts: [...], totalCount, statusCounts }` | `getForecastRunDetails` |
+| `GET` | `/api/ai-demand/forecast/product/:runId/:sku` | `runId, sku` | `{ data: ProductForecastDetail }` | `getProductForecastDetail` |
+| `GET` | `/api/ai-demand/forecast/history` | None | `{ success: true, data: ForecastRun[] }` | `getForecastHistory` |
+
+---
+
+## 36. Frontend Data Flow & UI Implementation
+
+```text
+Component Mount
+   ↓
+Fetch History & Latest Run (`GET /forecast/history`)
+   ↓
+Target Month Auto-Set to Next Month (`getNextMonthStr()`)
+   ↓
+User Selects Month or Selects Run Version Dropdown
+   ↓
+Sync Run ID & Fetch Forecast List (`GET /forecast/run/:runId`)
+   ↓
+Render KPI Summary Cards & Filterable SKU Datagrid
+   ↓
+User Clicks SKU Row → Fetch Product Detail (`GET /forecast/product/:runId/:sku`)
+   ↓
+Render Product Insight Drawer Modal with Low-Confidence Callout & Behavior Tooltips
+```
+
+---
+
+## 37. Error Handling & Fallback Protocols
+
+- **Single SKU Model Failure**: Logged; falls back to Moving Average model for that SKU without failing the entire run.
+- **Python Service Down**: Node Express catches HTTP failure and returns `500` status with error message.
+- **Zero Sales / No History**: Handled gracefully with fallback values (`WAPE=N/A`, `Coverage=>90d`, `Order=0`).
+
+---
+
+## 38. Numerical Edge Case Protection
+
+- **Division by Zero**: Protected across all formulas (e.g. `max(1.0, previous30Sales)`, `max(1, target_month_days)`).
+- **Negative Forecasts**: Clipped to zero (`max(0.0, predicted_demand)`).
+- **Negative Reconstructed Stock**: Clipped to zero (`max(0, stock)`).
+
+---
+
+## 39. System Configuration & Constants
+
+| Constant Name | Value | File Location | Purpose |
+| :--- | :--- | :--- | :--- |
+| `DEFAULT_SAFETY_STOCK_PCT` | `0.15` (15%) | `forecast_engine.py` | Safety buffer percentage |
+| `MAX_DISCOUNT_UPLIFT_CAP` | `50.0` (50%) | `forecast_engine.py` | Maximum discount uplift cap |
+| `CRITICAL_COVERAGE_DAYS` | `12.0` days | `recommendation_engine.py` | Critical action coverage threshold |
+| `OVERSTOCK_COVERAGE_DAYS` | `45.0` days | `recommendation_engine.py` | Overstock risk coverage threshold |
+| `OVERSTOCK_RATIO_THRESHOLD` | `1.50` (150%) | `recommendation_engine.py` | Overstock stock-to-required ratio |
+| `COMPLEX_MODEL_IMPROVEMENT` | `0.95` (5%) | `model_selector.py` | Required WAPE gain over Moving Average |
+
+---
+
+## 40. Testing & Verification Results
+
+### Pytest Unit Test Suite
+- **Command**: `python -m pytest tests/test_forecasting.py`
+- **Results**: **`10 passed in 3.69s`** (100% pass rate).
+
+### Manual Test Verification Scenarios
+
+| Test Scenario | Input Data | Expected Output | Actual System Result | Pass/Fail |
+| :--- | :--- | :--- | :--- | :--- |
+| **1. Critical Stock** | Current=20, Demand=120, Safety=18, Required=138, Days=30 | Order=118, Coverage=5.0d | Status = `CRITICAL_ACTION` | **PASS** |
+| **2. Reorder Required** | Current=64, Demand=127, Safety=20, Required=147, Days=30 | Order=83, Coverage=15.1d | Status = `REORDER_REQUIRED` | **PASS** |
+| **3. Sufficient Stock** | Current=183, Demand=137, Safety=21, Required=158, Days=30 | Order=0, Coverage=40.1d | Status = `SUFFICIENT` | **PASS** |
+| **4. High Stock (Below Overstock)**| Current=218, Demand=131, Safety=20, Required=151, Days=30 | Stock Ratio=144%, Coverage=49.9d | Status = `SUFFICIENT` | **PASS** |
+| **5. Overstock Risk** | Current=268, Demand=126, Safety=19, Required=145, Days=30 | Stock Ratio=185%, Coverage=63.8d | Status = `OVERSTOCK_RISK` | **PASS** |
+| **6. Low Confidence Forecast** | WAPE=59.8%, Reliability=LOW, Recommended Order=83 | Order=83 with `⚠ LOW CONFIDENCE` Banner | Warning Banner Displayed | **PASS** |
+| **7. Zero Demand** | Predicted Demand=0, Current Stock=50 | Order=0, Coverage=>90d | Safe (No division by zero) | **PASS** |
+
+---
+
+## 41. Actual Implementation vs Intended Design Matrix
+
+| Feature | Implementation Status | Evidence File |
+| :--- | :--- | :--- |
+| Multi-model ML Selection | **IMPLEMENTED** | `model_selector.py` |
+| Walk-Forward Validation | **IMPLEMENTED** | `backtesting.py` |
+| Historical Stock Reconstruction | **IMPLEMENTED** | `feature_engineering.py` |
+| 4-Tier Inventory Status (`REORDER_REQUIRED`) | **IMPLEMENTED** | `recommendation_engine.py` |
+| Forecast-Based Coverage Calculation | **IMPLEMENTED** | `recommendation_engine.py` |
+| Stock vs Required % Metric | **IMPLEMENTED** | `recommendation_engine.py`, `aiDemandController.ts` |
+| Low Confidence Manager Warning Banner | **IMPLEMENTED** | `AiDemandForecastingPage.tsx` |
+| Automated 1st-of-Month Scheduler | **IMPLEMENTED** | `forecastScheduler.ts` |
+| Confirmed Incoming Stock Integration | **PARTIALLY IMPLEMENTED** | Defaults to 0 baseline; requires PO module DB link |
+
+---
+
+## 42. Current System Limitations
+
+1. **Incoming Stock Integration**: `confirmed_incoming_stock` currently defaults to `0` unless linked with an active Purchase Orders table in Prisma.
+2. **Sales Velocity vs Demand Behavior**: Demand Behavior tags (`HIGH_VARIABILITY`, `STABLE`, `SEASONAL`) describe pattern shape, whereas Sales Velocity (`FAST`, `MEDIUM`, `SLOW`, `DEAD`) remains a separate inventory movement classification.
+
+---
+
+## 43. File-by-File Implementation Directory
+
+| File Path | Layer | Responsibility | Key Functions / Components |
+| :--- | :--- | :--- | :--- |
+| `ai-service/app/services/forecast_engine.py` | AI Service | Pipeline orchestrator | `run_monthly_forecasting` |
+| `ai-service/app/services/data_loader.py` | AI Service | Database queries | `load_products_df`, `load_daily_sales_df` |
+| `ai-service/app/services/feature_engineering.py` | AI Service | Feature calculation & stock reconstruction | `reconstruct_stock_history`, `calculate_product_features` |
+| `ai-service/app/services/product_profiler.py` | AI Service | Behavior profiling | `classify_product_demand` |
+| `ai-service/app/services/model_selector.py` | AI Service | ML selection & reliability | `select_best_model` |
+| `ai-service/app/services/backtesting.py` | AI Service | Walk-forward validation | `run_backtest_on_product` |
+| `ai-service/app/services/recommendation_engine.py` | AI Service | Reorder math & 4-tier status | `calculate_recommendation` |
+| `ai-service/app/services/explanation_engine.py` | AI Service | Traceable text generation | `generate_forecast_explanation` |
+| `ai-service/app/services/db_operations.py` | AI Service | Database writes | `save_analyses_and_forecasts` |
+| `backend/src/controllers/aiDemandController.ts` | Express Backend | API routing & Prisma queries | `getForecastRunDetails`, `getProductForecastDetail` |
+| `backend/src/services/forecastScheduler.ts` | Express Backend | Cron background check | `initForecastScheduler` |
+| `frontend/src/pages/inventory/AiDemandForecasting/AiDemandForecastingPage.tsx` | React Frontend | Main UI dashboard & drawer | `AiDemandForecastingPage` |
+| `frontend/src/services/aiDemandService.ts` | React Frontend | Axios API client | `aiDemandService` |
+
+---
+
+## 44. Complete Worked Calculation Example
+
+### Product: Ginger Beer 1.5L
+- **Current Stock Snapshot**: `64 units`
+- **Target Month**: August 2026 (31 days)
+- **Previous 30-Day Sales**: `90 units`
+- **Recent 30-Day Sales**: `100 units`
+- **Recent Growth Rate**: `((100 - 90) / 90) * 100 = +11.1%`
+- **Best ML Model Selected**: Gradient Boosting (`WAPE = 39.8%`, Reliability = `MEDIUM CONFIDENCE`)
+- **Predicted Demand**: `127 units`
+- **Safety Stock (15%)**: `ceil(127 * 0.15) = 20 units`
+- **Required Stock**: `127 + 20 = 147 units`
+- **Forecast Daily Demand**: `127 / 31 = 4.0967 units/day`
+- **Forecast Coverage Days**: `64 / 4.0967 = 15.6 days`
+- **Stock vs Required %**: `(64 / 147) * 100 = 43.5%` (rendered as `44%`)
+- **Recommended Order**: `max(0, 147 - 64 - 0) = 83 units`
+- **Status Assigned**: **`REORDER_REQUIRED`** (since `Current Stock < Required Stock`, `Order > 0`, and `Coverage >= 12 days`).
+
+---
+
+## 45. Final End-to-End Sequence Flow
+
+```text
+1. Trigger (Manual UI click or Scheduled 1st-of-month check)
+2. Target Month Resolution (Default Next Month, e.g., August 2026)
+3. Cutoff Date Calculation (July 31, 2026)
+4. Data Loading (Products, Sales, Refunds, GRNs, Adjustments, Discounts)
+5. Net Sales Calculation (Gross Sales - Refunds)
+6. Continuous Daily Panel Generation (Filling missing zero-sales dates)
+7. Reverse Inventory Reconstruction (Detecting stockOutFlag == 1 days)
+8. Statistical Feature Engineering (20+ demand features computed)
+9. Demand Behaviour Profiling (STABLE, SEASONAL, HIGH_VARIABILITY, etc.)
+10. Candidate Model Filtering (Behavior → Candidate algorithms)
+11. 3-Window Walk-Forward Validation (Backtesting WAPE, MAE, RMSE)
+12. Best Model Selection (Evaluating lower WAPE with 5% complexity penalty)
+13. Final Forecast Generation (Predicting daily target month demand)
+14. Safety Stock Calculation (ceil(Predicted Demand * 15%))
+15. Required Stock Calculation (Predicted Demand + Safety Stock)
+16. Forecast Daily Demand & Coverage Days Calculation
+17. Recommended Purchase Order Calculation (max(0, Required - Current - Incoming))
+18. 4-Tier Inventory Risk Status Assignment (CRITICAL_ACTION / REORDER_REQUIRED / SUFFICIENT / OVERSTOCK_RISK)
+19. Stock vs Required Percentage Calculation
+20. Reliability Level Assignment & Low-Confidence Warning Check
+21. Traceable Evidence Explanation Generation (Python)
+22. Persistent Database Storage (demand_forecast_runs, demand_analysis, demand_forecasts)
+23. Express API Query & Response Formatting
+24. React Dashboard & Product Insight Drawer Rendering
+```
