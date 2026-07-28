@@ -40,6 +40,7 @@ export interface RunDetailsResponse {
   page: number;
   limit: number;
   statusCounts: Record<string, number>;
+  reorderProductsCount?: number;
 }
 
 export interface ProductForecastDetail {

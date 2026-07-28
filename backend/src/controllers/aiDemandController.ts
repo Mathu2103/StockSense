@@ -198,6 +198,14 @@ export async function getForecastRunDetails(req: AuthRequest, res: Response): Pr
       }
     });
 
+    // Count of distinct products with recommended order quantity > 0 across the ENTIRE run
+    const reorderProductsCount = await prisma.demandForecast.count({
+      where: {
+        forecastRunId: runId as string,
+        recommendedOrderQuantity: { gt: 0 }
+      }
+    });
+
     res.status(200).json({
       success: true,
       data: {
@@ -206,7 +214,8 @@ export async function getForecastRunDetails(req: AuthRequest, res: Response): Pr
         totalCount,
         page: parsedPage,
         limit: parsedLimit,
-        statusCounts
+        statusCounts,
+        reorderProductsCount
       }
     });
   } catch (error: any) {

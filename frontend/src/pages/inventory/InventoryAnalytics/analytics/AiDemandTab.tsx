@@ -32,6 +32,7 @@ export default function AiDemandTab({ categories = [] }: AiDemandTabProps) {
 
   // Total status counts (across entire run, not just current page)
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+  const [reorderProductsCount, setReorderProductsCount] = useState<number>(0);
 
   // ── Fetch Latest Run ───────────────────────────────────────────────────────
   const fetchLatestRun = async () => {
@@ -69,6 +70,11 @@ export default function AiDemandTab({ categories = [] }: AiDemandTabProps) {
       setForecasts(response.forecasts);
       setTotalCount(response.totalCount);
       setStatusCounts(response.statusCounts || {});
+      if (response.reorderProductsCount !== undefined) {
+        setReorderProductsCount(response.reorderProductsCount);
+      } else if (response.forecasts.length > 0) {
+        setReorderProductsCount(response.forecasts.filter(f => f.recommendedQuantity > 0).length);
+      }
     } catch (err: any) {
       toast.error('Failed to load forecast list.');
     } finally {
@@ -202,7 +208,7 @@ export default function AiDemandTab({ categories = [] }: AiDemandTabProps) {
 
       {/* Summary Stats Cards */}
       {latestRun && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           {/* Card 1: Total Forecasted */}
           <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex items-center gap-4">
             <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
@@ -257,6 +263,17 @@ export default function AiDemandTab({ categories = [] }: AiDemandTabProps) {
               <p className="text-xl font-black text-slate-800 mt-1">{statusCounts['OVERSTOCK_RISK'] || 0}</p>
             </div>
           </div>
+
+          {/* Card 6: Recommended Order */}
+          <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex items-center gap-4">
+            <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
+              <span className="material-symbols-outlined text-[24px]">shopping_cart</span>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400">Recommended Order</p>
+              <p className="text-xl font-black text-slate-800 mt-1">{reorderProductsCount} Products</p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -287,6 +304,17 @@ export default function AiDemandTab({ categories = [] }: AiDemandTabProps) {
                 <option value="REORDER_REQUIRED">Reorder Required</option>
                 <option value="SUFFICIENT">Sufficient</option>
                 <option value="OVERSTOCK_RISK">Overstock Risk</option>
+              </select>
+
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-600 outline-none hover:bg-slate-100"
+              >
+                <option value="">All Categories</option>
+                {categoryNames.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
               </select>
             </div>
 

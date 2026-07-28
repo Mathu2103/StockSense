@@ -49,9 +49,9 @@ export default function AiDemandForecastingPage() {
   const [productDetail, setProductDetail] = useState<ProductForecastDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState<boolean>(false);
 
-  // Total status counts and recommended purchase units
+  // Total status counts and recommended purchase products count
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
-  const [totalRecommendedUnits, setTotalRecommendedUnits] = useState<number>(0);
+  const [reorderProductsCount, setReorderProductsCount] = useState<number>(0);
   const [avgAccuracy, setAvgAccuracy] = useState<number>(0);
 
   // Categories list fallback
@@ -99,7 +99,7 @@ export default function AiDemandForecastingPage() {
         setForecasts([]);
         setTotalCount(0);
         setStatusCounts({});
-        setTotalRecommendedUnits(0);
+        setReorderProductsCount(0);
         setAvgAccuracy(0);
       }
     } catch (err: any) {
@@ -131,11 +131,14 @@ export default function AiDemandForecastingPage() {
       setTotalCount(response.totalCount);
       setStatusCounts(response.statusCounts || {});
       
-      // Calculate summary aggregations (Sum of recommended qty, mean accuracy)
+      // Calculate summary aggregations (Count of reorder products, mean accuracy)
+      if (response.reorderProductsCount !== undefined) {
+        setReorderProductsCount(response.reorderProductsCount);
+      } else if (response.forecasts.length > 0) {
+        setReorderProductsCount(response.forecasts.filter(f => f.recommendedQuantity > 0).length);
+      }
+
       if (response.forecasts.length > 0) {
-        const sumRecommended = response.forecasts.reduce((sum, item) => sum + item.recommendedQuantity, 0);
-        setTotalRecommendedUnits(sumRecommended);
-        
         const validAccs = response.forecasts.filter(f => f.accuracyScore !== null && f.accuracyScore !== undefined);
         const meanAcc = validAccs.length > 0 
           ? validAccs.reduce((sum, item) => sum + (item.accuracyScore || 0), 0) / validAccs.length 
@@ -172,7 +175,7 @@ export default function AiDemandForecastingPage() {
           setForecasts([]);
           setTotalCount(0);
           setStatusCounts({});
-          setTotalRecommendedUnits(0);
+          setReorderProductsCount(0);
           setAvgAccuracy(0);
         }
       }
@@ -374,9 +377,17 @@ export default function AiDemandForecastingPage() {
                     <span>History range: <strong className="text-slate-700">{activeRun.dataStartDate ? activeRun.dataStartDate.slice(0,10) : '2023-01-01'} to {activeRun.dataEndDate ? activeRun.dataEndDate.slice(0,10) : '2025-12-31'}</strong></span>
                   </div>
                   {activeRun.status === 'COMPLETED' && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-100">
-                      Completed
-                    </span>
+                    <>
+                      {avgAccuracy > 0 && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[15px] text-slate-400">analytics</span>
+                          <span>Avg Model Accuracy: <strong className="text-slate-700">{(avgAccuracy * 100).toFixed(1)}%</strong></span>
+                        </div>
+                      )}
+                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-100">
+                        Completed
+                      </span>
+                    </>
                   )}
                   {activeRun.status === 'FAILED' && (
                     <span className="inline-flex items-center px-2 py-0.5 rounded bg-rose-50 text-rose-700 font-bold border border-rose-100" title={activeRun.errorMessage || ''}>
@@ -491,7 +502,7 @@ export default function AiDemandForecastingPage() {
                   </div>
                   <div>
                     <p className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400">Recommended Order</p>
-                    <p className="text-lg font-black text-slate-800 mt-0.5">{totalRecommendedUnits} units</p>
+                    <p className="text-lg font-black text-slate-800 mt-0.5">{reorderProductsCount} Products</p>
                   </div>
                 </div>
               </div>
@@ -525,6 +536,17 @@ export default function AiDemandForecastingPage() {
                       <option value="REORDER_REQUIRED">Reorder Required</option>
                       <option value="SUFFICIENT">Sufficient</option>
                       <option value="OVERSTOCK_RISK">Overstock Risk</option>
+                    </select>
+
+                    <select
+                      value={categoryFilter}
+                      onChange={(e) => setCategoryFilter(e.target.value)}
+                      className="px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-600 outline-none hover:bg-slate-100 cursor-pointer shadow-sm font-semibold"
+                    >
+                      <option value="">All Categories</option>
+                      {categories.map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
                     </select>
                   </div>
 
