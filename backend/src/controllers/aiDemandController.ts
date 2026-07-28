@@ -113,7 +113,8 @@ export async function getForecastRunDetails(req: AuthRequest, res: Response): Pr
     if (typeof search === 'string' && search) {
       productFilter.OR = [
         { sku: { contains: search, mode: 'insensitive' } },
-        { name: { contains: search, mode: 'insensitive' } }
+        { name: { contains: search, mode: 'insensitive' } },
+        { barcode: { contains: search, mode: 'insensitive' } }
       ];
     }
     if (typeof category === 'string' && category) {
@@ -169,6 +170,7 @@ export async function getForecastRunDetails(req: AuthRequest, res: Response): Pr
       const prod = f.product;
       return {
         sku: f.productId,
+        barcode: prod?.barcode || '',
         name: prod?.name || '',
         categoryName: prod?.masterClass?.category?.name || '',
         currentStockSnapshot: f.currentStock,
@@ -253,6 +255,14 @@ export async function getProductForecastDetail(req: AuthRequest, res: Response):
     }
 
     const prod = (forecast as any).product;
+    const paramsObj = typeof forecast.modelParameters === 'string'
+      ? JSON.parse(forecast.modelParameters || '{}')
+      : (forecast.modelParameters || {});
+
+    const monthlyBias = paramsObj.monthlyBias !== undefined ? paramsObj.monthlyBias : null;
+    const avgForecastDaily = paramsObj.averageForecastDailyDemand !== undefined
+      ? paramsObj.averageForecastDailyDemand
+      : (forecast.predictedDemand ? forecast.predictedDemand / 30.0 : 0.0);
 
     // Map to expected structure
     const data = {
@@ -265,6 +275,7 @@ export async function getProductForecastDetail(req: AuthRequest, res: Response):
       requiredStock: forecast.requiredStock,
       recommendedQuantity: forecast.recommendedOrderQuantity,
       stockCoverageDays: forecast.stockCoverageDays,
+      averageForecastDailyDemand: avgForecastDaily,
       status: forecast.status,
       selectedModel: forecast.selectedModel,
       accuracyScore: forecast.accuracyScore,
@@ -272,10 +283,11 @@ export async function getProductForecastDetail(req: AuthRequest, res: Response):
       targetMonth: forecast.targetMonth,
       createdAt: forecast.createdAt,
       
-      // Backtests
+      // Backtests & Validation
       mae: forecast.MAE,
       rmse: forecast.RMSE,
       wape: forecast.WAPE,
+      monthlyBias: monthlyBias,
       reliabilityLevel: forecast.reliabilityLevel,
       stockVsRequiredPercentage: forecast.requiredStock > 0 ? (forecast.currentStock / forecast.requiredStock) * 100.0 : 100.0,
 

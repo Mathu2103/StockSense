@@ -350,99 +350,108 @@ To optimize execution speed and prevent overfitting, candidates are filtered bas
 
 ## 18. Walk-Forward Validation (Backtesting)
 
-Models are evaluated using **3-window sliding walk-forward cross-validation** in `backtesting.py`:
+Models are evaluated using **sliding walk-forward cross-validation on completed calendar months** in `backtesting.py`:
 
 ```text
-Window 1: Train [2023-01-01 to Cutoff - 90d] → Test [Cutoff - 90d to Cutoff - 60d]
-Window 2: Train [2023-01-01 to Cutoff - 60d] → Test [Cutoff - 60d to Cutoff - 30d]
-Window 3: Train [2023-01-01 to Cutoff - 30d] → Test [Cutoff - 30d to Cutoff]
+Window 1: Train through Month T - 3 → Predict Month T - 2 → Compare with actual Month T - 2 total
+Window 2: Train through Month T - 2 → Predict Month T - 1 → Compare with actual Month T - 1 total
+Window 3: Train through Month T - 1 → Predict Month T → Compare with actual Month T total
 ```
 
-Average error metrics are computed across all 3 validation windows.
+In each window, candidate models are trained strictly on data prior to the target validation month. The total predicted demand for the validation month is compared against the actual completed monthly demand.
 
 ---
 
 ## 19. Statistical Validation Error Metrics
 
-### 1. Weighted Absolute Percentage Error (WAPE) — Primary Metric
-$$\text{WAPE} = \frac{\sum_{t=1}^{N} |y_t - \hat{y}_t|}{\sum_{t=1}^{N} y_t}$$
-*Why Primary*: Unlike MAPE, WAPE does not blow up to infinity when actual daily sales $y_t = 0$.
+### 1. Monthly Weighted Absolute Percentage Error (Monthly WAPE) — Primary Metric
+$$\text{Monthly WAPE} = \frac{\sum_{m=1}^{M} |\text{Actual Monthly Demand}_m - \text{Predicted Monthly Demand}_m|}{\sum_{m=1}^{M} \text{Actual Monthly Demand}_m}$$
 
-### 2. Mean Absolute Error (MAE)
-$$\text{MAE} = \frac{1}{N} \sum_{t=1}^{N} |y_t - \hat{y}_t|$$
+### 2. Monthly Mean Absolute Error (Monthly MAE)
+$$\text{Monthly MAE} = \frac{1}{M} \sum_{m=1}^{M} |\text{Actual Monthly Demand}_m - \text{Predicted Monthly Demand}_m|$$
 
-### 3. Root Mean Squared Error (RMSE)
-$$\text{RMSE} = \sqrt{\frac{1}{N} \sum_{t=1}^{N} (y_t - \hat{y}_t)^2}$$
+### 3. Monthly Root Mean Squared Error (Monthly RMSE)
+$$\text{Monthly RMSE} = \sqrt{\frac{1}{M} \sum_{m=1}^{M} (\text{Actual Monthly Demand}_m - \text{Predicted Monthly Demand}_m)^2}$$
+
+### 4. Monthly Bias
+$$\text{Monthly Bias} = \frac{1}{M} \sum_{m=1}^{M} (\text{Predicted Monthly Demand}_m - \text{Actual Monthly Demand}_m)$$
+- **Positive Bias (+)**: Model consistently over-forecasts demand.
+- **Negative Bias (-)**: Model consistently under-forecasts demand.
+- **Near Zero (0)**: Model exhibits balanced forecasting without structural over/under estimation.
 
 ---
 
 ## 20. Best Model Selection Logic
 
-In `model_selector.py`, candidate models are ranked by validation WAPE:
+In `model_selector.py`, candidate models are ranked using monthly validation metrics:
 
-1. The model with the lowest average WAPE is initially selected as the top candidate.
-2. **Complexity Penalty Rule**: Complex ML models (Random Forest, Gradient Boosting) are only selected over simple Moving Average if their validation WAPE is at least **5% better**:
+1. Candidate models are filtered by primary demand behavior.
+2. The eligible model with the lowest **Monthly WAPE** is identified.
+3. **Parsimonious Safeguard Rule**: Complex ML models (Random Forest, Gradient Boosting) are selected over the simple Moving Average baseline only if their Monthly WAPE improves performance by at least **5%**:
    $$\text{WAPE}_{\text{Complex}} < \text{WAPE}_{\text{MovingAverage}} \times 0.95$$
-3. If no candidate model completes validation successfully, the system safely falls back to **Moving Average** (`window=90`).
+4. **Reliability Confidence Assignment**:
+   - **`HIGH`**: Monthly WAPE $\le 20\%$, Error Stability $\le 10\%$, History $\ge 180$ days (6+ completed months), and Zero Sales Ratio $< 50\%$.
+   - **`LOW`**: Monthly WAPE $\ge 50\%$, History $< 90$ days, or Error Stability $> 25\%$.
+   - **`MEDIUM`**: Otherwise.
 
 ---
 
 ## 21. Final Monthly Demand Forecast Generation
 
-1. The selected best model is refit on the full historical dataset up to `cutoff_date`.
-2. Daily demand predictions $\hat{y}_d$ are generated for every day $d$ in the Target Month.
-3. **Clipping**: Negative daily predictions are clipped to zero: $\hat{y}_d = \max(0.0, \hat{y}_d)$.
-4. **Aggregation & Rounding**:
-   $$\text{Predicted Demand} = \text{round}\left(\max\left(0.0, \sum_{d \in \text{TargetMonth}} \hat{y}_d\right)\right)$$
+1. The selected best model is retrained on all completed monthly history up to `cutoff_date`.
+2. The model predicts the **Target Month Predicted Demand** directly for purchase planning.
+3. **Integer Rounding & Non-Negative Clipping**:
+   $$\text{Predicted Monthly Demand} = \text{round}\left(\max\left(0.0, \text{Predicted Total Units}\right)\right)$$
 
 ---
 
 ## 22. Safety Stock Calculation
 
-Safety stock provides a buffer against unexpected demand surges or supply chain delays.
+Safety stock provides a deterministic buffer against unexpected demand spikes or delivery delays.
 
 ### Formula
 ```text
-Safety Stock = ceil(Predicted Demand × Safety Stock Percentage)
+Safety Stock = ceil(Predicted Monthly Demand × Safety Stock Percentage)
 ```
 - **Default Percentage**: `0.15` (15%).
-- **Configurability**: Loaded dynamically from `system_settings` table (`key = 'safety_stock_percentage'`) if configured.
+- **Configurability**: Loaded dynamically from `system_settings` (`key = 'safety_stock_percentage'`).
 
 ---
 
 ## 23. Required Stock Calculation
 
-Required stock represents the total inventory needed to satisfy predicted customer demand plus safety buffer for the target month.
+Required stock represents total inventory required for the target month.
 
 ### Formula
 ```text
-Required Stock = Predicted Demand + Safety Stock
+Required Stock = Predicted Monthly Demand + Safety Stock
 ```
 
 ---
 
 ## 24. Forecast Coverage Days Standardisation
 
-Primary coverage days are calculated strictly against **Forecast Daily Demand** for the target calendar month:
+Coverage is calculated using the **Average Forecast Daily Demand** derived from the monthly forecast:
 
 ### Formulas
 ```text
-Target Month Days     = calendar.monthrange(Year, Month)[1]  (28, 29, 30, or 31)
-Forecast Daily Demand = Predicted Demand / Target Month Days
-Forecast Coverage     = Current Stock / Forecast Daily Demand
+Target Month Days            = calendar.monthrange(Year, Month)[1]  (28, 29, 30, or 31)
+Average Forecast Daily Demand = Predicted Monthly Demand / Target Month Days
+Estimated Coverage Days      = Current Stock / Average Forecast Daily Demand
 ```
 
-- **Zero Demand Protection**: If `Forecast Daily Demand <= 0.0001`, `stock_coverage` is assigned a safe value of `999.0` days (displayed in UI as `>90d`).
+- **Labeling & Caveat**: Displayed in UI as **`Estimated Coverage`** (e.g. `~22 days`) with explicit tooltips noting that daily sales vary.
+- **Zero Demand Protection**: If `Average Forecast Daily Demand <= 0.0001`, `stockCoverageDays` is set to `999.0` (rendered as `>90d`).
 
 ---
 
 ## 25. Confirmed Incoming Stock Handling
 
-Confirmed incoming stock includes inventory expected before or during the target month:
+Confirmed incoming stock includes inventory from approved purchase orders or pending GRNs expected during the target month:
 
 ### Formula
 ```text
-Confirmed Incoming Stock = 0  (Default baseline unless integrated with pending GRN / PO module)
+Confirmed Incoming Stock = 0  (Default baseline unless integrated with GRN/PO module)
 ```
 
 ---

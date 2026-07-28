@@ -3,17 +3,25 @@ import numpy as np
 from datetime import datetime, date, timedelta
 from typing import Dict, Any, List
 
-def calculate_wape(actual: np.ndarray, predicted: np.ndarray) -> float:
-    sum_actual = np.sum(actual)
+def calculate_monthly_wape(actual_monthly: np.ndarray, predicted_monthly: np.ndarray) -> float:
+    sum_actual = float(np.sum(actual_monthly))
     if sum_actual == 0:
-        return 0.0 if np.sum(predicted) == 0 else 1.0
-    return float(np.sum(np.abs(actual - predicted)) / sum_actual)
+        return 0.0 if float(np.sum(predicted_monthly)) == 0 else 1.0
+    return float(np.sum(np.abs(actual_monthly - predicted_monthly)) / sum_actual)
 
-def calculate_mae(actual: np.ndarray, predicted: np.ndarray) -> float:
-    return float(np.mean(np.abs(actual - predicted)))
+def calculate_monthly_mae(actual_monthly: np.ndarray, predicted_monthly: np.ndarray) -> float:
+    return float(np.mean(np.abs(actual_monthly - predicted_monthly)))
 
-def calculate_rmse(actual: np.ndarray, predicted: np.ndarray) -> float:
-    return float(np.sqrt(np.mean((actual - predicted) ** 2)))
+def calculate_monthly_rmse(actual_monthly: np.ndarray, predicted_monthly: np.ndarray) -> float:
+    return float(np.sqrt(np.mean((actual_monthly - predicted_monthly) ** 2)))
+
+def calculate_monthly_bias(actual_monthly: np.ndarray, predicted_monthly: np.ndarray) -> float:
+    """
+    Monthly Bias = Average(Predicted Monthly Demand - Actual Monthly Demand)
+    Positive Bias -> model usually over-forecasts
+    Negative Bias -> model usually under-forecasts
+    """
+    return float(np.mean(predicted_monthly - actual_monthly))
 
 def run_backtest_on_product(
     product_history: pd.DataFrame,
@@ -21,9 +29,9 @@ def run_backtest_on_product(
     n_windows: int = 3
 ) -> Dict[str, Dict[str, float]]:
     """
-    Executes walk-forward validation on product historical sales.
-    Splits history into calendar month chunks.
-    Evaluates candidate models across target validation months.
+    Executes walk-forward validation on complete historical months.
+    Compares total predicted monthly demand against actual monthly demand.
+    Returns monthly WAPE, MAE, RMSE, and Bias for candidate models.
     """
     # Sort chronologically
     df_sorted = product_history.sort_values("date").copy()
@@ -46,7 +54,7 @@ def run_backtest_on_product(
     
     # Candidate models to evaluate
     model_keys = ["Moving Average", "Seasonal Naive", "Linear Regression", "Random Forest", "Gradient Boosting", "Croston"]
-    model_window_errors = {m: [] for m in model_keys}
+    model_window_results = {m: [] for m in model_keys}
     
     # Import model classes inside function to avoid circular imports
     from app.models.seasonal_naive import SeasonalNaiveModel
@@ -74,58 +82,65 @@ def run_backtest_on_product(
         if train_df.empty or val_df.empty:
             continue
             
-        actual_vals = val_df["net_qty_sold"].values
+        actual_monthly_demand = float(val_df["net_qty_sold"].sum())
         
         # 1. Moving Average
         m_ma = MovingAverageModel(window_days=90).fit(train_df)
-        p_ma = m_ma.predict(val_df)
-        model_window_errors["Moving Average"].append((actual_vals, p_ma))
+        pred_ma = float(np.sum(m_ma.predict(val_df)))
+        model_window_results["Moving Average"].append((actual_monthly_demand, pred_ma))
         
         # 2. Seasonal Naive
         m_sn = SeasonalNaiveModel().fit(train_df, v_month)
-        p_sn = m_sn.predict(val_df)
-        model_window_errors["Seasonal Naive"].append((actual_vals, p_sn))
+        pred_sn = float(np.sum(m_sn.predict(val_df)))
+        model_window_results["Seasonal Naive"].append((actual_monthly_demand, pred_sn))
         
         # 3. Linear Regression
         m_lr = LinearRegressionModel().fit(train_df)
-        p_lr = m_lr.predict(val_df)
-        model_window_errors["Linear Regression"].append((actual_vals, p_lr))
+        pred_lr = float(np.sum(m_lr.predict(val_df)))
+        model_window_results["Linear Regression"].append((actual_monthly_demand, pred_lr))
         
         # 4. Random Forest
         m_rf = RandomForestModel().fit(train_df)
-        p_rf = m_rf.predict(val_df)
-        model_window_errors["Random Forest"].append((actual_vals, p_rf))
+        pred_rf = float(np.sum(m_rf.predict(val_df)))
+        model_window_results["Random Forest"].append((actual_monthly_demand, pred_rf))
         
         # 5. Gradient Boosting
         m_gb = GradientBoostingModel().fit(train_df)
-        p_gb = m_gb.predict(val_df)
-        model_window_errors["Gradient Boosting"].append((actual_vals, p_gb))
+        pred_gb = float(np.sum(m_gb.predict(val_df)))
+        model_window_results["Gradient Boosting"].append((actual_monthly_demand, pred_gb))
         
         # 6. Croston
         m_cr = CrostonModel().fit(train_df)
-        p_cr = m_cr.predict(val_df)
-        model_window_errors["Croston"].append((actual_vals, p_cr))
+        pred_cr = float(np.sum(m_cr.predict(val_df)))
+        model_window_results["Croston"].append((actual_monthly_demand, pred_cr))
         
     results = {}
     for m in model_keys:
-        window_metrics = model_window_errors[m]
-        if not window_metrics:
+        window_pairs = model_window_results[m]
+        if not window_pairs:
             continue
             
-        wapes = []
-        maes = []
-        rmses = []
-        for actual, pred in window_metrics:
-            wapes.append(calculate_wape(actual, pred))
-            maes.append(calculate_mae(actual, pred))
-            rmses.append(calculate_rmse(actual, pred))
-            
+        actuals = np.array([p[0] for p in window_pairs])
+        preds = np.array([p[1] for p in window_pairs])
+        
+        wape = calculate_monthly_wape(actuals, preds)
+        mae = calculate_monthly_mae(actuals, preds)
+        rmse = calculate_monthly_rmse(actuals, preds)
+        bias = calculate_monthly_bias(actuals, preds)
+        
+        # Window-level WAPEs for stability check
+        window_wapes = [
+            calculate_monthly_wape(np.array([act]), np.array([prd]))
+            for act, prd in window_pairs
+        ]
+        
         results[m] = {
-            "WAPE": float(np.mean(wapes)),
-            "MAE": float(np.mean(maes)),
-            "RMSE": float(np.mean(rmses)),
-            "stability": float(np.std(wapes)) if len(wapes) > 1 else 0.0,
-            "window_count": len(wapes)
+            "WAPE": float(wape),
+            "MAE": float(mae),
+            "RMSE": float(rmse),
+            "Bias": float(bias),
+            "stability": float(np.std(window_wapes)) if len(window_wapes) > 1 else 0.0,
+            "window_count": len(window_pairs)
         }
         
     return results

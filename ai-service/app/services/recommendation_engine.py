@@ -8,23 +8,23 @@ def calculate_recommendation(
     average_daily_sales: float = 0.0,
     confirmed_incoming_stock: int = 0,
     target_month_days: int = 30
-) -> Tuple[int, int, int, float, str, float]:
+) -> Tuple[int, int, int, float, str, float, float]:
     """
-    Calculates safety stock, required stock, recommended purchase quantity, coverage, status, and stock vs required %.
-    Returns: (safety_stock, required_stock, recommended_quantity, stock_coverage_days, status, stock_vs_required_pct)
+    Calculates safety stock, required stock, recommended purchase quantity, coverage, status, stock vs required %, and forecast daily demand.
+    Returns: (safety_stock, required_stock, recommended_quantity, stock_coverage_days, status, stock_vs_required_pct, forecast_daily_demand)
     """
-    # 1. Safety stock
+    # 1. Safety stock = ceil(Predicted Monthly Demand * safety_stock_pct)
     safety_stock = int(math.ceil(predicted_demand * safety_stock_pct))
     
-    # 2. Required stock
+    # 2. Required stock = Predicted Monthly Demand + Safety Stock
     required_stock = predicted_demand + safety_stock
     
-    # 3. Recommended order quantity
+    # 3. Recommended order quantity = max(0, Required Stock - Current Stock - Confirmed Incoming Stock)
     recommended_qty = max(0, required_stock - current_stock - confirmed_incoming_stock)
     
-    # 4. Forecast Coverage Days (Primary coverage based on target month forecast)
+    # 4. Forecast Coverage Days based on average forecast daily demand
     target_days = max(1, target_month_days)
-    forecast_daily_demand = predicted_demand / target_days
+    forecast_daily_demand = float(predicted_demand / target_days)
     
     if forecast_daily_demand > 0.0001:
         stock_coverage = float(current_stock / forecast_daily_demand)
@@ -65,5 +65,5 @@ def calculate_recommendation(
     else:
         status = "SUFFICIENT"
 
-    return safety_stock, required_stock, recommended_qty, stock_coverage, status, stock_vs_required_pct
+    return safety_stock, required_stock, recommended_qty, stock_coverage, status, stock_vs_required_pct, forecast_daily_demand
 

@@ -202,12 +202,13 @@ def run_monthly_forecasting(
             usable_days_in_30 = max(1.0, 30.0 - stock_out_days_last_30)
             avg_daily_demand = float(recent_30_sales / usable_days_in_30)
             
-            # Confirmed incoming stock from pending GRNs or orders (default 0)
-            confirmed_incoming = 0
-            
-            safety_stock, required_stock, recommended_qty, stock_coverage, f_status, stock_vs_req_pct = calculate_recommendation(
+            safety_stock, required_stock, recommended_qty, stock_coverage, f_status, stock_vs_req_pct, forecast_daily_demand = calculate_recommendation(
                 predicted_demand, current_stock, safety_stock_pct, avg_daily_demand, confirmed_incoming, days_in_month
             )
+
+            # Record forecast daily demand in model parameters
+            if isinstance(model_params, dict):
+                model_params["averageForecastDailyDemand"] = forecast_daily_demand
 
             # F. Generate plain-English explanation
             target_month_name = calendar.month_name[month]

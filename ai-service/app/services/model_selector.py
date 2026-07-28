@@ -76,10 +76,11 @@ def select_best_model(
             best_wape = baseline_wape
 
     # 5. Extract selected model's metrics
-    model_metrics = backtest_errs.get(best_model_name, {"WAPE": 0.50, "MAE": 0.0, "RMSE": 0.0, "stability": 0.0})
+    model_metrics = backtest_errs.get(best_model_name, {"WAPE": 0.50, "MAE": 0.0, "RMSE": 0.0, "Bias": 0.0, "stability": 0.0})
     wape = model_metrics.get("WAPE", 0.50)
     mae = model_metrics.get("MAE", 0.0)
     rmse = model_metrics.get("RMSE", 0.0)
+    bias = model_metrics.get("Bias", 0.0)
     stability = model_metrics.get("stability", 0.0)
     
     # Accuracy score = max(0, 100 - WAPE_pct)
@@ -87,28 +88,27 @@ def select_best_model(
     
     # 6. Fit the selected model on the entire historical dataset
     if best_model_name == "Seasonal Naive":
-        model_params = {"target_month": target_month}
+        model_params = {"target_month": target_month, "monthlyBias": bias}
         model_instance = SeasonalNaiveModel().fit(product_history, target_month)
     elif best_model_name == "Linear Regression":
-        model_params = {"window_days": 180}
+        model_params = {"window_days": 180, "monthlyBias": bias}
         model_instance = LinearRegressionModel(window_days=180).fit(product_history)
     elif best_model_name == "Random Forest":
-        model_params = {"n_estimators": 50, "max_depth": 6, "random_state": 42}
+        model_params = {"n_estimators": 50, "max_depth": 6, "random_state": 42, "monthlyBias": bias}
         model_instance = RandomForestModel().fit(product_history)
     elif best_model_name == "Gradient Boosting":
-        model_params = {"n_estimators": 50, "max_depth": 4, "learning_rate": 0.1, "random_state": 42}
+        model_params = {"n_estimators": 50, "max_depth": 4, "learning_rate": 0.1, "random_state": 42, "monthlyBias": bias}
         model_instance = GradientBoostingModel().fit(product_history)
     elif best_model_name == "Croston":
-        model_params = {"alpha": 0.15}
+        model_params = {"alpha": 0.15, "monthlyBias": bias}
         model_instance = CrostonModel(alpha=0.15).fit(product_history)
     else:
         best_model_name = "Moving Average"
-        model_params = {"window_days": 90}
+        model_params = {"window_days": 90, "monthlyBias": bias}
         model_instance = MovingAverageModel(window_days=90).fit(product_history)
 
-    # 7. Reliability level assignment
-    # Consider backtesting error, error stability, history length
-    zero_sales_ratio = float((product_history["net_qty_sold"] == 0).sum() / len(product_history))
+    # 7. Reliability level assignment based on monthly backtesting metrics
+    zero_sales_ratio = float((product_history["net_qty_sold"] == 0).sum() / max(1, len(product_history)))
     
     if wape <= 0.20 and stability <= 0.10 and n_days >= 180 and zero_sales_ratio < 0.50:
         reliability = "HIGH"

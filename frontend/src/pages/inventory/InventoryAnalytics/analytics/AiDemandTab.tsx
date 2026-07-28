@@ -270,7 +270,7 @@ export default function AiDemandTab({ categories = [] }: AiDemandTabProps) {
                 <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-slate-400">search</span>
                 <input
                   type="text"
-                  placeholder="Search by SKU or name..."
+                  placeholder="Search by name, SKU or barcode..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-9 pr-4 py-1.5 w-full text-xs bg-white border border-slate-200 rounded-lg outline-none focus:border-[#0b8252] transition-colors placeholder-slate-400"
@@ -288,17 +288,6 @@ export default function AiDemandTab({ categories = [] }: AiDemandTabProps) {
                 <option value="SUFFICIENT">Sufficient</option>
                 <option value="OVERSTOCK_RISK">Overstock Risk</option>
               </select>
-
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-600 outline-none hover:bg-slate-100"
-              >
-                <option value="">All Categories</option>
-                {categoryNames.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
             </div>
 
             <div className="text-xs text-slate-500 font-medium">
@@ -311,10 +300,10 @@ export default function AiDemandTab({ categories = [] }: AiDemandTabProps) {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 text-[10px] font-extrabold uppercase text-slate-400 border-b border-slate-100">
-                  <th className="py-3 px-4">Product</th>
+                  <th className="py-3 px-4">Product / Barcode</th>
                   <th className="py-3 px-4 cursor-pointer" onClick={() => { setSortBy('currentStock'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>Current Stock</th>
-                  <th className="py-3 px-4 cursor-pointer" onClick={() => { setSortBy('stockCoverage'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>Stock Will Last</th>
-                  <th className="py-3 px-4 cursor-pointer" onClick={() => { setSortBy('predictedDemand'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>Next Month Demand</th>
+                  <th className="py-3 px-4 cursor-pointer" onClick={() => { setSortBy('stockCoverage'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>Estimated Coverage</th>
+                  <th className="py-3 px-4 cursor-pointer" onClick={() => { setSortBy('predictedDemand'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>Predicted Monthly Demand</th>
                   <th className="py-3 px-4 cursor-pointer" onClick={() => { setSortBy('recommendedQuantity'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>Recommended Qty</th>
                   <th className="py-3 px-4">Prediction Reason</th>
                   <th className="py-3 px-4">Status</th>
@@ -343,7 +332,9 @@ export default function AiDemandTab({ categories = [] }: AiDemandTabProps) {
                     >
                       <td className="py-3 px-4">
                         <p className="font-bold text-slate-800">{row.name}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{row.sku} • {row.categoryName}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          {row.barcode ? `Barcode: ${row.barcode}` : `SKU: ${row.sku}`} • {row.categoryName}
+                        </p>
                       </td>
                       <td className="py-3 px-4 font-bold text-slate-700">{row.currentStockSnapshot} units</td>
                       <td className="py-3 px-4 text-slate-600">

@@ -56,8 +56,11 @@ class ProductForecastDetail(BaseModel):
     categoryName: str
     currentStock: int
     predictedDemand: int
+    safetyStock: Optional[int] = 0
+    requiredStock: Optional[int] = 0
     recommendedQuantity: int
     stockCoverageDays: Optional[float]
+    averageForecastDailyDemand: Optional[float] = 0.0
     status: str
     selectedModel: str
     accuracyScore: Optional[float]
@@ -65,6 +68,13 @@ class ProductForecastDetail(BaseModel):
     targetMonth: date
     createdAt: datetime
     
+    # Backtesting & Validation
+    mae: Optional[float] = None
+    rmse: Optional[float] = None
+    wape: Optional[float] = None
+    monthlyBias: Optional[float] = None
+    reliabilityLevel: Optional[str] = "MEDIUM"
+
     # Analysis fields
     recent30DaySales: int
     previous30DaySales: int

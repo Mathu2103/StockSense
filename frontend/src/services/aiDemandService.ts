@@ -20,6 +20,7 @@ export interface ForecastRun {
 
 export interface ProductForecastSummary {
   sku: string;
+  barcode?: string;
   name: string;
   categoryName: string;
   currentStockSnapshot: number;
@@ -51,6 +52,7 @@ export interface ProductForecastDetail {
   requiredStock: number;
   recommendedQuantity: number;
   stockCoverageDays?: number;
+  averageForecastDailyDemand?: number;
   stockVsRequiredPercentage?: number;
   status: 'CRITICAL_ACTION' | 'REORDER_REQUIRED' | 'SUFFICIENT' | 'OVERSTOCK_RISK';
   selectedModel: string;
@@ -59,10 +61,11 @@ export interface ProductForecastDetail {
   targetMonth: string;
   createdAt: string;
   
-  // Backtesting metrics
+  // Backtesting & Monthly Validation
   mae?: number;
   rmse?: number;
   wape?: number;
+  monthlyBias?: number;
   reliabilityLevel: 'HIGH' | 'MEDIUM' | 'LOW';
   
   // Analysis metrics

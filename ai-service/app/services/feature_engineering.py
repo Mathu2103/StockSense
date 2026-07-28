@@ -113,15 +113,25 @@ def calculate_product_features(
         gprev30 = group[(group["date"] >= d60_start) & (group["date"] < d30_start)]
         prev_30_sales = int(gprev30["net_qty_sold"].sum())
         
-        # Growth percentage: avoid division by zero
-        recent_growth = None
-        if prev_30_sales > 0:
-            recent_growth = float(((recent_30_sales - prev_30_sales) / prev_30_sales) * 100.0)
-            
-        # Averages (3m, 6m, 12m)
+        # Monthly sales aggregations (completed calendar months)
         monthly_sales = group.groupby(["year", "month"])["net_qty_sold"].sum().reset_index()
         monthly_sales = monthly_sales.sort_values(["year", "month"])
         
+        # Monthly Growth % = (Current Completed Month - Previous Completed Month) / Previous Completed Month * 100
+        recent_growth = 0.0
+        if len(monthly_sales) >= 2:
+            curr_m_demand = float(monthly_sales.iloc[-1]["net_qty_sold"])
+            prev_m_demand = float(monthly_sales.iloc[-2]["net_qty_sold"])
+            if prev_m_demand == 0.0:
+                recent_growth = 100.0 if curr_m_demand > 0.0 else 0.0
+            else:
+                recent_growth = float(((curr_m_demand - prev_m_demand) / prev_m_demand) * 100.0)
+        elif prev_30_sales > 0:
+            recent_growth = float(((recent_30_sales - prev_30_sales) / prev_30_sales) * 100.0)
+        else:
+            recent_growth = 100.0 if recent_30_sales > 0 else 0.0
+            
+        # Averages (3m, 6m, 12m)
         last_3 = monthly_sales.tail(3)["net_qty_sold"].tolist()
         three_month_avg = float(sum(last_3) / max(1, len(last_3)))
         
@@ -141,12 +151,13 @@ def calculate_product_features(
         same_month_data = group[group["month"] == target_m_num]
         same_month_grouped = same_month_data.groupby("year")["net_qty_sold"].sum()
         
-        same_month_avg = float(same_month_grouped.mean()) if not same_month_grouped.empty else 0.0
+        # Return None when insufficient same-month historical data exists
+        same_month_avg = float(same_month_grouped.mean()) if not same_month_grouped.empty else None
         overall_monthly_avg = float(monthly_sales["net_qty_sold"].mean()) if not monthly_sales.empty else 0.0
         
         # Seasonal uplift
         seasonal_uplift = 0.0
-        if overall_monthly_avg > 0:
+        if same_month_avg is not None and overall_monthly_avg > 0:
             seasonal_uplift = float(((same_month_avg - overall_monthly_avg) / overall_monthly_avg) * 100.0)
             
         # Number of years showing repeated seasonal behavior

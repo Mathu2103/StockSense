@@ -293,7 +293,8 @@ def get_product_forecast_detail(
            da.three_month_average, da.six_month_average, da.same_month_historical_average,
            (df.current_stock / NULLIF(da.recent_30_sales / 30.0, 0.0)) as average_daily_sales, 
            da.discount_uplift_percentage, da.refund_quantity,
-           da.stock_out_days, da.primary_behaviour, da.data_quality
+           da.stock_out_days, da.primary_behaviour, da.data_quality,
+           df.safety_stock, df.required_stock, df.mae, df.rmse, df.wape, df.reliability_level, df.model_parameters
     FROM demand_forecasts df
     JOIN demand_forecast_runs r ON df.forecast_run_id = r.id
     JOIN products p ON df.product_id = p.sku
@@ -307,20 +308,48 @@ def get_product_forecast_detail(
     if not res:
         raise HTTPException(status_code=404, detail="Product forecast details not found.")
 
+    import json
+    model_params = {}
+    if res[31]:
+        try:
+            model_params = json.loads(res[31]) if isinstance(res[31], str) else res[31]
+        except Exception:
+            model_params = {}
+
+    monthly_bias = model_params.get("monthlyBias") if isinstance(model_params, dict) else None
+    avg_forecast_daily = model_params.get("averageForecastDailyDemand") if isinstance(model_params, dict) else None
+    if avg_forecast_daily is None and res[4] and res[11]:
+        import calendar
+        try:
+            days = calendar.monthrange(res[11].year, res[11].month)[1]
+            avg_forecast_daily = float(res[4] / max(1, days))
+        except Exception:
+            avg_forecast_daily = float(res[4] / 30.0)
+
     return {
         "sku": res[0],
         "name": res[1],
         "categoryName": res[2],
         "currentStock": res[3],
         "predictedDemand": res[4],
+        "safetyStock": res[25],
+        "requiredStock": res[26],
         "recommendedQuantity": res[5],
         "stockCoverageDays": res[6],
+        "averageForecastDailyDemand": avg_forecast_daily,
         "status": res[7],
         "selectedModel": res[8],
         "accuracyScore": res[9],
         "predictionReason": res[10],
         "targetMonth": res[11],
         "createdAt": res[12],
+        
+        # Backtest & Monthly Validation
+        "mae": res[27],
+        "rmse": res[28],
+        "wape": res[29],
+        "monthlyBias": monthly_bias,
+        "reliabilityLevel": res[30],
         
         # Analysis
         "recent30DaySales": res[13],

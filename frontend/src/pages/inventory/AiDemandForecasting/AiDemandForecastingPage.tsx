@@ -61,6 +61,19 @@ export default function AiDemandForecastingPage() {
     "Household Supplies", "Personal Care"
   ];
 
+  // Helper to safely extract YYYY-MM month key
+  const toMonthKey = (val?: string | Date): string => {
+    if (!val) return '';
+    if (typeof val === 'string' && /^\d{4}-\d{2}/.test(val)) {
+      return val.slice(0, 7);
+    }
+    try {
+      return new Date(val).toISOString().slice(0, 7);
+    } catch {
+      return '';
+    }
+  };
+
   // ── Fetch History & Latest Run ─────────────────────────────────────────────
   const loadHistoryAndLatest = async (selectLatest = true) => {
     try {
@@ -70,13 +83,16 @@ export default function AiDemandForecastingPage() {
       
       const completedRuns = history.filter(r => r.status === 'COMPLETED');
       if (completedRuns.length > 0) {
-        // If selectLatest is true or we don't have a selected run yet, default to the newest completed run
+        // Default to the newest completed run
         const newest = completedRuns[0];
+        const newestMonthStr = toMonthKey(newest.targetMonth);
+        if (newestMonthStr) {
+          setSelectedMonth(newestMonthStr);
+        }
         if (selectLatest || !selectedRunId) {
           setSelectedRunId(newest.id);
           await loadForecastDetails(newest.id);
         } else {
-          // If we already had a selected run, refresh it
           await loadForecastDetails(selectedRunId);
         }
       } else {
@@ -117,17 +133,13 @@ export default function AiDemandForecastingPage() {
       
       // Calculate summary aggregations (Sum of recommended qty, mean accuracy)
       if (response.forecasts.length > 0) {
-        // Estimate totals from response run metrics if present, or compute from list
-        // Since list is paginated, we request run-level totals.
-        // If the backend returns them inside run metadata, we can read them.
-        // If not, we estimate or sum the current page as fallback.
         const sumRecommended = response.forecasts.reduce((sum, item) => sum + item.recommendedQuantity, 0);
-        setTotalRecommendedUnits(sumRecommended); // Simplified representation for current filters
+        setTotalRecommendedUnits(sumRecommended);
         
         const validAccs = response.forecasts.filter(f => f.accuracyScore !== null && f.accuracyScore !== undefined);
         const meanAcc = validAccs.length > 0 
           ? validAccs.reduce((sum, item) => sum + (item.accuracyScore || 0), 0) / validAccs.length 
-          : 0.85; // baseline fallback
+          : 0.85;
         setAvgAccuracy(meanAcc);
       }
     } catch (err: any) {
@@ -147,13 +159,11 @@ export default function AiDemandForecastingPage() {
   // Synchronize selectedRunId when selectedMonth changes
   useEffect(() => {
     if (historyRuns.length > 0) {
-      const parsedTarget = new Date(`${selectedMonth}-01T00:00:00.000Z`).getTime();
-      
       const currentRun = historyRuns.find(r => r.id === selectedRunId);
-      const isCurrentRunMatchingMonth = currentRun && new Date(currentRun.targetMonth).getTime() === parsedTarget;
+      const isCurrentRunMatchingMonth = currentRun && toMonthKey(currentRun.targetMonth) === selectedMonth;
       
       if (!isCurrentRunMatchingMonth) {
-        const existingRun = historyRuns.find(r => new Date(r.targetMonth).getTime() === parsedTarget && r.status === 'COMPLETED');
+        const existingRun = historyRuns.find(r => toMonthKey(r.targetMonth) === selectedMonth && r.status === 'COMPLETED');
         if (existingRun) {
           setSelectedRunId(existingRun.id);
           setPage(1);
@@ -175,8 +185,10 @@ export default function AiDemandForecastingPage() {
     setPage(1);
     const run = historyRuns.find(r => r.id === runId);
     if (run) {
-      const monthStr = new Date(run.targetMonth).toISOString().slice(0, 7);
-      setSelectedMonth(monthStr);
+      const monthStr = toMonthKey(run.targetMonth);
+      if (monthStr) {
+        setSelectedMonth(monthStr);
+      }
     }
   };
 
@@ -206,8 +218,7 @@ export default function AiDemandForecastingPage() {
 
   // Check if a completed run already exists for the selected month to show confirmation
   const triggerGenerateClick = () => {
-    const parsedTarget = new Date(`${selectedMonth}-01T00:00:00.000Z`).getTime();
-    const exists = historyRuns.some(r => new Date(r.targetMonth).getTime() === parsedTarget && r.status === 'COMPLETED');
+    const exists = historyRuns.some(r => toMonthKey(r.targetMonth) === selectedMonth && r.status === 'COMPLETED');
     if (exists) {
       setShowConfirm(true);
     } else {
@@ -307,15 +318,43 @@ export default function AiDemandForecastingPage() {
                   {historyRuns.length === 0 ? (
                     <option value="">No runs generated yet</option>
                   ) : (
-                    historyRuns.map(run => {
-                      const runMonthStr = new Date(run.targetMonth).toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
-                      const triggerText = run.triggerType === 'SCHEDULED' ? '(Auto)' : '';
-                      return (
-                        <option key={run.id} value={run.id}>
-                          {runMonthStr} - Version {run.version || 1} {triggerText} [{run.status}]
-                        </option>
-                      );
-                    })
+                    (() => {
+                      // Filter historyRuns so that for completed runs in the same target month, only the latest version shows
+                      const monthMap: Record<string, typeof historyRuns> = {};
+                      historyRuns.forEach(r => {
+                        const monthKey = new Date(r.targetMonth).toISOString().slice(0, 7);
+                        if (!monthMap[monthKey]) monthMap[monthKey] = [];
+                        monthMap[monthKey].push(r);
+                      });
+
+                      const filteredRuns: typeof historyRuns = [];
+                      Object.values(monthMap).forEach(group => {
+                        const completed = group.filter(r => r.status === 'COMPLETED');
+                        const maxCompVersion = completed.length > 0
+                          ? Math.max(...completed.map(r => r.version || 1))
+                          : -1;
+
+                        group.forEach(r => {
+                          if (r.status === 'COMPLETED') {
+                            if ((r.version || 1) === maxCompVersion) {
+                              filteredRuns.push(r);
+                            }
+                          } else {
+                            filteredRuns.push(r);
+                          }
+                        });
+                      });
+
+                      return filteredRuns.map(run => {
+                        const runMonthStr = new Date(run.targetMonth).toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
+                        const triggerText = run.triggerType === 'SCHEDULED' ? '(Auto)' : '';
+                        return (
+                          <option key={run.id} value={run.id}>
+                            {runMonthStr} - Version {run.version || 1} {triggerText} [{run.status}]
+                          </option>
+                        );
+                      });
+                    })()
                   )}
                 </select>
               </div>
@@ -395,7 +434,7 @@ export default function AiDemandForecastingPage() {
 
             {/* Summary Cards */}
             {activeRun && activeRun.status === 'COMPLETED' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
                 <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
                   <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
                     <span className="material-symbols-outlined text-[22px] block">inventory_2</span>
@@ -446,23 +485,13 @@ export default function AiDemandForecastingPage() {
                   </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-                  <div className="p-3 bg-purple-50 text-purple-600 rounded-xl">
-                    <span className="material-symbols-outlined text-[24px] block">shopping_cart</span>
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
+                  <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl">
+                    <span className="material-symbols-outlined text-[22px] block">shopping_cart</span>
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400">Recommended Order</p>
-                    <p className="text-xl font-black text-slate-800 mt-0.5">{totalRecommendedUnits} units</p>
-                  </div>
-                </div>
-
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
-                  <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
-                    <span className="material-symbols-outlined text-[24px] block">percent</span>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400">Avg Accuracy</p>
-                    <p className="text-xl font-black text-slate-800 mt-0.5">{(avgAccuracy * 100).toFixed(1)}%</p>
+                    <p className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400">Recommended Order</p>
+                    <p className="text-lg font-black text-slate-800 mt-0.5">{totalRecommendedUnits} units</p>
                   </div>
                 </div>
               </div>
@@ -479,7 +508,7 @@ export default function AiDemandForecastingPage() {
                       <span className="material-symbols-outlined absolute left-3 top-2.5 text-[18px] text-slate-400">search</span>
                       <input
                         type="text"
-                        placeholder="Search SKU or product name..."
+                        placeholder="Search by name, SKU or barcode..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className="pl-9 pr-4 py-2 w-full text-xs bg-white border border-slate-200 rounded-lg outline-none focus:border-[#0b8252] transition-colors placeholder-slate-400 shadow-sm"
@@ -497,17 +526,6 @@ export default function AiDemandForecastingPage() {
                       <option value="SUFFICIENT">Sufficient</option>
                       <option value="OVERSTOCK_RISK">Overstock Risk</option>
                     </select>
-
-                    <select
-                      value={categoryFilter}
-                      onChange={(e) => setCategoryFilter(e.target.value)}
-                      className="px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-600 outline-none hover:bg-slate-100 cursor-pointer shadow-sm font-semibold"
-                    >
-                      <option value="">All Categories</option>
-                      {categories.map(c => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
                   </div>
 
                   <div className="text-xs text-slate-500 font-bold">
@@ -520,13 +538,13 @@ export default function AiDemandForecastingPage() {
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-slate-50 text-[10px] font-extrabold uppercase text-slate-400 border-b border-slate-200">
-                        <th className="py-3 px-4">Product / SKU</th>
+                        <th className="py-3 px-4">Product / Barcode</th>
                         <th className="py-3 px-4 cursor-pointer" onClick={() => { setSortBy('currentStock'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>Current Stock</th>
-                        <th className="py-3 px-4 cursor-pointer" onClick={() => { setSortBy('stockCoverage'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>Coverage</th>
-                        <th className="py-3 px-4 cursor-pointer" onClick={() => { setSortBy('predictedDemand'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>Next Month Demand</th>
-                        <th className="py-3 px-4 cursor-pointer" onClick={() => { setSortBy('recommendedQuantity'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>Safety / Order</th>
+                        <th className="py-3 px-4 cursor-pointer" onClick={() => { setSortBy('stockCoverage'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>Estimated Coverage</th>
+                        <th className="py-3 px-4 cursor-pointer" onClick={() => { setSortBy('predictedDemand'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>Predicted Monthly Demand</th>
+                        <th className="py-3 px-4 cursor-pointer" onClick={() => { setSortBy('recommendedQuantity'); setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }}>Safety / Recommended Order</th>
                         <th className="py-3 px-4">Prediction Reason</th>
-                        <th className="py-3 px-4">Selected Model / Accuracy</th>
+                        <th className="py-3 px-4">Selected Model / Monthly WAPE</th>
                         <th className="py-3 px-4 text-center">Status</th>
                       </tr>
                     </thead>
@@ -553,13 +571,15 @@ export default function AiDemandForecastingPage() {
                           >
                             <td className="py-3 px-4">
                               <p className="font-extrabold text-slate-800">{row.name}</p>
-                              <p className="text-[10px] text-slate-400 font-bold mt-0.5">{row.sku} • {row.categoryName}</p>
+                              <p className="text-[10px] text-slate-400 font-bold mt-0.5">
+                                {row.barcode ? `Barcode: ${row.barcode}` : `SKU: ${row.sku}`} • {row.categoryName}
+                              </p>
                             </td>
                             <td className="py-3 px-4 font-bold text-slate-700">{row.currentStockSnapshot} units</td>
-                            <td className="py-3 px-4 text-slate-600 font-medium">
-                              {row.stockCoverageDays !== undefined && row.stockCoverageDays !== null
-                                ? `${Math.round(row.stockCoverageDays)} days`
-                                : '0 days'}
+                            <td className="py-3 px-4 text-slate-600 font-medium" title="Estimated coverage derived from average forecast daily demand">
+                              {row.stockCoverageDays !== undefined && row.stockCoverageDays !== null && row.stockCoverageDays < 900
+                                ? `~${Math.round(row.stockCoverageDays)} days`
+                                : '>90 days'}
                             </td>
                             <td className="py-3 px-4 font-black text-slate-800">{row.predictedDemand} units</td>
                             <td className="py-3 px-4 font-extrabold text-slate-700">
@@ -573,7 +593,7 @@ export default function AiDemandForecastingPage() {
                             </td>
                             <td className="py-3 px-4 font-medium text-slate-600">
                               <p className="font-bold text-slate-700">{row.selectedModel}</p>
-                              <p className="text-[10px] text-slate-400 font-bold mt-0.5">Accuracy: {row.accuracyScore !== null && row.accuracyScore !== undefined ? `${(row.accuracyScore).toFixed(1)}%` : 'N/A'}</p>
+                              <p className="text-[10px] text-slate-400 font-bold mt-0.5">Monthly WAPE: {row.accuracyScore !== null && row.accuracyScore !== undefined ? `${(100 - row.accuracyScore).toFixed(1)}%` : 'N/A'}</p>
                             </td>
                             <td className="py-3 px-4 text-center">
                               {row.status === 'CRITICAL_ACTION' && (
@@ -737,9 +757,9 @@ export default function AiDemandForecastingPage() {
                           <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3.5 flex items-start gap-3">
                             <span className="material-symbols-outlined text-amber-600 text-[20px] shrink-0 mt-0.5">warning</span>
                             <div>
-                              <p className="text-xs font-black text-amber-800 uppercase tracking-wider">⚠ LOW CONFIDENCE FORECAST</p>
+                              <p className="text-xs font-black text-amber-800 uppercase tracking-wider">⚠ LOW CONFIDENCE MONTHLY FORECAST</p>
                               <p className="text-[11px] text-amber-800 font-semibold mt-0.5 leading-relaxed">
-                                The recommended order quantity of <strong className="font-extrabold">{productDetail.recommendedQuantity} units</strong> is based on a model with relatively high historical validation error ({productDetail.wape !== undefined ? `${(productDetail.wape * 100).toFixed(1)}%` : 'N/A'} WAPE). Manager review is recommended before placing the order.
+                                The reorder recommendation of <strong className="font-extrabold">{productDetail.recommendedQuantity} units</strong> is based on a low-confidence monthly forecast ({productDetail.selectedModel}, {productDetail.wape !== undefined ? `${(productDetail.wape * 100).toFixed(1)}%` : 'N/A'} monthly WAPE). Manager review is recommended before placing the purchase order.
                               </p>
                             </div>
                           </div>
@@ -753,7 +773,7 @@ export default function AiDemandForecastingPage() {
                           <p className="text-md font-black text-slate-800 mt-1">{productDetail.currentStock}</p>
                         </div>
                         <div className="text-center border-r border-slate-200 pr-2">
-                          <p className="text-[9px] font-extrabold uppercase text-slate-400">Predicted Demand</p>
+                          <p className="text-[9px] font-extrabold uppercase text-slate-400">Predicted Monthly Demand</p>
                           <p className="text-md font-black text-[#0b8252] mt-1">{productDetail.predictedDemand}</p>
                         </div>
                         <div className="text-center border-r border-slate-200 pr-2">
@@ -765,14 +785,14 @@ export default function AiDemandForecastingPage() {
                           <p className="text-md font-black text-slate-800 mt-1">{productDetail.requiredStock}</p>
                         </div>
                         <div className="text-center border-r border-slate-200 pr-2">
-                          <p className="text-[9px] font-extrabold uppercase text-slate-400">Order Recommend</p>
+                          <p className="text-[9px] font-extrabold uppercase text-slate-400">Recommended Order</p>
                           <p className="text-md font-black text-purple-700 mt-1">{productDetail.recommendedQuantity}</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-[9px] font-extrabold uppercase text-slate-400">Coverage</p>
+                          <p className="text-[9px] font-extrabold uppercase text-slate-400">Estimated Coverage</p>
                           <p className="text-md font-black text-slate-800 mt-1">
                             {productDetail.stockCoverageDays !== undefined && productDetail.stockCoverageDays !== null && productDetail.stockCoverageDays < 900
-                              ? `${Math.round(productDetail.stockCoverageDays)}d`
+                              ? `~${Math.round(productDetail.stockCoverageDays)}d`
                               : '>90d'}
                           </p>
                         </div>
@@ -789,49 +809,68 @@ export default function AiDemandForecastingPage() {
                         </p>
                       </div>
 
-                      {/* Simple Custom Bar Chart for Sales Trend */}
+                      {/* 5-Bar Custom Chart for Historical Demand & Monthly Forecast Visual */}
                       <div className="space-y-2">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Historical Demand & Forecast Visual</h4>
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Historical Monthly Demand & Forecast Visual</h4>
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                          <div className="h-28 flex items-end justify-around border-b border-slate-200 pb-2">
-                            {/* Previous 30 Sales Bar */}
+                          <div className="h-32 flex items-end justify-around border-b border-slate-200 pb-2">
+                            {/* Previous Month */}
                             <div className="flex flex-col items-center flex-1">
                               <span className="text-[10px] font-bold text-slate-500 mb-1">{productDetail.previous30DaySales}</span>
-                              <div className="w-8 bg-slate-300 rounded-t-md transition-all duration-300 hover:opacity-85" style={{ height: `${Math.min(100, (productDetail.previous30DaySales / Math.max(1, productDetail.predictedDemand)) * 60)}px` }}></div>
-                              <span className="text-[9px] font-bold text-slate-400 mt-1.5">Prev 30</span>
+                              <div className="w-7 bg-slate-300 rounded-t-md transition-all duration-300 hover:opacity-85" style={{ height: `${Math.min(100, (productDetail.previous30DaySales / Math.max(1, productDetail.predictedDemand)) * 60)}px` }}></div>
+                              <span className="text-[9px] font-bold text-slate-400 mt-1.5">Prev Month</span>
                             </div>
 
-                            {/* Recent 30 Sales Bar */}
+                            {/* Current Completed Month */}
                             <div className="flex flex-col items-center flex-1">
                               <span className="text-[10px] font-bold text-slate-500 mb-1">{productDetail.recent30DaySales}</span>
-                              <div className="w-8 bg-slate-400 rounded-t-md transition-all duration-300 hover:opacity-85" style={{ height: `${Math.min(100, (productDetail.recent30DaySales / Math.max(1, productDetail.predictedDemand)) * 60)}px` }}></div>
-                              <span className="text-[9px] font-bold text-slate-400 mt-1.5">Recent 30</span>
+                              <div className="w-7 bg-slate-400 rounded-t-md transition-all duration-300 hover:opacity-85" style={{ height: `${Math.min(100, (productDetail.recent30DaySales / Math.max(1, productDetail.predictedDemand)) * 60)}px` }}></div>
+                              <span className="text-[9px] font-bold text-slate-400 mt-1.5">Curr Month</span>
                             </div>
 
-                            {/* 3-Month Average monthly sales */}
+                            {/* 3-Month Average */}
                             <div className="flex flex-col items-center flex-1">
                               <span className="text-[10px] font-bold text-slate-500 mb-1">{Math.round(productDetail.threeMonthAverage)}</span>
-                              <div className="w-8 bg-slate-500 rounded-t-md transition-all duration-300 hover:opacity-85" style={{ height: `${Math.min(100, (productDetail.threeMonthAverage / Math.max(1, productDetail.predictedDemand)) * 60)}px` }}></div>
+                              <div className="w-7 bg-slate-500 rounded-t-md transition-all duration-300 hover:opacity-85" style={{ height: `${Math.min(100, (productDetail.threeMonthAverage / Math.max(1, productDetail.predictedDemand)) * 60)}px` }}></div>
                               <span className="text-[9px] font-bold text-slate-400 mt-1.5">3M Avg</span>
                             </div>
 
-                            {/* Forecast Predicted Demand Bar */}
+                            {/* Same Month Historical */}
+                            <div className="flex flex-col items-center flex-1">
+                              <span className="text-[10px] font-bold text-slate-500 mb-1">
+                                {productDetail.sameMonthHistoricalAverage !== undefined && productDetail.sameMonthHistoricalAverage !== null
+                                  ? Math.round(productDetail.sameMonthHistoricalAverage)
+                                  : 'N/A'}
+                              </span>
+                              <div className="w-7 bg-indigo-400/80 rounded-t-md transition-all duration-300 hover:opacity-85" style={{ height: `${Math.min(100, ((productDetail.sameMonthHistoricalAverage || 0) / Math.max(1, productDetail.predictedDemand)) * 60)}px` }}></div>
+                              <span className="text-[9px] font-bold text-indigo-500 mt-1.5">Same Month</span>
+                            </div>
+
+                            {/* Next-Month Forecast */}
                             <div className="flex flex-col items-center flex-1">
                               <span className="text-[10px] font-black text-[#0b8252] mb-1">{productDetail.predictedDemand}</span>
-                              <div className="w-8 bg-[#0b8252] rounded-t-md transition-all duration-300 shadow-md" style={{ height: `${Math.min(100, (productDetail.predictedDemand / Math.max(1, productDetail.predictedDemand)) * 60)}px` }}></div>
-                              <span className="text-[9px] font-black text-[#0b8252] mt-1.5">Forecast</span>
+                              <div className="w-7 bg-[#0b8252] rounded-t-md transition-all duration-300 shadow-md" style={{ height: `${Math.min(100, (productDetail.predictedDemand / Math.max(1, productDetail.predictedDemand)) * 60)}px` }}></div>
+                              <span className="text-[9px] font-black text-[#0b8252] mt-1.5">Next-Month</span>
                             </div>
                           </div>
                         </div>
                       </div>
 
-                      {/* Measured metrics and Backtest Errors details */}
+                      {/* Measured metrics and Monthly Backtest Errors details */}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Demand Metrics</h4>
+                          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Demand & Coverage Metrics</h4>
                           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs space-y-2 font-medium">
                             <div className="flex justify-between py-1 border-b border-slate-100">
-                              <span className="text-slate-400">Recent Growth Rate</span>
+                              <span className="text-slate-400">Avg Forecast Daily Demand</span>
+                              <span className="font-bold text-slate-700">
+                                {productDetail.averageForecastDailyDemand !== undefined && productDetail.averageForecastDailyDemand !== null
+                                  ? `${productDetail.averageForecastDailyDemand.toFixed(2)} units/day`
+                                  : `${(productDetail.predictedDemand / 30.0).toFixed(2)} units/day`}
+                              </span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-400">Monthly Growth Rate</span>
                               <span className={`font-bold ${productDetail.recentGrowthPercent && productDetail.recentGrowthPercent > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                 {productDetail.recentGrowthPercent ? `${(productDetail.recentGrowthPercent * 100).toFixed(1)}%` : '0.0%'}
                               </span>
@@ -856,26 +895,34 @@ export default function AiDemandForecastingPage() {
                         </div>
 
                         <div className="space-y-2">
-                          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Selected Model Validation</h4>
+                          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Monthly Model Validation</h4>
                           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs space-y-2 font-medium">
                             <div className="flex justify-between py-1 border-b border-slate-100">
                               <span className="text-slate-400">Selected Model</span>
                               <span className="font-bold text-slate-700">{productDetail.selectedModel}</span>
                             </div>
                             <div className="flex justify-between py-1 border-b border-slate-100">
-                              <span className="text-slate-400">WAPE Error Score</span>
-                              <span className="font-bold text-slate-700">{productDetail.wape !== undefined ? `${(productDetail.wape * 100).toFixed(1)}%` : 'N/A'}</span>
+                              <span className="text-slate-400">Monthly WAPE Score</span>
+                              <span className="font-bold text-slate-700">{productDetail.wape !== undefined && productDetail.wape !== null ? `${(productDetail.wape * 100).toFixed(1)}%` : 'N/A'}</span>
                             </div>
                             <div className="flex justify-between py-1 border-b border-slate-100">
-                              <span className="text-slate-400">Mean Absolute Error (MAE)</span>
-                              <span className="font-bold text-slate-700">{productDetail.mae !== undefined ? `${productDetail.mae.toFixed(2)}` : 'N/A'}</span>
+                              <span className="text-slate-400">Monthly Bias</span>
+                              <span className={`font-bold ${productDetail.monthlyBias !== undefined && productDetail.monthlyBias !== null ? (productDetail.monthlyBias > 0 ? 'text-amber-600' : productDetail.monthlyBias < 0 ? 'text-blue-600' : 'text-slate-700') : 'text-slate-700'}`}>
+                                {productDetail.monthlyBias !== undefined && productDetail.monthlyBias !== null
+                                  ? `${productDetail.monthlyBias > 0 ? '+' : ''}${productDetail.monthlyBias.toFixed(1)} units`
+                                  : 'N/A'}
+                              </span>
                             </div>
                             <div className="flex justify-between py-1 border-b border-slate-100">
-                              <span className="text-slate-400">RMSE Error Score</span>
-                              <span className="font-bold text-slate-700">{productDetail.rmse !== undefined ? `${productDetail.rmse.toFixed(2)}` : 'N/A'}</span>
+                              <span className="text-slate-400">Monthly MAE</span>
+                              <span className="font-bold text-slate-700">{productDetail.mae !== undefined && productDetail.mae !== null ? `${productDetail.mae.toFixed(1)} units` : 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-100">
+                              <span className="text-slate-400">Monthly RMSE</span>
+                              <span className="font-bold text-slate-700">{productDetail.rmse !== undefined && productDetail.rmse !== null ? `${productDetail.rmse.toFixed(1)} units` : 'N/A'}</span>
                             </div>
                             <div className="flex justify-between py-1">
-                              <span className="text-slate-400">Accuracy / Reliability</span>
+                              <span className="text-slate-400">Forecast Confidence</span>
                               <span className="font-black text-[#0b8252]">{productDetail.reliabilityLevel} CONFIDENCE</span>
                             </div>
                           </div>
