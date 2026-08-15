@@ -3,3 +3,7 @@ uvicorn
 pandas
 scikit-learn
 google-generativeai
+sqlalchemy
+psycopg2-binary
+pydantic-settings
+mlxtend

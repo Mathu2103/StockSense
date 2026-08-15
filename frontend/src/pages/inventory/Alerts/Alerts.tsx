@@ -25,7 +25,6 @@ export default function Alerts() {
     expiryAlerts,
     deadStockAlerts,
     overstockAlerts,
-    reorderSuggestions,
     discountAlerts,
     smartInsights,
     filtered,
@@ -133,7 +132,6 @@ export default function Alerts() {
               expiryAlerts={expiryAlerts}
               deadStockAlerts={deadStockAlerts}
               overstockAlerts={overstockAlerts}
-              reorderSuggestions={reorderSuggestions}
               discountAlerts={discountAlerts}
               smartInsights={smartInsights}
               setActiveTab={setActiveTab}

@@ -1,6 +1,10 @@
 import BaseSidebar, { NavLink } from '@/components/shared/BaseSidebar';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function Sidebar() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
   const isLinkActive = (path: string, currentPath: string, search: string) => {
     if (path === '/procurement') {
       return currentPath === '/procurement' || currentPath === '/suppliers' || currentPath === '/purchase-records';
@@ -17,7 +21,22 @@ export default function Sidebar() {
 
   const navLinks: NavLink[] = [
     { name: 'Dashboard', path: '/inventory', icon: 'grid_view' },
-    { name: 'Inventory Analytics', path: '/inventory-analytics', icon: 'trending_up' },
+    
+    // Nested AI Section
+    { 
+      name: 'AI Intelligence', 
+      path: '/inventory-analytics', 
+      icon: 'psychology',
+      subLinks: [
+        { name: 'Overview & Health', path: '/inventory-analytics', icon: 'trending_up' },
+        { name: 'AI Demand Forecasting', path: '/ai-demand-forecasting', icon: 'psychology' },
+        { name: 'AI Combo Suggester', path: '/inventory-combo', icon: 'auto_awesome' },
+        ...(isAdmin ? [{ name: 'Combo Approvals', path: '/admin/combo-approvals', icon: 'verified' }] : [])
+      ]
+    },
+    
+    // Management Section
+    { name: 'Management', path: '', icon: '', isHeader: true },
     { name: 'Product Catalog', path: '/manage-products', icon: 'inventory_2' },
     { name: 'Procurement Management', path: '/procurement', icon: 'local_shipping' },
     { name: 'Stock Operations', path: '/inventory-operations', icon: 'sync_alt' },

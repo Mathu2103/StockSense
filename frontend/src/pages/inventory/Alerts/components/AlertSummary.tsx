@@ -1,4 +1,3 @@
-import React from 'react';
 import { Tab, AlertSeverity } from '../types/alertTypes';
 
 interface AlertSummaryProps {
@@ -9,7 +8,6 @@ interface AlertSummaryProps {
   expiryAlerts: number;
   deadStockAlerts: number;
   overstockAlerts: number;
-  reorderSuggestions: number;
   discountAlerts: number;
   smartInsights: string[];
   setActiveTab: (t: Tab) => void;
@@ -24,7 +22,6 @@ export default function AlertSummary({
   expiryAlerts,
   deadStockAlerts,
   overstockAlerts,
-  reorderSuggestions,
   discountAlerts,
   smartInsights,
   setActiveTab,
@@ -44,6 +41,18 @@ export default function AlertSummary({
           </div>
           <h3 className="text-2xl font-extrabold text-slate-800">{totalAlerts}</h3>
           <p className="text-[10px] text-slate-400 mt-1 font-medium">Active alerts</p>
+        </div>
+
+        <div
+          onClick={() => { setActiveTab('All Alerts'); setSevFilter('Critical'); }}
+          className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm cursor-pointer hover:border-red-600 hover:shadow-md transition-all"
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <span className="material-symbols-outlined text-red-600 text-[18px]">error</span>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Critical</p>
+          </div>
+          <h3 className="text-2xl font-extrabold text-red-700">{criticalAlerts}</h3>
+          <p className="text-[10px] text-slate-400 mt-1 font-medium">High priority</p>
         </div>
 
         <div

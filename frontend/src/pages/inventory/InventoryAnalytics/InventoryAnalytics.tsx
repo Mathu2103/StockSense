@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from 'react';
-import { toast } from 'sonner';
 import Sidebar from '../Shared/Sidebar';
 import InventoryHeader from '../Shared/InventoryHeader';
 import { inventoryOperationsService, ProductItem, LedgerEntry } from '../StockOperations/operations/inventoryOperationsService';
@@ -7,12 +6,9 @@ import { inventoryOperationsService, ProductItem, LedgerEntry } from '../StockOp
 // Analytics subcomponents — organized in Components/analytics/
 import KpiDashboardCards from './analytics/KpiDashboardCards';
 import OverviewTab from './analytics/OverviewTab';
-import VelocityTab from './analytics/VelocityTab';
-import RiskTab from './analytics/RiskTab';
 
 export default function InventoryAnalytics() {
   // ── UI State ────────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'overview' | 'velocity' | 'risk'>('overview');
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'year' | 'custom'>('month');
   const [hoveredChartBar, setHoveredChartBar] = useState<string | null>(null);
   const [hoveredDonutSegment, setHoveredDonutSegment] = useState<string | null>(null);
@@ -34,9 +30,7 @@ export default function InventoryAnalytics() {
   }, []);
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
-  const triggerToast = (msg: string) => {
-    toast.success(msg);
-  };
+
   // ── Date-filtered ledger ────────────────────────────────────────────────────
   const filteredLedger = useMemo(() => {
     const now = Date.now();
@@ -78,31 +72,7 @@ export default function InventoryAnalytics() {
     dynamicExpiryLoss.reduce((sum, item) => sum + item.lossValue, 0),
     [dynamicExpiryLoss]);
 
-  const dynamicFastMoving = useMemo(() => {
-    const counts: { [key: string]: { movements: number; qty: number } } = {};
-    filteredLedger.filter(l => l.movementType === 'Sale').forEach(s => {
-      const prod = products.find(p => p.name === s.productName || p.sku === s.sku);
-      if (!prod) return;
-      if (!counts[prod.sku]) counts[prod.sku] = { movements: 0, qty: 0 };
-      counts[prod.sku].movements += 1;
-      counts[prod.sku].qty += Math.abs(s.quantityChange);
-    });
-    return products
-      .map(p => {
-        const log = counts[p.sku] || { movements: 0, qty: 0 };
-        return {
-          name: p.name,
-          category: p.category,
-          movementCount: log.movements,
-          salesVolume: `Rs. ${(log.qty * p.sellingPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-          stockRemaining: p.stock,
-          rating: log.movements > 50 ? 'High Demand' : log.movements > 10 ? 'Normal' : 'Low Demand'
-        };
-      })
-      .filter(item => item.movementCount > 0)
-      .sort((a, b) => b.movementCount - a.movementCount)
-      .slice(0, 5);
-  }, [filteredLedger, products]);
+
 
   const dynamicDeadStock = useMemo(() => {
     return products.map((p) => {
@@ -161,16 +131,7 @@ export default function InventoryAnalytics() {
     });
   }, [filteredLedger, products]);
 
-  const dynamicReorderSuggestions = useMemo(() => {
-    const lowItems = products.filter(p => p.stock <= p.reorderLevel);
-    return lowItems.map(p => ({
-      name: p.name,
-      stock: p.stock,
-      threshold: p.reorderLevel,
-      suggestedQty: Math.max(50, p.reorderLevel * 3 - p.stock),
-      urgency: p.stock === 0 ? 'Critical' : p.stock <= p.reorderLevel ? 'Warning' : 'Normal'
-    })).slice(0, 4);
-  }, [products]);
+
 
   const dynamicHealthStats = useMemo(() => {
     const total = products.length || 1;
@@ -306,28 +267,7 @@ export default function InventoryAnalytics() {
               </div>
             </div>
 
-            {/* Tab Navigation */}
-            <div className="flex border-b border-slate-200 gap-6">
-              {([
-                { id: 'overview', label: 'Overview & Health', icon: 'dashboard' },
-                { id: 'velocity', label: 'Product Velocity', icon: 'bolt' },
-                { id: 'risk', label: 'Risk & Loss Audits', icon: 'warning_amber' }
-              ] as const).map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`pb-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === tab.id
-                    ? 'border-[#0b8252] text-[#0b8252]'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                    }`}
-                >
-                  <span className="material-symbols-outlined text-[18px]">{tab.icon}</span>
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* KPI Cards — always visible */}
+            {/* KPI Cards */}
             <KpiDashboardCards
               totalInventoryValue={totalInventoryValue}
               turnoverRate={turnoverRate}
@@ -337,38 +277,16 @@ export default function InventoryAnalytics() {
               lowStockCount={lowStockCount}
             />
 
-            {/* Tab: Overview & Health */}
-            {activeTab === 'overview' && (
-              <OverviewTab
-                dynamicHealthStats={dynamicHealthStats}
-                hoveredDonutSegment={hoveredDonutSegment}
-                setHoveredDonutSegment={setHoveredDonutSegment}
-                dynamicMovementInsights={dynamicMovementInsights}
-                hoveredChartBar={hoveredChartBar}
-                setHoveredChartBar={setHoveredChartBar}
-                dynamicCategoryPerformance={dynamicCategoryPerformance}
-              />
-            )}
-
-            {/* Tab: Product Velocity */}
-            {activeTab === 'velocity' && (
-              <VelocityTab
-                dynamicFastMoving={dynamicFastMoving}
-                products={products}
-                dynamicReorderSuggestions={dynamicReorderSuggestions}
-                triggerToast={triggerToast}
-              />
-            )}
-
-            {/* Tab: Risk & Loss Audits */}
-            {activeTab === 'risk' && (
-              <RiskTab
-                dynamicDeadStock={dynamicDeadStock}
-                dynamicExpiryLoss={dynamicExpiryLoss}
-                totalExpiryLoss={totalExpiryLoss}
-                triggerToast={triggerToast}
-              />
-            )}
+            {/* Overview & Health */}
+            <OverviewTab
+              dynamicHealthStats={dynamicHealthStats}
+              hoveredDonutSegment={hoveredDonutSegment}
+              setHoveredDonutSegment={setHoveredDonutSegment}
+              dynamicMovementInsights={dynamicMovementInsights}
+              hoveredChartBar={hoveredChartBar}
+              setHoveredChartBar={setHoveredChartBar}
+              dynamicCategoryPerformance={dynamicCategoryPerformance}
+            />
 
           </div>
         </main>

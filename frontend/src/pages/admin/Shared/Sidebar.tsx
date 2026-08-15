@@ -12,6 +12,7 @@ export default function Sidebar() {
   const navLinks: NavLink[] = [
     { name: 'Dashboard', path: '/admin', icon: 'dashboard' },
     { name: 'Accounts', path: '/admin/accounts', icon: 'manage_accounts' },
+    { name: 'Combo Approvals', path: '/admin/combo-approvals', icon: 'verified' },
     { name: 'Alerts', path: '/alerts', icon: 'notifications' },
     { name: 'Reports', path: '/admin/reports', icon: 'analytics' },
     { name: 'Settings', path: '/admin/settings', icon: 'settings' },

@@ -1,0 +1,85 @@
+from typing import Dict, Any
+
+def generate_forecast_explanation(
+    analysis_row: Dict[str, Any],
+    predicted_demand: int,
+    current_stock: int,
+    safety_stock: int,
+    recommended_qty: int,
+    stock_coverage: float,
+    status: str,
+    selected_model: str,
+    wape_score: float,
+    target_month_name: str = "target month",
+    safety_stock_pct: float = 0.15,
+    reliability_level: str = "MEDIUM",
+    stock_vs_required_pct: float = 100.0
+) -> str:
+    """
+    Generates a natural language explanation for the forecast using measured monthly numbers.
+    Ensures every statement is traceable to calculated features and monthly validation.
+    """
+    recent_growth = analysis_row.get("recentGrowthPercentage")
+    discount_uplift = analysis_row.get("discountUpliftPercentage")
+    stock_out_days = analysis_row.get("stockOutDays", 0)
+    
+    sentences = []
+
+    # 1. Model selection and monthly validation accuracy
+    wape_percent = wape_score * 100.0 if wape_score is not None else 50.0
+    reliability_label = reliability_level.lower()
+    sentences.append(f"{selected_model} was selected after monthly walk-forward validation with a monthly WAPE of {wape_percent:.1f}%, resulting in {reliability_label} forecast confidence.")
+
+    # 2. Growth / Trend
+    if recent_growth is not None:
+        if recent_growth > 0.0:
+            sentences.append(f"Recent monthly demand grew by {recent_growth:.1f}%.")
+        elif recent_growth < 0.0:
+            sentences.append(f"Recent monthly demand declined by {abs(recent_growth):.1f}%.")
+        else:
+            sentences.append("Recent monthly demand remained stable.")
+
+    # 3. Seasonality
+    seasonal_uplift = analysis_row.get("seasonalUpliftPercentage", 0.0) or 0.0
+    if seasonal_uplift >= 10.0:
+        sentences.append(f"Demand for this product is historically {seasonal_uplift:.1f}% higher in {target_month_name}.")
+    elif seasonal_uplift <= -10.0:
+        sentences.append(f"Demand for this product is historically {abs(seasonal_uplift):.1f}% lower in {target_month_name}.")
+
+    # 4. Discount sensitivity
+    if discount_uplift is not None and discount_uplift >= 10.0:
+        sentences.append(f"Historical sales show a {discount_uplift:.1f}% increase when promotions are active.")
+
+    # 5. Stock-out bias
+    if stock_out_days > 0:
+        sentences.append(f"{stock_out_days} stock-out day(s) were identified, meaning recorded sales may understate true demand.")
+
+    # 6. Target Month Forecast & Requirements
+    required_stock = predicted_demand + safety_stock
+    safety_pct_int = int(safety_stock_pct * 100)
+    sentences.append(f"The next-month predicted demand is {predicted_demand} units. A {safety_pct_int}% safety buffer adds {safety_stock} units, resulting in a required stock level of {required_stock} units.")
+
+    # 7. Estimated Coverage & Stock Ratio
+    if current_stock == 0 or stock_coverage == 0.0:
+        sentences.append("Current stock is completely depleted.")
+    elif stock_coverage >= 999.0:
+        sentences.append(f"Current stock of {current_stock} units covers approximately {stock_vs_required_pct:.0f}% of required inventory and has estimated coverage over 90 days.")
+    else:
+        sentences.append(f"Based on the average daily demand derived from the monthly forecast, current stock of {current_stock} units has an estimated coverage of approximately {int(round(stock_coverage))} days.")
+
+    # 8. Status Specific Rationale
+    if status == "CRITICAL_ACTION":
+        sentences.append(f"Status CRITICAL ACTION assigned: Current inventory is low ({int(round(stock_coverage))} days estimated coverage) and a reorder of {recommended_qty} units is urgently recommended.")
+    elif status == "REORDER_REQUIRED":
+        sentences.append(f"Status REORDER REQUIRED assigned: Stock is currently available ({int(round(stock_coverage))} days estimated coverage), but falls below required stock. A reorder of {recommended_qty} units is recommended.")
+    elif status == "OVERSTOCK_RISK":
+        sentences.append(f"Status OVERSTOCK RISK assigned: Current inventory represents {stock_vs_required_pct:.0f}% of required stock, exceeding the configured overstock threshold.")
+    else: # SUFFICIENT
+        sentences.append(f"Current stock is {current_stock} units, so no additional order is recommended.")
+
+    # 9. Low Confidence Warning Attachment
+    if reliability_level == "LOW":
+        sentences.append(f"The reorder recommendation is based on a low-confidence monthly forecast ({selected_model}, monthly WAPE {wape_percent:.1f}%). Manager review is recommended before placing the purchase order.")
+
+    return " ".join(sentences)
+
