@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { AuthContext } from '../../context/AuthContext';
 import { MasterDataService } from '../../services/masterDataService';
 import { DiscountService } from '../../services/discountService';
+import { comboService } from '../../services/comboService';
 import { SalesService } from '../../services/salesService';
 import { RefundService } from '../../services/refundService';
 
@@ -94,13 +95,15 @@ export default function POSPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [discounts, setDiscounts] = useState<any[]>([]);
+  const [posCombos, setPosCombos] = useState<any[]>([]);
 
   const loadAllData = async () => {
     setLoading(true);
     try {
-      const [prodRes, discRes, draftsRes, historyRes] = await Promise.all([
+      const [prodRes, discRes, comboRes, draftsRes, historyRes] = await Promise.all([
         MasterDataService.getProducts(),
         DiscountService.getDiscounts(),
+        comboService.getPosActiveCombos(),
         SalesService.getDraftBills(),
         SalesService.getSalesHistory()
       ]);
@@ -123,6 +126,10 @@ export default function POSPage() {
       if (discRes.success) {
         const activeApproved = discRes.data.filter((d: any) => d.isActive && d.approvalStatus === 'APPROVED');
         setDiscounts(activeApproved);
+      }
+
+      if (comboRes && comboRes.success) {
+        setPosCombos(comboRes.data);
       }
 
       if (draftsRes.success) {
@@ -508,6 +515,32 @@ export default function POSPage() {
     setDeclinedCombos(prev => [...prev, discountId]);
     setShowComboSuggestionModal(false);
     setSuggestedCombo(null);
+  };
+
+  const addApprovedComboToCart = (combo: any) => {
+    const originalTotal = combo.normalTotalPrice;
+    const discountVal = combo.discountPercentage;
+
+    const comboPack = {
+      id: `combo-${combo.id}-${Date.now()}`,
+      name: `Combo: ${combo.name}`,
+      price: originalTotal,
+      quantity: 1,
+      discount: discountVal,
+      isCombo: true,
+      comboId: combo.id,
+      discountId: combo.comboCode,
+      comboItems: combo.items.map((ci: any) => ({
+        sku: ci.productId || ci.product?.sku,
+        name: ci.product?.name,
+        qty: ci.quantity,
+        unitPrice: ci.normalUnitPrice || ci.product?.sellingPrice || 0
+      })),
+      image: combo.items[0]?.product?.imageUrl || "https://images.unsplash.com/photo-1497935586351-b67a49e012bf?q=80&w=800&auto=format&fit=crop"
+    };
+
+    setCart(prev => [...prev, comboPack]);
+    toast.success(`Added "${combo.name}" Combo Pack to Bill!`);
   };
 
   const handleCompleteTransaction = async () => {
@@ -1871,8 +1904,10 @@ export default function POSPage() {
         {activeTab === 'discounts' && (
           <DiscountsTab
             discounts={discounts}
+            posCombos={posCombos}
             products={products}
             addComboToCart={addComboToCart}
+            addApprovedComboToCart={addApprovedComboToCart}
             addDiscountProductsToCart={addDiscountProductsToCart}
             addSingleDiscountProduct={addSingleDiscountProduct}
           />

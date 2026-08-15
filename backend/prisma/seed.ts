@@ -43,25 +43,23 @@ async function main() {
 
   const random = new SeededRandom(RANDOM_SEED);
 
-  // 1. Clear database tables in reverse dependency order
+  // 1. Clear database tables dynamically
   console.log('Clearing existing operational and master data...');
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "stock_adjustments" CASCADE;');
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "sales_refund_items" CASCADE;');
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "sales_refunds" CASCADE;');
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "sales_bill_items" CASCADE;');
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "sales_bills" CASCADE;');
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "grn_items" CASCADE;');
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "goods_receiving_notes" CASCADE;');
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "discount_combo_items" CASCADE;');
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "seasonal_or_daily_products" CASCADE;');
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "discounts" CASCADE;');
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "products" CASCADE;');
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "master_product_class" CASCADE;');
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "brands" CASCADE;');
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "sub_categories" CASCADE;');
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "categories" CASCADE;');
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "suppliers" CASCADE;');
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "users" CASCADE;');
+  const tables = await prisma.$queryRawUnsafe<any[]>(`
+    SELECT table_name 
+    FROM information_schema.tables 
+    WHERE table_schema = 'public' 
+      AND table_type = 'BASE TABLE' 
+      AND table_name != '_prisma_migrations';
+  `);
+
+  for (const t of tables) {
+    try {
+      await prisma.$executeRawUnsafe(`TRUNCATE TABLE "${t.table_name}" CASCADE;`);
+    } catch (err: any) {
+      console.warn(`Could not truncate ${t.table_name}:`, err.message);
+    }
+  }
   console.log('Database cleared.');
 
   // 2. Generate Master Data

@@ -196,6 +196,7 @@ def run_monthly_forecasting(
 
             # E. Recommendations & Coverage
             current_stock = int(prod["current_stock"])
+            confirmed_incoming = 0
             # average daily demand = recent 30 sales / (30 - stockout days)
             recent_30_sales = float(feat_row["recent30Sales"])
             stock_out_days_last_30 = int(prod_hist[prod_hist["date"] >= d30_start]["stockOutFlag"].sum()) if 'stockOutFlag' in prod_hist.columns else 0

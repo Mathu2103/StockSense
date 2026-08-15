@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { comboService } from '../../../services/comboService';
 import { api } from '../../../services/axiosInstance';
 import { useAuth } from '../../../hooks/useAuth';
@@ -16,7 +17,7 @@ export default function ComboBuilder() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [products, setProducts] = useState<any[]>([]); // All active products
-  const [opportunitiesMap, setOpportunitiesMap] = useState<Record<string, string>>({}); // sku -> opportunityType
+  const [opportunitiesMap, setOpportunitiesMap] = useState<Record<string, string[]>>({}); // sku -> array of opportunityTypes
 
   // Form State
   const [name, setName] = useState('');
@@ -24,6 +25,7 @@ export default function ComboBuilder() {
   const [description, setDescription] = useState('');
   const [comboType, setComboType] = useState('SLOW_MOVING');
   const [comboPrice, setComboPrice] = useState<number>(0);
+  const [maximumQuantity, setMaximumQuantity] = useState<number>(80);
   const todayStr = new Date().toISOString().split('T')[0];
 
   const [startDate, setStartDate] = useState('');
@@ -58,6 +60,8 @@ export default function ComboBuilder() {
     message: ''
   });
 
+  const [activeCombos, setActiveCombos] = useState<any[]>([]);
+
   // Helper to generate a unique random combo code
   const generateRandomCode = () => {
     return `COMBO-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
@@ -66,9 +70,10 @@ export default function ComboBuilder() {
   // Fetch active products and opportunities
   const fetchProductsAndOpportunities = async () => {
     try {
-      const [prodRes, oppRes] = await Promise.all([
+      const [prodRes, oppRes, combosRes] = await Promise.all([
         api.get('/products?status=ACTIVE'),
-        comboService.getOpportunities()
+        comboService.getOpportunities(),
+        comboService.getCombos()
       ]);
 
       if (prodRes.data.success) {
@@ -76,11 +81,20 @@ export default function ComboBuilder() {
       }
 
       if (oppRes && oppRes.success && Array.isArray(oppRes.data)) {
-        const oppMap: Record<string, string> = {};
+        const oppMap: Record<string, string[]> = {};
         oppRes.data.forEach((opp: any) => {
-          oppMap[opp.targetProductId] = opp.opportunityType;
+          if (!oppMap[opp.targetProductId]) {
+            oppMap[opp.targetProductId] = [];
+          }
+          if (!oppMap[opp.targetProductId].includes(opp.opportunityType)) {
+            oppMap[opp.targetProductId].push(opp.opportunityType);
+          }
         });
         setOpportunitiesMap(oppMap);
+      }
+
+      if (combosRes && combosRes.success && Array.isArray(combosRes.data)) {
+        setActiveCombos(combosRes.data);
       }
     } catch (err) {
       console.error(err);
@@ -96,6 +110,7 @@ export default function ComboBuilder() {
       setDescription('');
       setComboType('SLOW_MOVING');
       setComboPrice(0);
+      setMaximumQuantity(80);
       setStartDate('');
       setEndDate('');
       setItems([]);
@@ -116,6 +131,7 @@ export default function ComboBuilder() {
         setDescription(combo.description || '');
         setComboType(combo.comboType);
         setComboPrice(combo.comboPrice);
+        setMaximumQuantity(combo.maximumQuantity || 80);
         setStartDate(combo.startDate ? combo.startDate.split('T')[0] : '');
         setEndDate(combo.endDate ? combo.endDate.split('T')[0] : '');
         setComboStatus(combo.status);
@@ -149,7 +165,7 @@ export default function ComboBuilder() {
   // Live Recalculations
   const normalTotalPrice = items.reduce((sum, item) => sum + (item.normalUnitPrice * item.quantity), 0);
   const totalCost = items.reduce((sum, item) => sum + (item.costPrice * item.quantity), 0);
-  const minSafePrice = totalCost > 0 ? totalCost / 0.8 : 0; // 20% margin floor
+  const breakEvenCost = totalCost;
   const expectedProfit = comboPrice - totalCost;
   const expectedMargin = comboPrice > 0 ? (expectedProfit / comboPrice) * 100 : 0;
 
@@ -171,12 +187,11 @@ export default function ComboBuilder() {
 
     setItems(newItems);
 
-    // Auto-calculate suggested combo price (gives 15% discount while guaranteeing >= 20% profit margin)
+    // Auto-calculate suggested combo price (gives 10% discount while guaranteeing > cost)
     const newNormal = newItems.reduce((sum, item) => sum + (item.normalUnitPrice * item.quantity), 0);
     const newCost = newItems.reduce((sum, item) => sum + (item.costPrice * item.quantity), 0);
-    const safeFloor = newCost > 0 ? Math.ceil(newCost / 0.8) : 0;
-    const discountedPrice = Math.ceil(newNormal * 0.85);
-    const suggestedPrice = Math.max(safeFloor, discountedPrice);
+    const discountedPrice = Math.round(newNormal * 0.90);
+    const suggestedPrice = Math.max(Math.ceil(newCost * 1.02), discountedPrice);
 
     if (suggestedPrice > 0) {
       setComboPrice(suggestedPrice);
@@ -190,9 +205,19 @@ export default function ComboBuilder() {
     setComboPrice(price);
   };
 
-  const applyMinSafePricePreset = () => {
-    if (minSafePrice <= 0) return;
-    setComboPrice(Math.ceil(minSafePrice));
+  const applyCostFloorPreset = () => {
+    if (totalCost <= 0) return;
+    setComboPrice(Math.ceil(totalCost * 1.02)); // 2% safe floor above cost
+  };
+
+  // Helper for quick campaign duration presets
+  const setDurationPreset = (days: number) => {
+    const start = startDate ? new Date(startDate) : new Date();
+    const end = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+    if (!startDate) {
+      setStartDate(start.toISOString().split('T')[0]);
+    }
+    setEndDate(end.toISOString().split('T')[0]);
   };
 
   // Handle Change Item Field
@@ -281,6 +306,7 @@ export default function ComboBuilder() {
         description,
         comboType,
         comboPrice,
+        maximumQuantity,
         startDate,
         endDate,
         items
@@ -502,8 +528,40 @@ export default function ComboBuilder() {
                 Combo Status: PENDING_APPROVAL (Awaiting Admin Review)
               </span>
             )
-          ) : comboStatus === 'DRAFT' || comboStatus === 'CHANGES_REQUESTED' ? (
+          ) : comboStatus === 'DRAFT' || comboStatus === 'CHANGES_REQUESTED' || comboStatus === 'REJECTED' ? (
             <>
+              {comboId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalConfig({
+                      isOpen: true,
+                      title: 'Delete Combo Campaign',
+                      message: 'Are you sure you want to permanently delete this combo draft campaign? This action cannot be undone.',
+                      type: 'CONFIRM',
+                      confirmText: 'Delete Campaign',
+                      cancelText: 'Cancel',
+                      onConfirm: async () => {
+                        try {
+                          const res = await comboService.deleteCombo(comboId);
+                          if (res.success) {
+                            toast.success('Combo draft deleted successfully.');
+                            navigate('/inventory-combo');
+                          } else {
+                            toast.error(res.message || 'Failed to delete combo.');
+                          }
+                        } catch (err: any) {
+                          toast.error(err.response?.data?.message || 'Error deleting combo.');
+                        }
+                      }
+                    });
+                  }}
+                  className="bg-white border border-red-200 text-red-700 font-bold px-4 py-2.5 rounded-xl hover:bg-red-50 hover:border-red-300 transition-all cursor-pointer text-sm shadow-xs flex items-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-[18px]">delete</span>
+                  Delete Draft
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => handleSave(false)}
@@ -523,7 +581,11 @@ export default function ComboBuilder() {
               </button>
             </>
           ) : (
-            <span className="bg-emerald-50 text-emerald-800 font-extrabold border border-emerald-100 text-xs px-4 py-2 rounded-xl">
+            <span className={`font-extrabold border text-xs px-4 py-2 rounded-xl ${
+              comboStatus === 'ACTIVE' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+              comboStatus === 'APPROVED' ? 'bg-teal-50 text-teal-800 border-teal-200' :
+              'bg-gray-100 text-gray-700 border-gray-200'
+            }`}>
               Combo Status: {comboStatus}
             </span>
           )}
@@ -608,18 +670,43 @@ export default function ComboBuilder() {
                   onChange={(e) => setComboType(e.target.value)}
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:bg-white focus:border-emerald-700 transition-all cursor-pointer font-medium"
                 >
-                  <option value="SLOW_MOVING">Slow-Moving Support</option>
-                  <option value="DEAD_STOCK">Dead-Stock clearance</option>
-                  <option value="NEAR_EXPIRY">Near-Expiry emergency</option>
-                  <option value="OVERSTOCK">Overstock dump</option>
-                  <option value="SEASONAL">Seasonal promotion</option>
-                  <option value="REGULAR_COMPLEMENTARY">Regular Complementary Rule</option>
+                  <option value="SLOW_MOVING">Slow-Moving Stock Support</option>
+                  <option value="DEAD_STOCK">Dead-Stock Clearance Campaign</option>
+                  <option value="NEAR_EXPIRY">Near-Expiry Emergency Sell-off</option>
+                  <option value="OVERSTOCK">Overstock Bulk Reduction</option>
+                  <option value="SEASONAL">Seasonal Promotional Deal</option>
+                  <option value="REGULAR_COMPLEMENTARY">Standard Cross-Sell Bundle</option>
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="text-xs text-gray-400 font-bold uppercase">Start Date</label>
+              <div className="space-y-1">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs text-gray-400 font-bold uppercase">Campaign Duration</label>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setDurationPreset(7)}
+                      className="text-[9px] font-extrabold bg-gray-100 hover:bg-emerald-50 text-gray-600 hover:text-emerald-800 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                    >
+                      7D
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDurationPreset(14)}
+                      className="text-[9px] font-extrabold bg-gray-100 hover:bg-emerald-50 text-gray-600 hover:text-emerald-800 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                    >
+                      14D (Rec.)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDurationPreset(30)}
+                      className="text-[9px] font-extrabold bg-gray-100 hover:bg-emerald-50 text-gray-600 hover:text-emerald-800 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                    >
+                      30D
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
                   <input 
                     type="date" 
                     value={startDate} 
@@ -632,16 +719,15 @@ export default function ComboBuilder() {
                       }
                     }}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white focus:border-emerald-700 transition-all cursor-pointer font-medium"
+                    placeholder="Start Date"
                   />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-gray-400 font-bold uppercase">End Date</label>
                   <input 
                     type="date" 
                     value={endDate} 
                     min={startDate || todayStr}
                     onChange={(e) => setEndDate(e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:bg-white focus:border-emerald-700 transition-all cursor-pointer font-medium"
+                    placeholder="End Date"
                   />
                 </div>
               </div>
@@ -705,8 +791,7 @@ export default function ComboBuilder() {
                         { id: 'SLOW_MOVING', label: 'Slow-Moving' },
                         { id: 'NEAR_EXPIRY', label: 'Near-Expiry' },
                         { id: 'OVERSTOCK', label: 'Overstock' },
-                        { id: 'DEAD_STOCK', label: 'Dead-Stock' },
-                        { id: 'NORMAL', label: 'Regular Items' }
+                        { id: 'DEAD_STOCK', label: 'Dead-Stock' }
                       ].map(cat => (
                         <button
                           key={cat.id}
@@ -726,13 +811,12 @@ export default function ComboBuilder() {
                     {/* Filtered Products List */}
                     {(() => {
                       const filteredList = products.filter(p => {
-                        const opp = opportunitiesMap[p.sku];
+                        const oppTypes = opportunitiesMap[p.sku] || [];
                         
-                        if (selectedOppFilter === 'SLOW_MOVING' && opp !== 'SLOW_MOVING') return false;
-                        if (selectedOppFilter === 'NEAR_EXPIRY' && opp !== 'NEAR_EXPIRY') return false;
-                        if (selectedOppFilter === 'OVERSTOCK' && opp !== 'OVERSTOCK') return false;
-                        if (selectedOppFilter === 'DEAD_STOCK' && opp !== 'DEAD_STOCK') return false;
-                        if (selectedOppFilter === 'NORMAL' && opp) return false;
+                        if (selectedOppFilter === 'SLOW_MOVING' && !oppTypes.includes('SLOW_MOVING')) return false;
+                        if (selectedOppFilter === 'NEAR_EXPIRY' && !oppTypes.includes('NEAR_EXPIRY')) return false;
+                        if (selectedOppFilter === 'OVERSTOCK' && !oppTypes.includes('OVERSTOCK')) return false;
+                        if (selectedOppFilter === 'DEAD_STOCK' && !oppTypes.includes('DEAD_STOCK')) return false;
 
                         if (productSearchQuery) {
                           const q = productSearchQuery.toLowerCase();
@@ -754,8 +838,9 @@ export default function ComboBuilder() {
                       }
 
                       return filteredList.slice(0, 40).map(p => {
-                        const opp = opportunitiesMap[p.sku];
+                        const oppTypes = opportunitiesMap[p.sku] || [];
                         const isAdded = items.some(i => i.productId === p.sku);
+                        
                         return (
                           <div
                             key={p.sku}
@@ -766,30 +851,52 @@ export default function ComboBuilder() {
                                 setShowSearchList(false);
                               }
                             }}
-                            className={`p-3 text-xs flex justify-between items-center transition-colors cursor-pointer ${
-                              isAdded ? 'bg-gray-50 opacity-50 cursor-not-allowed' : 'hover:bg-emerald-50/60'
+                            className={`p-3 text-xs flex justify-between items-center transition-all cursor-pointer border-b border-gray-50 last:border-0 ${
+                              isAdded ? 'bg-gray-50/70 opacity-40 cursor-not-allowed' : 'hover:bg-emerald-50/50'
                             }`}
                           >
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-1.5">
+                            <div className="space-y-1 flex-1 pr-3">
+                              <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="font-bold text-gray-900">{p.name}</span>
-                                {opp ? (
-                                  <span className="bg-amber-50 text-amber-800 border border-amber-200 text-[9px] font-extrabold px-1.5 py-0.2 rounded">
-                                    {opp}
+                                {oppTypes.includes('NEAR_EXPIRY') && (
+                                  <span className="bg-red-50 text-red-700 border border-red-200 text-[9px] font-black px-1.5 py-0.5 rounded">
+                                    Near Expiry
                                   </span>
-                                ) : (
-                                  <span className="bg-gray-100 text-gray-600 text-[9px] font-bold px-1.5 py-0.2 rounded">
-                                    REGULAR
+                                )}
+                                {oppTypes.includes('DEAD_STOCK') && (
+                                  <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[9px] font-black px-1.5 py-0.5 rounded">
+                                    Dead Stock
+                                  </span>
+                                )}
+                                {oppTypes.includes('SLOW_MOVING') && (
+                                  <span className="bg-orange-50 text-orange-700 border border-orange-200 text-[9px] font-black px-1.5 py-0.5 rounded">
+                                    Slow Moving
+                                  </span>
+                                )}
+                                {oppTypes.includes('OVERSTOCK') && (
+                                  <span className="bg-purple-50 text-purple-700 border border-purple-200 text-[9px] font-black px-1.5 py-0.5 rounded">
+                                    Overstock
                                   </span>
                                 )}
                               </div>
-                              <div className="text-[10px] text-gray-400 font-mono">
-                                SKU: {p.sku} {p.barcode ? `| Barcode: ${p.barcode}` : ''}
+                              <div className="flex gap-2 text-[10px] text-gray-400 font-mono">
+                                <span>SKU: {p.sku}</span>
+                                {p.barcode && <span>| Barcode: {p.barcode}</span>}
                               </div>
                             </div>
-                            <div className="text-right shrink-0">
-                              <span className="font-bold text-gray-900 block">Rs. {p.sellingPrice}</span>
-                              <span className="text-[10px] text-gray-400">Stock: {p.currentStock}</span>
+
+                            <div className="text-right shrink-0 flex items-center gap-3">
+                              <div>
+                                <span className="font-extrabold text-[#103e2c] block text-xs">Rs. {p.sellingPrice}</span>
+                                <span className={`text-[10px] font-semibold ${p.currentStock > 0 ? 'text-gray-500' : 'text-red-500'}`}>
+                                  {p.currentStock} in stock
+                                </span>
+                              </div>
+                              <span className={`material-symbols-outlined text-[18px] p-1 rounded-full ${
+                                isAdded ? 'text-gray-300' : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                              }`}>
+                                {isAdded ? 'check' : 'add'}
+                              </span>
                             </div>
                           </div>
                         );
@@ -809,55 +916,65 @@ export default function ComboBuilder() {
             ) : (
               <div className="space-y-4 divide-y divide-gray-50">
                 {items.map((item, index) => {
-                  const opp = opportunitiesMap[item.productId];
+                  const oppTypes = opportunitiesMap[item.productId] || [];
+                  const isTarget = item.role === 'TARGET';
                   return (
-                    <div key={item.productId} className="pt-4 first:pt-0 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                      <div className="md:col-span-5 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-gray-800">{item.name}</p>
-                          {opp && (
-                            <span className="bg-amber-50 text-amber-800 border border-amber-200 text-[9px] font-extrabold px-2 py-0.5 rounded shrink-0">
-                              {opp}
+                    <div key={item.productId} className="p-3.5 rounded-xl border border-gray-100 bg-gray-50/40 hover:bg-white hover:border-gray-200 transition-all grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                      <div className="md:col-span-6 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-md border ${
+                            isTarget 
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                              : 'bg-blue-50 text-blue-800 border-blue-200'
+                          }`}>
+                            {isTarget ? '🎯 Target Item' : '⭐ Anchor Item'}
+                          </span>
+                          {oppTypes.map((ot: string) => (
+                            <span key={ot} className="bg-amber-50 text-amber-800 border border-amber-200 text-[9px] font-black px-1.5 py-0.5 rounded">
+                              {ot}
                             </span>
-                          )}
+                          ))}
                         </div>
-                        <div className="flex gap-3 text-[11px] text-gray-400 font-mono">
+                        <p className="font-extrabold text-gray-900 text-sm">{item.name}</p>
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-gray-500 font-mono">
                           <span>SKU: {item.productId}</span>
-                          <span>Price: <strong>Rs. {item.normalUnitPrice}</strong></span>
+                          <span>Sell: <strong>Rs. {item.normalUnitPrice}</strong></span>
                           <span>Cost: <strong>Rs. {item.costPrice}</strong></span>
                         </div>
                       </div>
                       
-                      <div className="md:col-span-6 grid grid-cols-5 gap-2 items-center">
-                        <div className="col-span-2 space-y-1">
+                      <div className="md:col-span-5 grid grid-cols-5 gap-2 items-center">
+                        <div className="col-span-2 space-y-0.5">
                           <label className="text-[9px] text-gray-400 font-bold uppercase">Qty</label>
                           <input 
                             type="number" 
+                            min="1"
                             value={item.quantity} 
                             onChange={(e) => handleItemFieldChange(index, 'quantity', parseInt(e.target.value) || 1)}
-                            className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:bg-white font-bold"
+                            className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-emerald-700 font-bold text-center"
                           />
                         </div>
-                        <div className="col-span-3 space-y-1">
-                          <label className="text-[9px] text-gray-400 font-bold uppercase">Role</label>
+                        <div className="col-span-3 space-y-0.5">
+                          <label className="text-[9px] text-gray-400 font-bold uppercase">Bundle Role</label>
                           <select 
                             value={item.role} 
                             onChange={(e) => handleItemFieldChange(index, 'role', e.target.value)}
-                            className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none cursor-pointer font-bold min-w-[170px]"
+                            className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none cursor-pointer font-bold focus:border-emerald-700"
                           >
-                            <option value="TARGET">Target (Problem Item)</option>
+                            <option value="TARGET">Target (Clearance Item)</option>
                             <option value="ANCHOR">Anchor (Popular Item)</option>
                             <option value="SUPPORT">Support (Bonus Item)</option>
                           </select>
                         </div>
                       </div>
 
-                      <div className="md:col-span-1 flex justify-end pr-2">
+                      <div className="md:col-span-1 flex justify-end pr-1">
                         <button 
                           onClick={() => handleRemoveItem(index)}
-                          className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-gray-50 cursor-pointer"
+                          className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                          title="Remove from bundle"
                         >
-                          <span className="material-symbols-outlined text-[20px]">delete_forever</span>
+                          <span className="material-symbols-outlined text-[18px]">delete</span>
                         </button>
                       </div>
                     </div>
@@ -865,6 +982,179 @@ export default function ComboBuilder() {
                 })}
               </div>
             )}
+
+            {/* Stock Capacity & Bottleneck Insight */}
+            {items.length >= 2 && (() => {
+              const capacityList = items.map(item => {
+                const prod = products.find(p => p.sku === item.productId);
+                const physicalStock = prod?.currentStock ?? 80;
+                const qtyPerPack = Math.max(1, item.quantity);
+                const isTarget = item.role === 'TARGET';
+
+                // Detect overlap with other active/approved combos
+                const overlappingCombos = activeCombos.filter((c: any) => 
+                  c.id !== comboId && 
+                  ['ACTIVE', 'APPROVED', 'SUBMITTED'].includes(c.status) &&
+                  c.items?.some((ci: any) => ci.productId === item.productId)
+                );
+
+                const lockedInOtherCombos = overlappingCombos.reduce((sum: number, c: any) => {
+                  const ci = c.items?.find((i: any) => i.productId === item.productId);
+                  return sum + (ci ? ci.quantity * Math.max(0, (c.maximumQuantity || 0) - (c.soldQuantity || 0)) : 0);
+                }, 0);
+
+                // Regular buyer reserve buffer: Anchors reserve 15% stock for regular walk-in shoppers
+                const walkinReserveBuffer = isTarget ? 0 : Math.max(5, Math.round(physicalStock * 0.15));
+                const availableForThisPromo = Math.max(0, physicalStock - lockedInOtherCombos - walkinReserveBuffer);
+                const possiblePacks = Math.floor(availableForThisPromo / qtyPerPack);
+
+                return {
+                  productId: item.productId,
+                  name: item.name,
+                  role: item.role,
+                  physicalStock,
+                  lockedInOtherCombos,
+                  overlappingCombos,
+                  walkinReserveBuffer,
+                  availableForThisPromo,
+                  qtyPerPack,
+                  possiblePacks
+                };
+              });
+
+              const bottleneckPacks = Math.min(...capacityList.map(c => c.possiblePacks));
+              const bottleneckItem = capacityList.find(c => c.possiblePacks === bottleneckPacks);
+              const hasConflict = capacityList.some(c => c.lockedInOtherCombos > 0);
+
+              return (
+                <div className="bg-emerald-50/40 rounded-2xl p-5 border border-emerald-100 space-y-4 mt-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <span className="text-xs font-extrabold text-[#103e2c] flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[18px]">inventory_2</span>
+                        Stock Availability & Safe Campaign Capacity
+                      </span>
+                      <p className="text-[11px] text-gray-500 mt-0.5">
+                        Protects regular walk-in sales buffer and prevents stock conflicts with active combos.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (bottleneckPacks > 0) setMaximumQuantity(bottleneckPacks);
+                      }}
+                      className="text-[11px] font-extrabold text-[#103e2c] bg-white border border-emerald-300 px-3 py-1.5 rounded-xl hover:bg-emerald-100 transition-all cursor-pointer shadow-xs flex items-center gap-1.5 shrink-0"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">sync</span>
+                      Auto-Fit Safe Max ({bottleneckPacks} Packs)
+                    </button>
+                  </div>
+
+                  {/* Active Combo Conflict Alert Banner */}
+                  {hasConflict && (
+                    <div className="bg-amber-50/90 border border-amber-200/80 p-3.5 rounded-xl flex items-start gap-3 text-xs text-amber-950">
+                      <span className="material-symbols-outlined text-amber-600 text-[20px] shrink-0 mt-0.5">info</span>
+                      <div className="space-y-1.5 flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="font-bold text-amber-900 text-xs">Shared Stock Notice (Active Combo Overlap)</p>
+                          <span className="text-[10px] font-bold text-amber-700 bg-amber-100/70 px-2 py-0.5 rounded-md">Auto-Protected by AI</span>
+                        </div>
+                        
+                        <div className="text-[11px] text-amber-800 space-y-1">
+                          {capacityList.filter(c => c.lockedInOtherCombos > 0).map(c => (
+                            <div key={c.name} className="flex items-start gap-1.5">
+                              <span className="text-amber-600 font-bold">•</span>
+                              <span>
+                                <strong>{c.name}</strong> is already used in active campaign{' '}
+                                <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-amber-900 font-semibold">{c.overlappingCombos.map((oc: any) => oc.comboCode || oc.name).join(', ')}</code>{' '}
+                                (<strong>{c.lockedInOtherCombos} units</strong> reserved).
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <p className="text-[11px] text-amber-700/90 bg-amber-100/40 p-2 rounded-lg border border-amber-200/50 mt-1 flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[15px] text-emerald-700 shrink-0">verified_user</span>
+                          <span>
+                            <strong>Zero Risk:</strong> AI already deducted these reserved units and kept regular customer stock safe. You can safely create up to <strong>{bottleneckPacks} packs</strong> for this combo.
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Multi-Tier Product Stock Breakdown Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {capacityList.map(c => (
+                      <div 
+                        key={c.name} 
+                        className={`p-3.5 rounded-xl border space-y-2 ${
+                          c.possiblePacks === bottleneckPacks 
+                            ? 'bg-amber-50/40 border-amber-200 text-amber-950' 
+                            : 'bg-white border-gray-100 text-gray-800'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="truncate pr-2">
+                            <p className="font-bold text-xs truncate">{c.name}</p>
+                            <span className="text-[10px] text-gray-400 font-mono">Role: {c.role} • {c.qtyPerPack}/pack</span>
+                          </div>
+                          <span className={`text-xs font-black px-2 py-0.5 rounded-md shrink-0 ${
+                            c.possiblePacks === bottleneckPacks 
+                              ? 'bg-amber-100 text-amber-900 border border-amber-200' 
+                              : 'bg-emerald-50 text-emerald-800 border border-emerald-100'
+                          }`}>
+                            {c.possiblePacks} Packs Max
+                          </span>
+                        </div>
+
+                        {/* Stock Math Breakdown */}
+                        <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-gray-100/80 text-center text-[10px]">
+                          <div className="bg-gray-50 p-1.5 rounded-lg">
+                            <span className="text-gray-400 block font-medium">Physical Stock</span>
+                            <span className="font-bold text-gray-800">{c.physicalStock} Units</span>
+                          </div>
+                          <div className="bg-gray-50 p-1.5 rounded-lg">
+                            <span className="text-gray-400 block font-medium">Locked / Buffer</span>
+                            <span className="font-bold text-amber-800">-{c.lockedInOtherCombos + c.walkinReserveBuffer} Units</span>
+                          </div>
+                          <div className="bg-emerald-50/60 p-1.5 rounded-lg border border-emerald-100">
+                            <span className="text-emerald-800 block font-medium">Safe Promo Pool</span>
+                            <span className="font-bold text-emerald-900">{c.availableForThisPromo} Units</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Campaign Target Volume Input */}
+                  <div className="bg-white p-3.5 rounded-xl border border-emerald-100/80 flex justify-between items-center gap-4">
+                    <div>
+                      <p className="text-xs font-extrabold text-gray-900">Set Max Campaign Volume</p>
+                      <p className="text-[11px] text-gray-500">
+                        {bottleneckItem ? (
+                          <>Safe limit is bounded by <strong className="text-gray-800">{bottleneckItem.name}</strong> ({bottleneckPacks} packs max).</>
+                        ) : 'Sets total promo bundles allowed for POS checkout.'}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="relative w-28">
+                        <input 
+                          type="number"
+                          min="1"
+                          max={bottleneckPacks > 0 ? bottleneckPacks * 2 : 500}
+                          value={maximumQuantity}
+                          onChange={(e) => setMaximumQuantity(parseInt(e.target.value) || 1)}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 text-sm font-black outline-none focus:bg-white focus:border-emerald-700 transition-all text-center text-[#103e2c]"
+                        />
+                        <span className="absolute right-2.5 top-1.5 text-[10px] text-gray-400 font-bold">Packs</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
         </div>
@@ -875,17 +1165,17 @@ export default function ComboBuilder() {
             <h3 className="text-lg font-bold text-gray-800 border-b border-gray-50 pb-2">Financial Preview & Pricing</h3>
             
             <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Normal Total Price</span>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 font-medium">Regular Total Price</span>
                 <span className="font-bold text-gray-900">Rs. {normalTotalPrice.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Combo Cost Price</span>
-                <span className="font-semibold text-gray-800">Rs. {totalCost.toFixed(2)}</span>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 font-medium">Combined Cost Price</span>
+                <span className="font-semibold text-gray-700">Rs. {totalCost.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-xs text-gray-400 border-t border-gray-50 pt-2">
-                <span>Min. Safe Price (20% Floor)</span>
-                <span className="font-bold text-gray-700">Rs. {Math.ceil(minSafePrice).toFixed(2)}</span>
+              <div className="flex justify-between items-center text-xs text-gray-400 border-t border-gray-50 pt-2">
+                <span>Break-Even Floor (0% Loss)</span>
+                <span className="font-bold text-gray-700">Rs. {breakEvenCost.toFixed(2)}</span>
               </div>
 
               {/* Combo Price Input inside Financial Preview */}
@@ -917,35 +1207,35 @@ export default function ComboBuilder() {
                 {/* Quick Preset Buttons */}
                 {normalTotalPrice > 0 && (
                   <div className="space-y-1">
-                    <span className="text-[10px] text-gray-400 font-bold uppercase block">Quick Presets</span>
+                    <span className="text-[10px] text-gray-400 font-bold uppercase block">Quick Discount Presets</span>
                     <div className="grid grid-cols-4 gap-1.5">
                       <button
                         type="button"
                         onClick={() => applyPresetDiscount(10)}
-                        className="bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold py-1 rounded-lg transition-all cursor-pointer"
+                        className="bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold py-1.5 rounded-lg transition-all cursor-pointer"
                       >
                         10% OFF
                       </button>
                       <button
                         type="button"
                         onClick={() => applyPresetDiscount(15)}
-                        className="bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold py-1 rounded-lg transition-all cursor-pointer"
+                        className="bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold py-1.5 rounded-lg transition-all cursor-pointer"
                       >
                         15% OFF
                       </button>
                       <button
                         type="button"
                         onClick={() => applyPresetDiscount(20)}
-                        className="bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold py-1 rounded-lg transition-all cursor-pointer"
+                        className="bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold py-1.5 rounded-lg transition-all cursor-pointer"
                       >
                         20% OFF
                       </button>
                       <button
                         type="button"
-                        onClick={applyMinSafePricePreset}
-                        className="bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold py-1 rounded-lg transition-all cursor-pointer"
+                        onClick={applyCostFloorPreset}
+                        className="bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold py-1.5 rounded-lg transition-all cursor-pointer"
                       >
-                        Safe Floor
+                        Cost Floor
                       </button>
                     </div>
                   </div>
@@ -953,21 +1243,21 @@ export default function ComboBuilder() {
               </div>
 
               <div className="flex justify-between border-t border-gray-50 pt-2">
-                <span>Customer Discount</span>
-                <span className="font-bold text-emerald-800">
-                  Rs. {(normalTotalPrice - comboPrice).toFixed(2)} ({(normalTotalPrice > 0 ? ((normalTotalPrice - comboPrice) / normalTotalPrice * 100) : 0).toFixed(0)}%)
+                <span className="text-gray-600">Customer Saves</span>
+                <span className="font-extrabold text-emerald-700">
+                  Rs. {Math.max(0, normalTotalPrice - comboPrice).toFixed(2)} ({normalTotalPrice > 0 ? ((Math.max(0, normalTotalPrice - comboPrice) / normalTotalPrice) * 100).toFixed(0) : 0}% OFF)
                 </span>
               </div>
               <div className="flex justify-between border-t border-gray-50 pt-2 text-base">
-                <span>Projected Profit</span>
+                <span className="text-gray-700">Projected Net Profit</span>
                 <span className={`font-black ${expectedProfit >= 0 ? 'text-gray-900' : 'text-red-700'}`}>
                   Rs. {expectedProfit.toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between items-baseline">
-                <span>Expected Profit Margin</span>
-                <span className={`text-lg font-black ${expectedMargin >= 20 ? 'text-emerald-800' : 'text-amber-600'}`}>
-                  {expectedMargin.toFixed(1)}%
+                <span className="text-gray-600 text-xs">Profit Margin</span>
+                <span className={`text-base font-black ${expectedMargin >= 15 ? 'text-emerald-700' : expectedMargin > 0 ? 'text-amber-700' : 'text-red-700'}`}>
+                  {expectedMargin.toFixed(1)}% {expectedMargin < 15 && expectedMargin > 0 ? '(Clearance)' : ''}
                 </span>
               </div>
             </div>

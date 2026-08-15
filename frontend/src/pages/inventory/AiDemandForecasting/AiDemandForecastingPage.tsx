@@ -52,7 +52,6 @@ export default function AiDemandForecastingPage() {
   // Total status counts and recommended purchase products count
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
   const [reorderProductsCount, setReorderProductsCount] = useState<number>(0);
-  const [avgAccuracy, setAvgAccuracy] = useState<number>(0);
 
   // Categories list fallback
   const categories = [
@@ -100,7 +99,6 @@ export default function AiDemandForecastingPage() {
         setTotalCount(0);
         setStatusCounts({});
         setReorderProductsCount(0);
-        setAvgAccuracy(0);
       }
     } catch (err: any) {
       toast.error('Failed to load forecast history.');
@@ -137,14 +135,6 @@ export default function AiDemandForecastingPage() {
       } else if (response.forecasts.length > 0) {
         setReorderProductsCount(response.forecasts.filter(f => f.recommendedQuantity > 0).length);
       }
-
-      if (response.forecasts.length > 0) {
-        const validAccs = response.forecasts.filter(f => f.accuracyScore !== null && f.accuracyScore !== undefined);
-        const meanAcc = validAccs.length > 0 
-          ? validAccs.reduce((sum, item) => sum + (item.accuracyScore || 0), 0) / validAccs.length 
-          : 0.85;
-        setAvgAccuracy(meanAcc);
-      }
     } catch (err: any) {
       toast.error('Failed to load forecast details.');
     } finally {
@@ -176,7 +166,6 @@ export default function AiDemandForecastingPage() {
           setTotalCount(0);
           setStatusCounts({});
           setReorderProductsCount(0);
-          setAvgAccuracy(0);
         }
       }
     }
@@ -376,19 +365,7 @@ export default function AiDemandForecastingPage() {
                     <span className="material-symbols-outlined text-[15px] text-slate-400">date_range</span>
                     <span>History range: <strong className="text-slate-700">{activeRun.dataStartDate ? activeRun.dataStartDate.slice(0,10) : '2023-01-01'} to {activeRun.dataEndDate ? activeRun.dataEndDate.slice(0,10) : '2025-12-31'}</strong></span>
                   </div>
-                  {activeRun.status === 'COMPLETED' && (
-                    <>
-                      {avgAccuracy > 0 && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="material-symbols-outlined text-[15px] text-slate-400">analytics</span>
-                          <span>Avg Model Accuracy: <strong className="text-slate-700">{(avgAccuracy * 100).toFixed(1)}%</strong></span>
-                        </div>
-                      )}
-                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-100">
-                        Completed
-                      </span>
-                    </>
-                  )}
+
                   {activeRun.status === 'FAILED' && (
                     <span className="inline-flex items-center px-2 py-0.5 rounded bg-rose-50 text-rose-700 font-bold border border-rose-100" title={activeRun.errorMessage || ''}>
                       Failed

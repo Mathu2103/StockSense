@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../middlewares/authMiddleware.js';
 import { prisma } from '../config/prisma.js';
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000/api/ai-demand';
+const AI_SERVICE_URL = process.env.AI_DEMAND_SERVICE_URL || process.env.AI_SERVICE_URL || 'http://127.0.0.1:8080/api/ai-demand';
 
 export async function generateForecast(req: AuthRequest, res: Response): Promise<void> {
   try {

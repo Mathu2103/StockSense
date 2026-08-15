@@ -12,7 +12,7 @@ export async function seedComboSettings(prisma: PrismaClient) {
     },
     {
       settingKey: 'MIN_PAIR_COUNT',
-      settingValue: '20',
+      settingValue: '10',
       dataType: 'INT',
       description: 'Minimum absolute frequency of product pair purchase to consider a valid rule',
     },
@@ -24,7 +24,7 @@ export async function seedComboSettings(prisma: PrismaClient) {
     },
     {
       settingKey: 'MIN_CONFIDENCE',
-      settingValue: '0.30',
+      settingValue: '0.10',
       dataType: 'FLOAT',
       description: 'Minimum confidence threshold for antecedent -> consequent associations',
     },

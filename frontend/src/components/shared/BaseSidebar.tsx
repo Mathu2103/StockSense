@@ -109,16 +109,16 @@ export default function BaseSidebar({ navLinks, isLinkActive }: BaseSidebarProps
                           <Link
                             key={sub.name}
                             to={sub.path}
-                            className={`flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-xs transition-colors ${
+                            className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg font-medium text-xs transition-colors whitespace-nowrap border-l-4 ${
                               isSubActive
-                                ? 'bg-secondary-container text-on-secondary-container border-l-4 border-primary font-bold'
-                                : 'text-on-surface-variant hover:bg-surface-container'
+                                ? 'bg-secondary-container text-on-secondary-container border-primary font-bold'
+                                : 'text-on-surface-variant hover:bg-surface-container border-transparent'
                             }`}
                           >
-                            <span className={`material-symbols-outlined text-[16px] ${isSubActive ? 'text-primary' : 'text-outline-variant'}`}>
+                            <span className={`material-symbols-outlined text-[16px] shrink-0 ${isSubActive ? 'text-primary' : 'text-outline-variant'}`}>
                               {sub.icon}
                             </span>
-                            {sub.name}
+                            <span className="whitespace-nowrap">{sub.name}</span>
                           </Link>
                         );
                       })}
@@ -133,16 +133,16 @@ export default function BaseSidebar({ navLinks, isLinkActive }: BaseSidebarProps
               <Link
                 key={link.name}
                 to={link.path}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-colors ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-colors whitespace-nowrap border-l-4 ${
                   isActive
-                    ? 'bg-secondary-container text-on-secondary-container border-l-4 border-primary'
-                    : 'text-on-surface-variant hover:bg-surface-container'
+                    ? 'bg-secondary-container text-on-secondary-container border-primary font-bold'
+                    : 'text-on-surface-variant hover:bg-surface-container border-transparent'
                 }`}
               >
-                <span className={`material-symbols-outlined ${isActive ? 'text-primary' : 'text-outline-variant'}`}>
+                <span className={`material-symbols-outlined shrink-0 ${isActive ? 'text-primary' : 'text-outline-variant'}`}>
                   {link.icon}
                 </span>
-                <span className="text-sm">{link.name}</span>
+                <span className="text-sm whitespace-nowrap">{link.name}</span>
               </Link>
             );
           })}

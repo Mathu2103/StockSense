@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { comboService } from '../../../services/comboService';
 import Sidebar from '../Shared/Sidebar';
 import InventoryHeader from '../Shared/InventoryHeader';
@@ -12,12 +13,18 @@ export default function OpportunityDetail() {
   const [data, setData] = useState<any>(null);
   const [suggestions, setSuggestions] = useState<any[]>([]);
 
+  const [selectedAnchorId, setSelectedAnchorId] = useState<string | null>(null);
+
   const fetchOpportunityDetails = async () => {
     try {
       setLoading(true);
       const payload = await comboService.getOpportunityDetails(id as string);
       if (payload.success) {
         setData(payload.data);
+        // Load any previously generated suggestions
+        if (payload.data.comboSuggestions?.length > 0) {
+          setSuggestions(payload.data.comboSuggestions);
+        }
       }
     } catch (error) {
       console.error('Failed to load opportunity details', error);
@@ -30,17 +37,21 @@ export default function OpportunityDetail() {
     fetchOpportunityDetails();
   }, [id]);
 
-  const handleGenerateSuggestions = async () => {
+  const handleGenerate = async () => {
     try {
       setGenerating(true);
       const payload = await comboService.generateSuggestions(id as string);
       if (payload.success) {
-        setSuggestions(payload.suggestions);
+        setSuggestions(payload.suggestions || []);
+        toast.success(`Successfully generated ${payload.suggestions?.length || 0} ranked suggestion(s).`);
       } else {
-        alert(payload.message || 'Failed to generate suggestions.');
+        toast.error(payload.message || 'Failed to generate suggestions.');
       }
-    } catch (error) {
-      alert('Error connecting to backend services.');
+    } catch (error: any) {
+      // Axios interceptor already shows toast for non-401 errors, so only handle connection failures here
+      if (!error?.response) {
+        toast.error('AI service is unreachable. Please ensure the AI engine is running on port 8080.');
+      }
     } finally {
       setGenerating(false);
     }
@@ -50,13 +61,15 @@ export default function OpportunityDetail() {
     try {
       const payload = await comboService.convertToDraft(sugId);
       if (payload.success) {
-        alert('Successfully promoted suggestion to draft!');
+        toast.success('Successfully promoted suggestion to draft!');
         navigate(`/inventory-combo/builder?id=${payload.data.id}`);
       } else {
-        alert(payload.message || 'Failed to promote suggestion.');
+        toast.error(payload.message || 'Failed to promote suggestion.');
       }
-    } catch (error) {
-      alert('Failed to promote suggestion.');
+    } catch (error: any) {
+      if (!error?.response) {
+        toast.error('Failed to promote suggestion. Please try again.');
+      }
     }
   };
 
@@ -89,7 +102,13 @@ export default function OpportunityDetail() {
   }
 
   const opportunity = data;
-  const candidates = data.anchorCandidates || [];
+  const candidates = data?.anchorCandidates || [];
+
+  // Determine active selected anchor candidate (defaults to Rank 1)
+  const activeAnchorId = selectedAnchorId || (candidates.length > 0 ? candidates[0].anchorProductId : null);
+  const activeCandidate = candidates.find((c: any) => c.anchorProductId === activeAnchorId) || candidates[0];
+  const activeSuggestion = suggestions.find((s: any) => s.primaryAnchorProductId === activeAnchorId)
+    || (candidates.length > 0 && activeAnchorId === candidates[0]?.anchorProductId && suggestions.length > 0 ? suggestions[0] : null);
 
   return (
     <div className="flex h-screen bg-[#f8f9fa] text-slate-800 font-sans overflow-hidden">
@@ -117,17 +136,17 @@ export default function OpportunityDetail() {
               {opportunity.opportunityType}
             </span>
           </div>
-          <h2 className="text-2xl font-black text-gray-900">{opportunity.targetProductName}</h2>
-          <p className="text-sm text-gray-400 font-mono">SKU ID: {opportunity.targetProductId}</p>
+          <h2 className="text-2xl font-black text-gray-900">{opportunity.targetProduct?.name || opportunity.targetProductName || opportunity.targetProductId}</h2>
+          <p className="text-sm text-gray-400 font-mono">SKU ID: {opportunity.targetProduct?.sku || opportunity.targetProductId}</p>
           <div className="flex gap-4 text-sm mt-4">
             <div>
               <p className="text-gray-400 font-medium">Selling Price</p>
-              <p className="font-bold text-gray-800">Rs. {opportunity.normalPrice?.toFixed(2)}</p>
+              <p className="font-bold text-gray-800">Rs. {(opportunity.targetProduct?.sellingPrice ?? opportunity.normalPrice ?? 0).toFixed(2)}</p>
             </div>
             <div className="border-r border-gray-200"></div>
             <div>
               <p className="text-gray-400 font-medium">Cost Price</p>
-              <p className="font-bold text-gray-800">Rs. {opportunity.costPrice?.toFixed(2)}</p>
+              <p className="font-bold text-gray-800">Rs. {(opportunity.targetProduct?.costPrice ?? opportunity.costPrice ?? 0).toFixed(2)}</p>
             </div>
           </div>
         </div>
@@ -136,7 +155,7 @@ export default function OpportunityDetail() {
           <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Stock Metrics</p>
           <div className="flex justify-between items-baseline pt-2">
             <span className="text-gray-600 text-sm">Available Quantity</span>
-            <span className="font-black text-lg text-gray-800">{opportunity.currentStock} Units</span>
+            <span className="font-black text-lg text-gray-800">{opportunity.targetProduct?.currentStock ?? opportunity.currentStock} Units</span>
           </div>
           <div className="flex justify-between items-baseline">
             <span className="text-gray-600 text-sm">Predicted Demand</span>
@@ -157,10 +176,20 @@ export default function OpportunityDetail() {
             </p>
           </div>
           <div className="pt-4 flex justify-between items-center border-t border-gray-200/50 mt-4">
-            <span className="text-xs text-gray-400 font-bold">Priority Score</span>
-            <span className="bg-red-50 text-red-700 font-black text-sm px-2.5 py-0.5 rounded border border-red-200">
-              P-{opportunity.priorityScore}
-            </span>
+            <span className="text-xs text-gray-400 font-bold">Priority Level</span>
+            {(opportunity.priorityScore ?? 0) >= 80 ? (
+              <span className="bg-rose-50 text-rose-700 font-black text-xs px-2.5 py-1 rounded-md border border-rose-200 uppercase">
+                High ({Math.round(opportunity.priorityScore || 0)})
+              </span>
+            ) : (opportunity.priorityScore ?? 0) >= 50 ? (
+              <span className="bg-amber-50 text-amber-800 font-black text-xs px-2.5 py-1 rounded-md border border-amber-200 uppercase">
+                Medium ({Math.round(opportunity.priorityScore || 0)})
+              </span>
+            ) : (
+              <span className="bg-blue-50 text-blue-700 font-black text-xs px-2.5 py-1 rounded-md border border-blue-200 uppercase">
+                Low ({Math.round(opportunity.priorityScore || 0)})
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -168,120 +197,223 @@ export default function OpportunityDetail() {
       {/* Main Grid: Candidates (Left) & Suggestions (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        {/* Left Column: Anchor Candidates */}
+        {/* Left Column: Mined Anchor Candidates */}
         <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.02)] space-y-6">
           <div className="flex justify-between items-center border-b border-gray-50 pb-4">
-            <h3 className="text-lg font-bold text-gray-800">Mined Anchor Candidates</h3>
+            <div>
+              <h3 className="text-lg font-bold text-gray-800">Mined Anchor Candidates</h3>
+              <p className="text-xs text-gray-400">Click any companion candidate to view its custom combo proposal.</p>
+            </div>
             <button
-              onClick={handleGenerateSuggestions}
+              onClick={handleGenerate}
               disabled={generating}
-              className="text-xs bg-[#103e2c] text-white hover:bg-[#165a40] disabled:bg-gray-400 px-4 py-2 font-bold rounded-xl transition-all cursor-pointer"
+              className="bg-[#103e2c] text-white hover:bg-[#165a40] font-bold px-4 py-2 text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50 shadow-sm"
             >
-              {generating ? 'Mining suggestions...' : 'Generate Ranked Suggestions'}
+              {generating ? (
+                <>
+                  <span className="material-symbols-outlined text-[16px] animate-spin">sync</span>
+                  Running AI Engine...
+                </>
+              ) : suggestions.length > 0 ? (
+                <>
+                  <span className="material-symbols-outlined text-[16px]">refresh</span>
+                  Re-generate
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
+                  Generate Suggestions
+                </>
+              )}
             </button>
           </div>
 
           {candidates.length === 0 ? (
             <div className="text-center py-12 text-gray-400">No companion anchor products found in transaction rules.</div>
           ) : (
-            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1">
-              {candidates.map((cand: any) => (
-                <div 
-                  key={cand.id}
-                  className="p-4 rounded-xl border border-gray-100 bg-gray-50/20 hover:border-gray-200 transition-all grid grid-cols-1 md:grid-cols-3 gap-4"
-                >
-                  <div className="md:col-span-2 space-y-2">
-                    <h4 className="font-bold text-gray-900">{cand.anchorProductName}</h4>
-                    <p className="text-[10px] text-gray-400 font-mono">{cand.anchorProductId}</p>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 pt-2">
-                      <span>Conf: <strong>{(cand.confidence * 100).toFixed(0)}%</strong></span>
-                      <span>Support: <strong>{(cand.support * 100).toFixed(2)}%</strong></span>
-                      <span>Lift: <strong>{cand.lift.toFixed(2)}</strong></span>
+            <div className="space-y-3.5 max-h-[600px] overflow-y-auto pr-1">
+              {candidates.map((cand: any) => {
+                const isSelected = activeAnchorId === cand.anchorProductId;
+                return (
+                  <div 
+                    key={cand.id}
+                    onClick={() => setSelectedAnchorId(cand.anchorProductId)}
+                    className={`p-4 rounded-2xl border transition-all grid grid-cols-1 md:grid-cols-3 gap-4 cursor-pointer ${
+                      isSelected 
+                        ? 'border-[#103e2c] bg-emerald-50/40 shadow-sm ring-2 ring-[#103e2c]/30' 
+                        : 'border-gray-100 bg-gray-50/30 hover:border-gray-300 hover:bg-white'
+                    }`}
+                  >
+                    <div className="md:col-span-2 space-y-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-bold text-gray-900">{cand.anchorProduct?.name || cand.anchorProductName || cand.anchorProductId}</h4>
+                        {isSelected && (
+                          <span className="bg-[#103e2c] text-white text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                            <span className="material-symbols-outlined text-[10px]">check</span> Active Selection
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-gray-400 font-mono">{cand.anchorProduct?.sku ? `SKU: ${cand.anchorProduct.sku}` : cand.anchorProductId}</p>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500 pt-1">
+                        <span>Conf: <strong>{(cand.confidence * 100).toFixed(0)}%</strong></span>
+                        <span>Lift: <strong>{cand.lift.toFixed(2)}</strong></span>
+                        <span className="text-emerald-800 font-semibold">Safe Promo: <strong>{cand.anchorPromotionalStock || 0} Units</strong></span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col justify-between items-end border-l border-gray-100/80 pl-4 md:border-l-0 md:pl-0 md:items-end">
+                      <div className="text-right">
+                        <span className="text-[9px] font-black uppercase text-gray-400 tracking-wider">Candidate Score</span>
+                        <p className="text-lg font-black text-[#103e2c]">{cand.finalCandidateScore?.toFixed(0)}</p>
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                        isSelected 
+                          ? 'bg-[#103e2c] text-white border-[#103e2c]' 
+                          : 'bg-emerald-50 text-emerald-800 border-emerald-100'
+                      }`}>
+                        Rank #{cand.candidateRank}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex flex-col justify-between items-end border-l border-gray-100/80 pl-4 md:border-l-0 md:pl-0 md:items-end">
-                    <div className="text-right">
-                      <span className="text-[9px] font-black uppercase text-gray-400 tracking-wider">Candidate Score</span>
-                      <p className="text-lg font-black text-[#103e2c]">{cand.finalCandidateScore?.toFixed(0)}</p>
-                    </div>
-                    <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded border border-emerald-100">
-                      Rank #{cand.candidateRank}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Right Column: AI Suggestion Preview */}
+        {/* Right Column: Active AI Suggestion Preview */}
         <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.02)] space-y-6">
-          <h3 className="text-lg font-bold text-gray-800 border-b border-gray-50 pb-4">Ranked AI Combo Suggestions</h3>
-
-          {suggestions.length === 0 ? (
-            <div className="text-center py-20 text-gray-400">
-              <span className="material-symbols-outlined text-[48px] text-gray-200">auto_awesome</span>
-              <p className="mt-2 text-sm">Click "Generate Ranked Suggestions" on the left to activate the pricing and discount logic engine.</p>
+          <div className="flex justify-between items-center border-b border-gray-50 pb-4">
+            <div>
+              <h3 className="text-lg font-bold text-gray-800">Ranked AI Combo Proposal</h3>
+              <p className="text-xs text-gray-400">
+                {activeCandidate ? `Showing proposal with Rank #${activeCandidate.candidateRank} companion partner.` : 'AI pricing proposal.'}
+              </p>
             </div>
-          ) : (
-            <div className="space-y-6 max-h-[600px] overflow-y-auto pr-1">
-              {suggestions.map((sug: any) => (
-                <div 
-                  key={sug.id} 
-                  className="p-6 rounded-xl border border-gray-100 bg-emerald-50/10 hover:border-emerald-700/10 transition-all space-y-4"
-                >
-                  {/* Suggestion Info header */}
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-extrabold text-[#103e2c]">AI Suggestion (Rank #{sug.recommendationScore?.toFixed(0)})</h4>
-                      <p className="text-[11px] text-gray-400 mt-0.5">Anchored with {sug.primaryAnchorProductId}</p>
+          </div>
+
+          {!activeSuggestion ? (
+            <div className="text-center py-20 text-gray-400 space-y-3">
+              <span className="material-symbols-outlined text-[48px] text-gray-200">auto_awesome</span>
+              <p className="text-sm font-medium">
+                {suggestions.length === 0 
+                  ? 'Click "Generate Ranked Suggestions" on the left to activate the pricing engine.'
+                  : 'Proposal not found for this partner. Click "Re-generate Suggestions" to calculate.'}
+              </p>
+            </div>
+          ) : (() => {
+            const sug = activeSuggestion;
+            const normalTotal = Number(sug.normalTotalPrice || 0);
+            const promoPrice = Number(sug.recommendedPrice || 0);
+            const savings = Math.max(0, normalTotal - promoPrice);
+            const discountPct = Number(sug.discountPercentage || (normalTotal > 0 ? (savings / normalTotal) * 100 : 0));
+            const marginPct = Number(sug.expectedMarginPercentage || 0);
+            const maxQty = sug.maximumQuantity || opportunity.targetProduct?.currentStock || opportunity.currentStock || 10;
+            const isClearance = marginPct < 15;
+
+            return (
+              <div 
+                key={sug.id} 
+                className="p-6 rounded-2xl border border-emerald-100/80 bg-gradient-to-b from-emerald-50/30 to-white shadow-sm hover:shadow-md transition-all space-y-5"
+              >
+                {/* Header: Title + Risk Badge */}
+                <div className="flex justify-between items-start gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="bg-[#103e2c] text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                        AI Recommended Deal
+                      </span>
+                      <span className="text-xs text-gray-400 font-bold">
+                        Rank #{activeCandidate?.candidateRank ?? (sug.recommendationScore ? Math.round(sug.recommendationScore) : 1)}
+                      </span>
                     </div>
-                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border ${
-                      sug.riskLevel === 'LOW' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                      sug.riskLevel === 'MODERATE' ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                      'bg-red-50 text-red-700 border-red-200'
+                    <h4 className="font-extrabold text-gray-900 text-base mt-1.5 flex items-center gap-1.5">
+                      <span className="text-[#103e2c]">{sug.targetProduct?.name || opportunity.targetProduct?.name || sug.targetProductId}</span>
+                      <span className="text-gray-400 font-normal text-xs">+</span>
+                      <span className="text-gray-800">{sug.primaryAnchorProduct?.name || activeCandidate?.anchorProduct?.name || sug.primaryAnchorProductId}</span>
+                    </h4>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-lg border ${
+                      sug.riskLevel === 'LOW' 
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                        : sug.riskLevel === 'MODERATE' || isClearance
+                        ? 'bg-amber-50 text-amber-700 border-amber-200' 
+                        : 'bg-red-50 text-red-700 border-red-200'
                     }`}>
-                      {sug.riskLevel} Risk
+                      <span className="material-symbols-outlined text-[14px]">
+                        {sug.riskLevel === 'LOW' ? 'verified' : 'info'}
+                      </span>
+                      {isClearance ? 'Clearance Margin' : `${sug.riskLevel} Risk`}
                     </span>
                   </div>
+                </div>
 
-                  {/* Pricing metrics */}
-                  <div className="grid grid-cols-3 gap-2 bg-gray-50 p-4 rounded-xl text-center">
-                    <div>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase">Promo Price</p>
-                      <p className="text-base font-extrabold text-gray-900 mt-1">Rs. {sug.recommendedPrice.toFixed(0)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase">Saving</p>
-                      <p className="text-base font-extrabold text-emerald-800 mt-1">Rs. {sug.normalTotalPrice - sug.recommendedPrice}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase">Margin</p>
-                      <p className="text-base font-extrabold text-gray-900 mt-1">{sug.expectedMarginPercentage.toFixed(1)}%</p>
-                    </div>
+                {/* Price & Savings Comparison Card */}
+                <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                  <div className="border-r border-gray-100 last:border-0 pr-2">
+                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Regular Price</p>
+                    <p className="text-sm font-semibold text-gray-400 line-through mt-1">
+                      Rs. {normalTotal.toFixed(0)}
+                    </p>
                   </div>
 
-                  {/* Natural Language Explanation */}
-                  <div className="text-xs text-gray-600 bg-gray-50/50 p-4 rounded-xl border border-gray-100 leading-relaxed font-mono">
-                    "{sug.explanation}"
+                  <div className="border-r border-gray-100 last:border-0 px-2">
+                    <p className="text-[10px] text-[#103e2c] font-bold uppercase tracking-wider">Combo Price</p>
+                    <p className="text-lg font-black text-[#103e2c] mt-0.5">
+                      Rs. {promoPrice.toFixed(0)}
+                    </p>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex justify-between items-center pt-2">
-                    <div className="text-xs text-gray-400 font-medium">
-                      Max Promo Quantity: <strong>{sug.maximumQuantity} Packs</strong>
-                    </div>
-                    <button
-                      onClick={() => handleConvertToDraft(sug.id)}
-                      className="bg-[#103e2c] text-white hover:bg-[#165a40] font-bold px-4 py-2 text-xs rounded-xl transition-all cursor-pointer"
-                    >
-                      Promote to Draft
-                    </button>
+                  <div className="border-r border-gray-100 last:border-0 px-2">
+                    <p className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider">Customer Saves</p>
+                    <p className="text-sm font-extrabold text-emerald-700 mt-1">
+                      Rs. {savings.toFixed(0)} <span className="text-[10px] font-normal">({discountPct.toFixed(0)}% OFF)</span>
+                    </p>
+                  </div>
+
+                  <div className="pl-2">
+                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Store Margin</p>
+                    <p className={`text-sm font-extrabold mt-1 ${marginPct >= 15 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                      {marginPct.toFixed(1)}% <span className="text-[10px] text-gray-400 font-normal">Profit</span>
+                    </p>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+
+                {/* Clean Key Rationale Points (Simplified highlights) */}
+                <div className="bg-gray-50/70 rounded-xl p-3.5 border border-gray-100 space-y-2 text-xs text-gray-700">
+                  <div className="flex items-start gap-2">
+                    <span className="material-symbols-outlined text-[16px] text-emerald-700 shrink-0 mt-0.5">trending_up</span>
+                    <span>
+                      <strong>High Sales Affinity:</strong> Pairs this {opportunity.opportunityType?.toLowerCase().replace('_', ' ')} item with frequently bought companion product to trigger fast sell-through.
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="material-symbols-outlined text-[16px] text-emerald-700 shrink-0 mt-0.5">shield</span>
+                    <span>
+                      <strong>Capital Recovery:</strong> Guarantees sales above wholesale cost price, ensuring zero write-off loss on expiring stock.
+                    </span>
+                  </div>
+                </div>
+
+                {/* Footer: Max Quantity & Action Button */}
+                <div className="flex justify-between items-center pt-1 border-t border-gray-100">
+                  <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                    <span className="material-symbols-outlined text-[18px] text-gray-400">inventory_2</span>
+                    <span>Max Campaign Volume: <strong className="text-gray-900 font-bold">{maxQty} Packs</strong></span>
+                  </div>
+
+                  <button
+                    onClick={() => handleConvertToDraft(sug.id)}
+                    className="bg-[#103e2c] text-white hover:bg-[#165a40] font-bold px-5 py-2.5 text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm hover:scale-[1.02]"
+                  >
+                    <span>Promote to Draft</span>
+                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         </div>

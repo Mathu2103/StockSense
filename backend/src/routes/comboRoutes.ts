@@ -24,7 +24,8 @@ import {
   getPublicActiveCombos,
   getPosActiveCombos,
   getComboPerformanceSummary,
-  getSingleComboPerformance
+  getSingleComboPerformance,
+  deleteCombo
 } from '../controllers/comboController.js';
 
 const router = Router();
@@ -76,10 +77,11 @@ router.post('/combos/:id/approve', requireRole('ADMIN'), approveCombo);
 router.post('/combos/:id/reject', requireRole('ADMIN'), rejectCombo);
 router.post('/combos/:id/request-changes', requireRole('ADMIN'), requestComboChanges);
 
-// Combined Operations (Activating, Pausing, Cancelling)
+// Combined Operations (Activating, Pausing, Cancelling, Deleting)
 router.post('/combos/:id/activate', managerOrAdmin, activateCombo);
 router.post('/combos/:id/pause', managerOrAdmin, pauseCombo);
 router.post('/combos/:id/cancel', managerOrAdmin, cancelCombo);
+router.delete('/combos/:id', managerOrAdmin, deleteCombo);
 
 export default router;
 

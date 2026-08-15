@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { comboService } from '../../../services/comboService';
 import { useAuth } from '../../../hooks/useAuth';
 import Sidebar from '../Shared/Sidebar';
@@ -16,6 +17,8 @@ export default function ComboDashboard() {
   const [runningAnalysis, setRunningAnalysis] = useState(false);
   const [filterType, setFilterType] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 6;
   const [stats, setStats] = useState({
     slowMoving: 0,
     deadStock: 0,
@@ -23,6 +26,9 @@ export default function ComboDashboard() {
     overstock: 0,
     seasonal: 0
   });
+
+  const totalPages = Math.ceil(opportunities.length / pageSize) || 1;
+  const paginatedOpportunities = opportunities.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const fetchDashboardData = async () => {
     try {
@@ -63,6 +69,7 @@ export default function ComboDashboard() {
   };
 
   useEffect(() => {
+    setCurrentPage(1);
     fetchDashboardData();
   }, [filterType, filterStatus]);
 
@@ -71,28 +78,18 @@ export default function ComboDashboard() {
       setRunningAnalysis(true);
       const data = await comboService.runComboAnalysis();
       if (data.success) {
-        alert('AI association rules mining and suggestions generation pipeline finished successfully!');
+        toast.success('AI association rules mining and suggestions generation pipeline finished successfully!');
         fetchDashboardData();
       } else {
-        alert(data.message || 'Failed to execute AI suggestions pipeline.');
+        toast.error(data.message || 'Failed to execute AI suggestions pipeline.');
       }
-    } catch (error) {
-      alert('Error connecting to backend services.');
+    } catch (error: any) {
+      // Axios interceptor already shows toast for non-401 server errors, only handle connection failures
+      if (!error?.response) {
+        toast.error('AI service is unreachable. Please ensure the AI engine is running on port 8080.');
+      }
     } finally {
       setRunningAnalysis(false);
-    }
-  };
-
-  const handleIgnore = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm('Are you sure you want to ignore this opportunity?')) return;
-    try {
-      const res = await comboService.ignoreOpportunity(id);
-      if (res.success) {
-        fetchDashboardData();
-      }
-    } catch (err) {
-      console.error(err);
     }
   };
 
@@ -101,12 +98,13 @@ export default function ComboDashboard() {
     try {
       const res = await comboService.approveCombo(comboId);
       if (res.success) {
+        toast.success('Combo campaign approved and activated successfully!');
         fetchDashboardData();
       } else {
-        alert(res.message || 'Failed to approve combo.');
+        toast.error(res.message || 'Failed to approve combo.');
       }
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Error approving combo campaign.');
+      toast.error(err.response?.data?.message || 'Error approving combo campaign.');
     }
   };
 
@@ -117,19 +115,85 @@ export default function ComboDashboard() {
     try {
       const res = await comboService.rejectCombo(comboId, comment);
       if (res.success) {
+        toast.success('Combo campaign rejected.');
         fetchDashboardData();
       } else {
-        alert(res.message || 'Failed to reject combo.');
+        toast.error(res.message || 'Failed to reject combo.');
       }
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Error rejecting combo campaign.');
+      toast.error(err.response?.data?.message || 'Error rejecting combo campaign.');
     }
   };
 
-  const getPriorityBadgeClass = (score: number) => {
-    if (score >= 80) return 'bg-red-50 text-red-700 border border-red-200';
-    if (score >= 50) return 'bg-amber-50 text-amber-700 border border-amber-200';
-    return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; comboId: string | null; comboName: string; deleting: boolean }>({
+    isOpen: false,
+    comboId: null,
+    comboName: '',
+    deleting: false
+  });
+
+  const confirmDeleteCombo = async () => {
+    if (!deleteModal.comboId) return;
+    setDeleteModal(prev => ({ ...prev, deleting: true }));
+    try {
+      const res = await comboService.deleteCombo(deleteModal.comboId);
+      if (res.success) {
+        toast.success('Combo draft deleted successfully.');
+        setDeleteModal({ isOpen: false, comboId: null, comboName: '', deleting: false });
+        fetchDashboardData();
+      } else {
+        toast.error(res.message || 'Failed to delete combo.');
+        setDeleteModal(prev => ({ ...prev, deleting: false }));
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Error deleting combo draft.');
+      setDeleteModal(prev => ({ ...prev, deleting: false }));
+    }
+  };
+
+  const getPriorityBadge = (score: number) => {
+    const rounded = Math.round(score);
+    if (score >= 80) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-md bg-rose-50 text-rose-700 border border-rose-200 uppercase">
+          <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
+          High ({rounded})
+        </span>
+      );
+    }
+    if (score >= 50) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-md bg-amber-50 text-amber-800 border border-amber-200 uppercase">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+          Medium ({rounded})
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200 uppercase">
+        <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+        Low ({rounded})
+      </span>
+    );
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'ACTIVE':
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      case 'APPROVED':
+        return 'bg-teal-50 text-teal-700 border-teal-200';
+      case 'PENDING_APPROVAL':
+        return 'bg-amber-50 text-amber-800 border-amber-200';
+      case 'CHANGES_REQUESTED':
+        return 'bg-orange-50 text-orange-700 border-orange-200';
+      case 'DRAFT':
+        return 'bg-slate-100 text-slate-700 border-slate-200';
+      case 'REJECTED':
+        return 'bg-rose-50 text-rose-700 border-rose-200';
+      default:
+        return 'bg-gray-100 text-gray-600 border-gray-200';
+    }
   };
 
   return (
@@ -216,169 +280,294 @@ export default function ComboDashboard() {
       </div>
 
       {/* Main Grid: Opportunities & Campaigns */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
         
         {/* Left 2 Columns: Opportunities List */}
-        <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.02)] space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold text-gray-800">Classified Inventory Opportunities</h2>
-            <div className="flex gap-2">
-              <select 
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="bg-white border border-gray-200 rounded-lg text-xs font-bold px-3 py-1.5 outline-none cursor-pointer"
-              >
-                <option value="">All Statuses</option>
-                <option value="DETECTED">Detected</option>
-                <option value="CONVERTED">Converted</option>
-              </select>
+        <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between min-h-[640px] space-y-4">
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Classified Inventory Opportunities</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Found {opportunities.length} target items ready for bundle clearance</p>
+              </div>
+              <div className="flex gap-2">
+                <select 
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="bg-white border border-gray-200 rounded-lg text-xs font-bold px-3 py-1.5 outline-none cursor-pointer"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="UNCOVERED">Uncovered (0% in Combo)</option>
+                  <option value="PARTIALLY_CONVERTED">Partially Converted (1-99%)</option>
+                  <option value="FULLY_CONVERTED">Fully Converted (100%)</option>
+                </select>
+              </div>
             </div>
+
+            {loading ? (
+              <div className="text-center py-20 text-gray-400">Loading opportunities...</div>
+            ) : opportunities.length === 0 ? (
+              <div className="text-center py-20 text-gray-400">No opportunities matches found. Run AI analysis.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm border-collapse">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-gray-400 font-semibold">
+                      <th className="py-3 px-2">Target Product</th>
+                      <th className="py-3 px-2">Reason</th>
+                      <th className="py-3 px-2 min-w-[200px]">Stock Clearance Progress</th>
+                      <th className="py-3 px-2">Priority</th>
+                      <th className="py-3 px-2 text-right">Clearance Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {paginatedOpportunities.map((opp) => (
+                      <tr 
+                        key={opp.id} 
+                        onClick={() => navigate(`/inventory-combo/opportunity/${opp.id}`)}
+                        className="hover:bg-gray-50/80 cursor-pointer transition-colors"
+                      >
+                        <td className="py-3.5 px-2">
+                          <p className="font-bold text-gray-900 line-clamp-1">{opp.targetProduct?.name || opp.targetProductName || opp.targetProductId}</p>
+                          <p className="text-xs text-gray-400 font-mono mt-0.5">{opp.targetProduct?.sku ? `SKU: ${opp.targetProduct.sku}` : opp.targetProductId}</p>
+                        </td>
+                        <td className="py-3.5 px-2">
+                          <span className="bg-gray-100 text-gray-700 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">
+                            {opp.opportunityType}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-2 min-w-[200px]">
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between text-xs">
+                              <span className="font-bold text-gray-800">{opp.committedStock || 0} / {opp.targetExcessStock || opp.currentStock} Units in Combo</span>
+                              <span className={`font-black text-[11px] ${opp.coveragePercentage >= 100 ? 'text-emerald-700' : opp.coveragePercentage > 0 ? 'text-teal-700' : 'text-gray-400'}`}>
+                                {opp.coveragePercentage || 0}%
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full rounded-full transition-all ${
+                                  opp.coveragePercentage >= 100 
+                                    ? 'bg-emerald-500' 
+                                    : opp.coveragePercentage > 0 
+                                    ? 'bg-teal-500' 
+                                    : 'bg-transparent'
+                                }`}
+                                style={{ width: `${Math.min(100, Math.max(opp.coveragePercentage || 0, opp.committedStock > 0 ? 5 : 0))}%` }}
+                              />
+                            </div>
+                            <p className="text-[10px]">
+                              {(opp.remainingExcessStock || 0) > 0 ? (
+                                <span className="text-amber-700 font-medium flex items-center gap-1">
+                                  <span className="material-symbols-outlined text-[13px] shrink-0 text-amber-600">warning</span>
+                                  <span>{opp.remainingExcessStock} units remaining at risk</span>
+                                </span>
+                              ) : (
+                                <span className="text-emerald-700 font-medium flex items-center gap-1">
+                                  <span className="material-symbols-outlined text-[13px] shrink-0 text-emerald-600">check_circle</span>
+                                  <span>100% clearance covered</span>
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-2">
+                          {getPriorityBadge(opp.priorityScore)}
+                        </td>
+                        <td className="py-3.5 px-2 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {opp.coveragePercentage >= 100 ? (
+                              <div className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-200 font-extrabold text-[10px] uppercase px-2.5 py-1 rounded-lg shadow-xs">
+                                <span className="material-symbols-outlined text-[13px]">verified</span>
+                                <span>Fully Converted</span>
+                              </div>
+                            ) : opp.coveragePercentage > 0 ? (
+                              <div className="inline-flex items-center gap-1 bg-teal-50 text-teal-800 border border-teal-200 font-extrabold text-[10px] uppercase px-2.5 py-1 rounded-lg shadow-xs">
+                                <span className="material-symbols-outlined text-[13px]">donut_large</span>
+                                <span>{opp.coveragePercentage}% Converted</span>
+                              </div>
+                            ) : (
+                              <div className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 font-extrabold text-[10px] uppercase px-2.5 py-1 rounded-lg shadow-xs hover:bg-blue-100 transition-colors">
+                                <span>Detected (0%)</span>
+                                <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
-          {loading ? (
-            <div className="text-center py-20 text-gray-400">Loading opportunities...</div>
-          ) : opportunities.length === 0 ? (
-            <div className="text-center py-20 text-gray-400">No opportunities matches found. Run AI analysis.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm border-collapse">
-                <thead>
-                  <tr className="border-b border-gray-100 text-gray-400 font-semibold">
-                    <th className="py-3 px-2">Target Product</th>
-                    <th className="py-3 px-2">Reason</th>
-                    <th className="py-3 px-2">Stock Level</th>
-                    <th className="py-3 px-2">Priority</th>
-                    <th className="py-3 px-2 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {opportunities.map((opp) => (
-                    <tr 
-                      key={opp.id} 
-                      onClick={() => navigate(`/inventory-combo/opportunity/${opp.id}`)}
-                      className="hover:bg-gray-50/80 cursor-pointer transition-colors"
-                    >
-                      <td className="py-4 px-2">
-                        <p className="font-bold text-gray-900 line-clamp-1">{opp.targetProductName || opp.targetProductId}</p>
-                        <p className="text-xs text-gray-400 font-mono mt-0.5">{opp.targetProductId}</p>
-                      </td>
-                      <td className="py-4 px-2">
-                        <span className="bg-gray-100 text-gray-700 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">
-                          {opp.opportunityType}
-                        </span>
-                      </td>
-                      <td className="py-4 px-2">
-                        <p className="font-bold text-gray-800">{opp.currentStock} Units</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{opp.stockCoverageDays?.toFixed(0) || '0'} Days Coverage</p>
-                      </td>
-                      <td className="py-4 px-2">
-                        <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-md ${getPriorityBadgeClass(opp.priorityScore)}`}>
-                          P-{opp.priorityScore}
-                        </span>
-                      </td>
-                      <td className="py-4 px-2 text-right">
-                        {opp.opportunityStatus === 'DETECTED' || opp.opportunityStatus === 'NEW' ? (
-                          <div className="inline-flex items-center gap-2">
-                            <div className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-100 font-extrabold text-[10px] uppercase px-2.5 py-1 rounded-lg shadow-sm">
-                              <span>Detected</span>
-                              <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={(e) => handleIgnore(opp.id, e)}
-                              className="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-gray-100 transition-colors"
-                              title="Ignore Opportunity"
-                            >
-                              <span className="material-symbols-outlined text-[16px]">do_not_disturb_on</span>
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-100 font-extrabold text-[10px] uppercase px-2.5 py-1 rounded-lg shadow-sm">
-                            <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                            <span>Converted</span>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {/* Pagination Controls */}
+          {opportunities.length > 0 && (
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-3 border-t border-gray-100 text-xs text-gray-500">
+              <span>
+                Showing <strong className="text-gray-800">{(currentPage - 1) * pageSize + 1}</strong> to{' '}
+                <strong className="text-gray-800">{Math.min(currentPage * pageSize, opportunities.length)}</strong> of{' '}
+                <strong className="text-gray-800">{opportunities.length}</strong> opportunities
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-30 transition-all cursor-pointer flex items-center justify-center"
+                >
+                  <span className="material-symbols-outlined text-[16px]">chevron_left</span>
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-7 h-7 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      currentPage === page
+                        ? 'bg-[#103e2c] text-white shadow-xs'
+                        : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-30 transition-all cursor-pointer flex items-center justify-center"
+                >
+                  <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
 
         {/* Right 1 Column: Created Campaigns */}
-        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.02)] space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold text-gray-800">Combo Campaigns</h2>
-            <button 
-              onClick={() => navigate('/inventory-combo/builder')}
-              className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[16px]">add</span> Custom
-            </button>
-          </div>
-
-          {loading ? (
-            <div className="text-center py-10 text-gray-400">Loading campaigns...</div>
-          ) : combos.length === 0 ? (
-            <div className="text-center py-10 text-gray-400">No active combo campaigns drafted yet.</div>
-          ) : (
-            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
-              {combos.map((combo) => (
-                <div 
-                  key={combo.id}
-                  onClick={() => navigate(`/inventory-combo/builder?id=${combo.id}`)}
-                  className="p-4 rounded-xl border border-gray-100 hover:border-emerald-700/30 hover:shadow-sm cursor-pointer transition-all space-y-3 bg-gray-50/30"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-bold text-gray-900 line-clamp-1">{combo.name}</h4>
-                      <p className="text-[10px] text-gray-400 font-mono mt-0.5">{combo.comboCode}</p>
-                    </div>
-                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border ${
-                      combo.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                      combo.status === 'PENDING_APPROVAL' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                      combo.status === 'CHANGES_REQUESTED' ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                      'bg-gray-100 text-gray-700 border-gray-200'
-                    }`}>
-                      {combo.status}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>Price: <strong>Rs. {combo.comboPrice.toFixed(0)}</strong></span>
-                    <span>Margin: <strong className="text-emerald-800">{combo.expectedMarginPercentage.toFixed(1)}%</strong></span>
-                  </div>
-
-                  {isAdmin && combo.status === 'PENDING_APPROVAL' && (
-                    <div className="pt-2.5 border-t border-gray-100 flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        onClick={(e) => handleQuickReject(combo.id, e)}
-                        className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 transition-all cursor-pointer"
-                      >
-                        Reject
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => handleQuickApprove(combo.id, e)}
-                        className="px-3 py-1 rounded-lg text-[10px] font-extrabold text-white bg-[#103e2c] hover:bg-[#165a40] transition-all shadow-sm cursor-pointer flex items-center gap-1"
-                      >
-                        <span className="material-symbols-outlined text-[12px]">check_circle</span>
-                        Approve & Convert
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
+        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.02)] flex flex-col justify-between min-h-[640px] space-y-4">
+          <div className="space-y-4 flex-1 flex flex-col min-h-0">
+            <div className="flex justify-between items-center pb-1">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Combo Campaigns</h2>
+                <p className="text-xs text-gray-400 mt-0.5">{combos.length} total campaigns</p>
+              </div>
+              <button 
+                onClick={() => navigate('/inventory-combo/builder')}
+                className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 cursor-pointer bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200/60"
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span> Custom
+              </button>
             </div>
-          )}
+
+            {loading ? (
+              <div className="text-center py-10 text-gray-400">Loading campaigns...</div>
+            ) : combos.length === 0 ? (
+              <div className="text-center py-10 text-gray-400">No active combo campaigns drafted yet.</div>
+            ) : (
+              <div className="space-y-3 flex-1 overflow-y-auto max-h-[520px] pr-1">
+                {combos.map((combo) => (
+                  <div 
+                    key={combo.id}
+                    onClick={() => navigate(`/inventory-combo/builder?id=${combo.id}`)}
+                    className="p-3.5 rounded-xl border border-gray-100 hover:border-emerald-700/30 hover:shadow-sm cursor-pointer transition-all space-y-2.5 bg-gray-50/30 group"
+                  >
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-gray-900 line-clamp-1 text-xs sm:text-sm">{combo.name}</h4>
+                        <p className="text-[10px] text-gray-400 font-mono mt-0.5">{combo.comboCode}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border ${getStatusBadge(combo.status)}`}>
+                          {combo.status}
+                        </span>
+                        {(combo.status === 'DRAFT' || combo.status === 'REJECTED' || combo.status === 'CANCELLED' || combo.status === 'CHANGES_REQUESTED') && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteModal({ isOpen: true, comboId: combo.id, comboName: combo.name, deleting: false });
+                            }}
+                            className="p-1 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-md transition-all cursor-pointer"
+                            title="Delete combo draft"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">delete</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>Price: <strong>Rs. {combo.comboPrice.toFixed(0)}</strong></span>
+                      <span>Margin: <strong className="text-emerald-800">{combo.expectedMarginPercentage.toFixed(1)}%</strong></span>
+                    </div>
+
+                    {isAdmin && combo.status === 'PENDING_APPROVAL' && (
+                      <div className="pt-2 border-t border-gray-100 flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={(e) => handleQuickReject(combo.id, e)}
+                          className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 transition-all cursor-pointer"
+                        >
+                          Reject
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleQuickApprove(combo.id, e)}
+                          className="px-3 py-1 rounded-lg text-[10px] font-extrabold text-white bg-[#103e2c] hover:bg-[#165a40] transition-all shadow-sm cursor-pointer flex items-center gap-1"
+                        >
+                          <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                          Approve & Convert
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
   </main>
 </div>
+
+{/* Sleek In-App Delete Confirmation Modal */}
+{deleteModal.isOpen && (
+  <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+    <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-gray-100">
+      <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
+        <span className="material-symbols-outlined text-[24px]">delete</span>
+      </div>
+      <div>
+        <h3 className="text-lg font-bold text-gray-900">Delete Combo Draft</h3>
+        <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+          Are you sure you want to permanently delete <strong className="text-gray-800">"{deleteModal.comboName}"</strong>? This action cannot be undone.
+        </p>
+      </div>
+      <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+        <button
+          type="button"
+          disabled={deleteModal.deleting}
+          onClick={() => setDeleteModal({ isOpen: false, comboId: null, comboName: '', deleting: false })}
+          className="px-4 py-2 rounded-xl text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-all cursor-pointer disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          disabled={deleteModal.deleting}
+          onClick={confirmDeleteCombo}
+          className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-all shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+        >
+          {deleteModal.deleting ? 'Deleting...' : 'Delete Draft'}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 </div>
   );
 }

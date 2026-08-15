@@ -100,7 +100,7 @@ def get_latest_forecast_run(db: Session = Depends(get_db)):
     SELECT id, target_month, data_start_date, data_end_date, status, started_at, completed_at, error_message, created_at
     FROM demand_forecast_runs
     WHERE status = 'COMPLETED'
-    ORDER BY target_month DESC, created_at DESC
+    ORDER BY created_at DESC
     LIMIT 1
     """)
     res = db.execute(query).first()

@@ -1,6 +1,6 @@
 import { prisma } from '../config/prisma.js';
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000/api/ai-demand';
+const AI_SERVICE_URL = process.env.AI_DEMAND_SERVICE_URL || process.env.AI_SERVICE_URL || 'http://127.0.0.1:8080/api/ai-demand';
 const CHECK_INTERVAL_MS = 60 * 60 * 1000; // Check every 1 hour
 
 export function startForecastScheduler() {

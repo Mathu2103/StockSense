@@ -1,263 +1,498 @@
-import React, { useState } from 'react';
-import { ShoppingCart } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { ShoppingCart, Search, Sparkles, Flame, Calendar, Gift, Zap } from 'lucide-react';
 
 interface DiscountsTabProps {
   discounts: any[];
+  posCombos?: any[];
   products: any[];
   addComboToCart: (discount: any) => void;
+  addApprovedComboToCart?: (combo: any) => void;
   addDiscountProductsToCart: (discount: any) => void;
   addSingleDiscountProduct?: (product: any, discount: any) => void;
 }
 
 export const DiscountsTab: React.FC<DiscountsTabProps> = ({
   discounts,
+  posCombos = [],
   products,
   addComboToCart,
+  addApprovedComboToCart,
   addDiscountProductsToCart,
   addSingleDiscountProduct
 }) => {
-  const [showAllCombos, setShowAllCombos] = useState(false);
-  const [showAllSeasonal, setShowAllSeasonal] = useState(false);
-  const [showAllDaily, setShowAllDaily] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
 
-  const combos = discounts.filter(d => d.type === 'COMBO');
-  
-  const seasonalProducts = discounts.filter(d => d.type === 'SEASONAL').flatMap(discount => 
-    (discount.productIds || []).map((skuId: string) => {
-      const prod = products.find(p => p.sku === skuId || p.id === skuId);
-      return { discount, prod, skuId };
-    })
-  ).filter(item => item.prod);
+  // 1. AI-Suggested & Approved Combos
+  const aiApprovedCombos = useMemo(() => {
+    return posCombos.filter(c => 
+      !!c.sourceSuggestionId || 
+      c.comboType === 'NEAR_EXPIRY' || 
+      c.comboType === 'OVERSTOCK' || 
+      c.comboType === 'SLOW_MOVING' || 
+      c.comboType === 'DEAD_STOCK'
+    );
+  }, [posCombos]);
 
-  const dailyProducts = discounts.filter(d => d.type === 'DAILY').flatMap(discount => 
-    (discount.productIds || []).map((skuId: string) => {
-      const prod = products.find(p => p.sku === skuId || p.id === skuId);
-      return { discount, prod, skuId };
-    })
-  ).filter(item => item.prod);
+  // 2. Standard / Super Saver Combos (Manual/Curated)
+  const superSaverCombos = useMemo(() => {
+    return posCombos.filter(c => 
+      !c.sourceSuggestionId && 
+      c.comboType !== 'NEAR_EXPIRY' && 
+      c.comboType !== 'OVERSTOCK' && 
+      c.comboType !== 'SLOW_MOVING' && 
+      c.comboType !== 'DEAD_STOCK'
+    );
+  }, [posCombos]);
+
+  // 3. Seasonal Discounts (Deduplicated by SKU)
+  const seasonalProducts = useMemo(() => {
+    const seenSkus = new Set<string>();
+    const items: any[] = [];
+    discounts.filter(d => d.type === 'SEASONAL').forEach(discount => {
+      (discount.productIds || []).forEach((skuId: string) => {
+        if (!seenSkus.has(skuId)) {
+          const prod = products.find(p => p.sku === skuId || p.id === skuId);
+          if (prod) {
+            seenSkus.add(skuId);
+            items.push({ discount, prod, skuId });
+          }
+        }
+      });
+    });
+    return items;
+  }, [discounts, products]);
+
+  // 4. Daily Flash Deals (Deduplicated by SKU)
+  const dailyProducts = useMemo(() => {
+    const seenSkus = new Set<string>();
+    const items: any[] = [];
+    discounts.filter(d => d.type === 'DAILY').forEach(discount => {
+      (discount.productIds || []).forEach((skuId: string) => {
+        if (!seenSkus.has(skuId)) {
+          const prod = products.find(p => p.sku === skuId || p.id === skuId);
+          if (prod) {
+            seenSkus.add(skuId);
+            items.push({ discount, prod, skuId });
+          }
+        }
+      });
+    });
+    return items;
+  }, [discounts, products]);
+
+  // Search filtering
+  const q = searchQuery.toLowerCase().trim();
+
+  const filteredAiCombos = useMemo(() => {
+    if (!q) return aiApprovedCombos;
+    return aiApprovedCombos.filter(c => 
+      c.name.toLowerCase().includes(q) || 
+      c.comboCode.toLowerCase().includes(q) ||
+      (c.items || []).some((i: any) => (i.product?.name || '').toLowerCase().includes(q) || (i.product?.sku || '').toLowerCase().includes(q))
+    );
+  }, [aiApprovedCombos, q]);
+
+  const filteredSuperCombos = useMemo(() => {
+    if (!q) return superSaverCombos;
+    return superSaverCombos.filter(c => 
+      c.name.toLowerCase().includes(q) || 
+      c.comboCode.toLowerCase().includes(q) ||
+      (c.items || []).some((i: any) => (i.product?.name || '').toLowerCase().includes(q) || (i.product?.sku || '').toLowerCase().includes(q))
+    );
+  }, [superSaverCombos, q]);
+
+  const filteredSeasonal = useMemo(() => {
+    if (!q) return seasonalProducts;
+    return seasonalProducts.filter(item => 
+      item.prod.name.toLowerCase().includes(q) || 
+      item.prod.sku.toLowerCase().includes(q) ||
+      (item.discount.name || '').toLowerCase().includes(q)
+    );
+  }, [seasonalProducts, q]);
+
+  const filteredDaily = useMemo(() => {
+    if (!q) return dailyProducts;
+    return dailyProducts.filter(item => 
+      item.prod.name.toLowerCase().includes(q) || 
+      item.prod.sku.toLowerCase().includes(q) ||
+      (item.discount.name || '').toLowerCase().includes(q)
+    );
+  }, [dailyProducts, q]);
+
+  const showAiSection = (selectedCategory === 'ALL' || selectedCategory === 'AI_COMBOS') && filteredAiCombos.length > 0;
+  const showSuperSection = (selectedCategory === 'ALL' || selectedCategory === 'SUPER_SAVERS') && filteredSuperCombos.length > 0;
+  const showDailySection = (selectedCategory === 'ALL' || selectedCategory === 'DAILY') && filteredDaily.length > 0;
+  const showSeasonalSection = (selectedCategory === 'ALL' || selectedCategory === 'SEASONAL') && filteredSeasonal.length > 0;
+
+  const totalResults = filteredAiCombos.length + filteredSuperCombos.length + filteredDaily.length + filteredSeasonal.length;
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-[#f8f9fc] relative">
-      <div className="max-w-7xl mx-auto relative z-10 font-sans pb-16 space-y-12">
+    <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-[#f8f9fc] relative font-sans">
+      <div className="max-w-7xl mx-auto relative z-10 pb-16 space-y-8">
         
-        {/* 1. Curated Combos Section */}
-        <section>
-          <div className="mb-6">
-            <h2 className="text-2xl font-black text-[#103e2c] mb-1">Curated Combos</h2>
-            <p className="text-gray-500 text-xs">Buy these products together to unlock bundle deals.</p>
+        {/* Header & Controls */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-5 rounded-2xl border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+          <div>
+            <h1 className="text-2xl font-black text-gray-900 flex items-center gap-2">
+              Cashier Deals & Combo Lookup <span className="text-emerald-600">⚡</span>
+            </h1>
+            <p className="text-gray-400 text-xs mt-0.5">Quickly find active bundle discounts, AI recommendations, and flash specials.</p>
           </div>
 
-          {combos.length === 0 ? (
-            <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 text-gray-500 font-bold text-xs shadow-sm">
-              No active combo bundles available.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              {(showAllCombos ? combos : combos.slice(0, 2)).map(discount => {
-                const originalTotal = discount.comboItems.reduce((sum: number, item: any) => {
-                  const prod = products.find(p => p.sku === item.productId || p.id === item.productId);
-                  return sum + (prod ? prod.price * item.minQty : 0);
-                }, 0);
-                const finalTotal = originalTotal * (1 - discount.discountValue / 100);
+          <div className="w-full md:w-80 relative">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by combo name, SKU, barcode..."
+              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold outline-none focus:border-emerald-700 transition-colors"
+            />
+          </div>
+        </div>
 
-                return (
-                  <div key={discount.id} className="bg-white rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] overflow-hidden flex flex-col sm:flex-row border border-gray-100 hover:shadow-lg transition-shadow">
-                    <div className="relative w-full sm:w-1/2 h-44 sm:h-auto bg-gray-50 shrink-0">
-                      <img 
-                        src={discount.imageUrl || "https://images.unsplash.com/photo-1497935586351-b67a49e012bf?q=80&w=800&auto=format&fit=crop"} 
-                        alt={discount.name} 
-                        className="w-full h-full object-cover" 
-                      />
-                      <div className="absolute top-4 left-4 bg-[#0a3822] text-white text-[9px] font-bold px-3 py-1 rounded-full tracking-wide shadow-sm">
-                        {discount.label || 'COMBO SAVER'}
-                      </div>
+        {/* Category Filter Pills */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <button
+            type="button"
+            onClick={() => setSelectedCategory('ALL')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              selectedCategory === 'ALL' 
+                ? 'bg-[#103e2c] text-white shadow-sm' 
+                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200/60'
+            }`}
+          >
+            All Active Deals ({totalResults})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedCategory('AI_COMBOS')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              selectedCategory === 'AI_COMBOS' 
+                ? 'bg-[#103e2c] text-white shadow-sm' 
+                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200/60'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            AI Approved Combos ({filteredAiCombos.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedCategory('SUPER_SAVERS')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              selectedCategory === 'SUPER_SAVERS' 
+                ? 'bg-[#103e2c] text-white shadow-sm' 
+                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200/60'
+            }`}
+          >
+            <Gift className="w-3.5 h-3.5 text-emerald-500" />
+            Super Saver Combos ({filteredSuperCombos.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedCategory('DAILY')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              selectedCategory === 'DAILY' 
+                ? 'bg-[#103e2c] text-white shadow-sm' 
+                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200/60'
+            }`}
+          >
+            <Flame className="w-3.5 h-3.5 text-orange-500" />
+            Daily Flash Deals ({filteredDaily.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedCategory('SEASONAL')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              selectedCategory === 'SEASONAL' 
+                ? 'bg-[#103e2c] text-white shadow-sm' 
+                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200/60'
+            }`}
+          >
+            <Calendar className="w-3.5 h-3.5 text-blue-500" />
+            Seasonal Specials ({filteredSeasonal.length})
+          </button>
+        </div>
+
+        {totalResults === 0 ? (
+          <div className="bg-white rounded-2xl p-16 text-center border border-gray-100 shadow-sm text-gray-400 space-y-2">
+            <p className="text-base font-bold text-gray-600">No matching promotions or combo deals found.</p>
+            <p className="text-xs">Try adjusting your search keywords or filter category.</p>
+          </div>
+        ) : (
+          <div className="space-y-12">
+            
+            {/* 1. AI-Suggested & Approved Combo Packs */}
+            {showAiSection && (
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center">
+                      <Sparkles className="w-4 h-4 text-amber-600" />
                     </div>
-                    <div className="w-full sm:w-1/2 p-6 flex flex-col justify-between">
+                    <div>
+                      <h2 className="text-lg font-black text-gray-900">AI-Suggested & Approved Combo Packs</h2>
+                      <p className="text-gray-400 text-xs">High-demand pairing bundles approved by Admin for stock clearance.</p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                    {filteredAiCombos.length} Combos Active
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+                  {filteredAiCombos.map(combo => (
+                    <div key={combo.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-md transition-all flex flex-col justify-between space-y-4">
                       <div>
-                        <h3 className="text-base font-extrabold text-gray-900 mb-1 leading-snug">{discount.name}</h3>
-                        <div className="mt-2 space-y-1">
-                          <p className="text-gray-400 text-[9px] font-bold uppercase tracking-wider">Required Items:</p>
-                          {discount.comboItems.map((item: any, idx: number) => {
-                            const prod = products.find(p => p.sku === item.productId || p.id === item.productId);
-                            return (
-                              <div key={idx} className="text-xs text-gray-700 font-bold flex justify-between">
-                                <span className="truncate pr-1">• {prod ? prod.name : 'Unknown Product'}</span>
-                                <span className="text-[#0a3822] shrink-0">Qty: {item.minQty}</span>
-                              </div>
-                            );
-                          })}
+                        <div className="flex justify-between items-start gap-2 mb-2">
+                          <div>
+                            <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 text-[10px] font-black uppercase px-2 py-0.5 rounded border border-amber-200/80 mb-1">
+                              <Sparkles className="w-2.5 h-2.5" />
+                              AI Recommended • {combo.comboType || 'Clearance'}
+                            </span>
+                            <h3 className="font-extrabold text-gray-900 text-sm leading-snug">{combo.name}</h3>
+                            <p className="text-[10px] text-gray-400 font-mono mt-0.5">CODE: {combo.comboCode}</p>
+                          </div>
+                          <span className="bg-emerald-800 text-white text-[10px] font-black px-2.5 py-1 rounded-lg shrink-0 shadow-xs">
+                            {combo.discountPercentage.toFixed(0)}% OFF
+                          </span>
+                        </div>
+
+                        {/* Items Breakdown */}
+                        <div className="space-y-1.5 bg-gray-50/80 p-3 rounded-xl border border-gray-100 mt-3">
+                          <p className="text-[9px] font-black uppercase text-gray-400 tracking-wider">Bundle Items:</p>
+                          {combo.items.map((item: any, idx: number) => (
+                            <div key={idx} className="flex justify-between items-center text-xs font-semibold text-gray-700">
+                              <span className="line-clamp-1 pr-2">
+                                • {item.quantity}x {item.product?.name || item.productId}
+                                {item.role === 'TARGET' && <span className="ml-1 text-[9px] text-rose-600 bg-rose-50 px-1 py-0.2 rounded font-bold">Clearance</span>}
+                              </span>
+                              <span className="text-gray-400 font-mono text-[10px] shrink-0">Rs. {((item.normalUnitPrice || item.product?.sellingPrice || 0) * item.quantity).toFixed(0)}</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                      <div className="mt-4 border-t border-gray-100 pt-3 flex flex-col justify-end">
-                        <div className="mb-3 flex items-baseline gap-1.5 justify-between">
-                          <span className="text-gray-500 text-[10px] font-bold">Bundle Price:</span>
-                          <div className="text-right">
-                            <span className="text-gray-900 font-extrabold text-lg block">Rs. {finalTotal.toFixed(2)}</span>
-                            <span className="text-gray-400 line-through text-xs font-medium">Rs. {originalTotal.toFixed(2)}</span>
+
+                      {/* Footer & Add to Cart */}
+                      <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-4">
+                        <div>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-xs text-gray-400 line-through">Rs. {combo.normalTotalPrice.toFixed(0)}</span>
+                            <span className="text-lg font-black text-emerald-800">Rs. {combo.comboPrice.toFixed(0)}</span>
                           </div>
+                          <p className="text-[10px] text-emerald-700 font-bold">
+                            Save Rs. {(combo.normalTotalPrice - combo.comboPrice).toFixed(0)} per pack
+                          </p>
                         </div>
+
                         <button
-                          onClick={() => addComboToCart(discount)}
-                          className="w-full bg-[#0a3822] text-white hover:bg-[#072a19] py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                          type="button"
+                          onClick={() => addApprovedComboToCart && addApprovedComboToCart(combo)}
+                          className="bg-[#103e2c] text-white hover:bg-[#165a40] px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer shrink-0"
                         >
-                          <ShoppingCart className="w-4 h-4" />
-                          Add Combo to Cart
+                          <ShoppingCart className="w-3.5 h-3.5" />
+                          Add Combo to Bill
                         </button>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  ))}
+                </div>
+              </section>
+            )}
 
-          {combos.length > 2 && (
-            <div className="mt-6 text-center">
-              <button 
-                onClick={() => setShowAllCombos(!showAllCombos)}
-                className="px-5 py-2 border border-[#103e2c] text-[#103e2c] font-bold rounded-lg text-xs hover:bg-[#103e2c] hover:text-white transition-colors"
-              >
-                {showAllCombos ? 'Show Less' : `See All Combos (${combos.length})`}
-              </button>
-            </div>
-          )}
-        </section>
-
-        {/* 2. Seasonal Specials Section */}
-        <section>
-          <div className="mb-6">
-            <h2 className="text-2xl font-black text-[#103e2c] mb-1">Seasonal Deals</h2>
-            <p className="text-gray-500 text-xs">Fresh savings for the current season.</p>
-          </div>
-
-          {seasonalProducts.length === 0 ? (
-            <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 text-gray-500 font-bold text-xs shadow-sm">
-              No active seasonal deals available.
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-              {(showAllSeasonal ? seasonalProducts : seasonalProducts.slice(0, 4)).map(({ discount, prod, skuId }, idx) => {
-                const discountedPrice = prod.price * (1 - discount.discountValue / 100);
-                return (
-                  <div key={`${discount.id}-${skuId}-${idx}`} className="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] overflow-hidden border border-gray-100 hover:shadow-md transition-shadow flex flex-col">
-                    <div className="h-32 w-full relative bg-gray-50 shrink-0">
-                      <img 
-                        src={prod.imageUrl || "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?q=80&w=600&auto=format&fit=crop"} 
-                        alt={prod.name} 
-                        className="w-full h-full object-cover" 
-                      />
-                      <div className="absolute top-2 right-2 bg-emerald-500/90 backdrop-blur-sm text-white text-[10px] font-black px-2 py-0.5 rounded shadow-sm">
-                        {discount.discountValue}% OFF
-                      </div>
+            {/* 2. Custom & Super Saver Combos */}
+            {showSuperSection && (
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center">
+                      <Gift className="w-4 h-4 text-emerald-600" />
                     </div>
-                    <div className="p-4 flex-1 flex flex-col justify-between">
+                    <div>
+                      <h2 className="text-lg font-black text-gray-900">Custom & Super Saver Combos</h2>
+                      <p className="text-gray-400 text-xs">Standard store curated package deals.</p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                    {filteredSuperCombos.length} Combos Active
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+                  {filteredSuperCombos.map(combo => (
+                    <div key={combo.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-md transition-all flex flex-col justify-between space-y-4">
                       <div>
-                        <div className="text-[9px] font-bold text-emerald-700 uppercase tracking-wider mb-1 truncate">
-                          {discount.label || discount.name}
+                        <div className="flex justify-between items-start gap-2 mb-2">
+                          <div>
+                            <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 text-[10px] font-black uppercase px-2 py-0.5 rounded border border-emerald-200/80 mb-1">
+                              Store Curated Bundle
+                            </span>
+                            <h3 className="font-extrabold text-gray-900 text-sm leading-snug">{combo.name}</h3>
+                            <p className="text-[10px] text-gray-400 font-mono mt-0.5">CODE: {combo.comboCode}</p>
+                          </div>
+                          <span className="bg-emerald-800 text-white text-[10px] font-black px-2.5 py-1 rounded-lg shrink-0 shadow-xs">
+                            {combo.discountPercentage.toFixed(0)}% OFF
+                          </span>
                         </div>
-                        <h3 className="text-sm font-extrabold text-gray-900 mb-2 leading-tight line-clamp-2" title={prod.name}>
-                          {prod.name}
-                        </h3>
-                        <div className="flex items-baseline gap-1.5 mb-3">
-                          <span className="text-gray-900 font-extrabold text-base">Rs. {discountedPrice.toFixed(2)}</span>
-                          <span className="text-gray-400 line-through text-[10px] font-semibold">Rs. {prod.price.toFixed(2)}</span>
+
+                        <div className="space-y-1.5 bg-gray-50/80 p-3 rounded-xl border border-gray-100 mt-3">
+                          <p className="text-[9px] font-black uppercase text-gray-400 tracking-wider">Bundle Items:</p>
+                          {combo.items.map((item: any, idx: number) => (
+                            <div key={idx} className="flex justify-between items-center text-xs font-semibold text-gray-700">
+                              <span className="line-clamp-1 pr-2">• {item.quantity}x {item.product?.name || item.productId}</span>
+                              <span className="text-gray-400 font-mono text-[10px] shrink-0">Rs. {((item.normalUnitPrice || item.product?.sellingPrice || 0) * item.quantity).toFixed(0)}</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                      <button
-                        onClick={() => addSingleDiscountProduct && addSingleDiscountProduct(prod, discount)}
-                        className="w-full bg-[#0a3822] text-white hover:bg-[#072a19] py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
-                      >
-                        <ShoppingCart className="w-3.5 h-3.5" />
-                        Add to Cart
-                      </button>
+
+                      <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-4">
+                        <div>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-xs text-gray-400 line-through">Rs. {combo.normalTotalPrice.toFixed(0)}</span>
+                            <span className="text-lg font-black text-emerald-800">Rs. {combo.comboPrice.toFixed(0)}</span>
+                          </div>
+                          <p className="text-[10px] text-emerald-700 font-bold">
+                            Save Rs. {(combo.normalTotalPrice - combo.comboPrice).toFixed(0)}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => addApprovedComboToCart && addApprovedComboToCart(combo)}
+                          className="bg-[#103e2c] text-white hover:bg-[#165a40] px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer shrink-0"
+                        >
+                          <ShoppingCart className="w-3.5 h-3.5" />
+                          Add Combo to Bill
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* 3. Daily Flash Deals */}
+            {showDailySection && (
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-orange-50 border border-orange-200 flex items-center justify-center">
+                      <Flame className="w-4 h-4 text-orange-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-black text-gray-900">Today's Daily Flash Deals</h2>
+                      <p className="text-gray-400 text-xs">Time-limited special daily item discounts.</p>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                  <span className="text-xs font-bold text-orange-700 bg-orange-50 px-2.5 py-1 rounded-lg border border-orange-200">
+                    {filteredDaily.length} Products on Sale
+                  </span>
+                </div>
 
-          {seasonalProducts.length > 4 && (
-            <div className="mt-6 text-center">
-              <button 
-                onClick={() => setShowAllSeasonal(!showAllSeasonal)}
-                className="px-5 py-2 border border-[#103e2c] text-[#103e2c] font-bold rounded-lg text-xs hover:bg-[#103e2c] hover:text-white transition-colors"
-              >
-                {showAllSeasonal ? 'Show Less' : `See All Seasonal Deals (${seasonalProducts.length})`}
-              </button>
-            </div>
-          )}
-        </section>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {filteredDaily.map(({ discount, prod }, idx) => {
+                    const discountedPrice = prod.price * (1 - discount.discountValue / 100);
+                    return (
+                      <div key={`${discount.id}-${prod.sku}-${idx}`} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-md transition-all flex flex-col justify-between space-y-3">
+                        <div>
+                          <div className="flex justify-between items-start gap-1 mb-2">
+                            <span className="bg-orange-50 text-orange-800 text-[9px] font-black uppercase px-2 py-0.5 rounded border border-orange-200">
+                              {discount.dailyEndTime ? `Ends ${discount.dailyEndTime}` : 'Daily Deal'}
+                            </span>
+                            <span className="bg-orange-600 text-white text-[9px] font-black px-2 py-0.5 rounded shadow-xs">
+                              {discount.discountValue}% OFF
+                            </span>
+                          </div>
+                          <h4 className="font-extrabold text-gray-900 text-xs line-clamp-2 min-h-[32px] leading-snug">{prod.name}</h4>
+                          <p className="text-[10px] text-gray-400 font-mono mt-0.5">SKU: {prod.sku}</p>
+                        </div>
 
-        {/* 3. Daily Specials Section */}
-        <section>
-          <div className="mb-6">
-            <h2 className="text-2xl font-black text-[#103e2c] mb-1 flex items-center gap-1.5">Daily Offers ⚡</h2>
-            <p className="text-gray-500 text-xs">Happy hour value deals active today.</p>
+                        <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
+                          <div>
+                            <span className="text-[10px] text-gray-400 line-through block">Rs. {prod.price.toFixed(2)}</span>
+                            <span className="text-sm font-black text-gray-900">Rs. {discountedPrice.toFixed(2)}</span>
+                          </div>
+                          {addSingleDiscountProduct && (
+                            <button
+                              type="button"
+                              onClick={() => addSingleDiscountProduct(prod, discount)}
+                              className="p-2 bg-orange-50 hover:bg-orange-100 text-orange-800 rounded-xl transition-colors cursor-pointer"
+                              title="Add discounted product"
+                            >
+                              <ShoppingCart className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* 4. Seasonal & Festival Specials */}
+            {showSeasonalSection && (
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center">
+                      <Calendar className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-black text-gray-900">Seasonal & Festival Specials</h2>
+                      <p className="text-gray-400 text-xs">Exclusive seasonal promotions.</p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
+                    {filteredSeasonal.length} Seasonal Deals
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {filteredSeasonal.map(({ discount, prod }, idx) => {
+                    const discountedPrice = prod.price * (1 - discount.discountValue / 100);
+                    return (
+                      <div key={`${discount.id}-${prod.sku}-${idx}`} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-md transition-all flex flex-col justify-between space-y-3">
+                        <div>
+                          <div className="flex justify-between items-start gap-1 mb-2">
+                            <span className="bg-blue-50 text-blue-800 text-[9px] font-black uppercase px-2 py-0.5 rounded border border-blue-200">
+                              {discount.label || 'Seasonal Offer'}
+                            </span>
+                            <span className="bg-blue-600 text-white text-[9px] font-black px-2 py-0.5 rounded shadow-xs">
+                              {discount.discountValue}% OFF
+                            </span>
+                          </div>
+                          <h4 className="font-extrabold text-gray-900 text-xs line-clamp-2 min-h-[32px] leading-snug">{prod.name}</h4>
+                          <p className="text-[10px] text-gray-400 font-mono mt-0.5">SKU: {prod.sku}</p>
+                        </div>
+
+                        <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
+                          <div>
+                            <span className="text-[10px] text-gray-400 line-through block">Rs. {prod.price.toFixed(2)}</span>
+                            <span className="text-sm font-black text-gray-900">Rs. {discountedPrice.toFixed(2)}</span>
+                          </div>
+                          {addSingleDiscountProduct && (
+                            <button
+                              type="button"
+                              onClick={() => addSingleDiscountProduct(prod, discount)}
+                              className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-xl transition-colors cursor-pointer"
+                              title="Add discounted product"
+                            >
+                              <ShoppingCart className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
           </div>
-
-          {dailyProducts.length === 0 ? (
-            <div className="bg-white rounded-2xl p-8 text-center border border-gray-100 text-gray-500 font-bold text-xs shadow-sm">
-              No active daily specials available.
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-              {(showAllDaily ? dailyProducts : dailyProducts.slice(0, 4)).map(({ discount, prod, skuId }, idx) => {
-                const discountedPrice = prod.price * (1 - discount.discountValue / 100);
-                return (
-                  <div key={`${discount.id}-${skuId}-${idx}`} className="bg-white rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] overflow-hidden border border-gray-100 hover:shadow-md transition-shadow flex flex-col relative group">
-                    <div className="h-32 w-full relative bg-gray-50 shrink-0">
-                      <img 
-                        src={prod.imageUrl || "https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=600&auto=format&fit=crop"} 
-                        alt={prod.name} 
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" 
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                      <div className="absolute top-2 right-2 bg-amber-400 text-amber-900 text-[10px] font-black px-2 py-0.5 rounded shadow-sm">
-                        {discount.discountValue}% OFF
-                      </div>
-                      <div className="absolute bottom-2 left-2 bg-black/80 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm">
-                        ENDS {discount.dailyEndTime}
-                      </div>
-                    </div>
-                    <div className="p-4 flex-1 flex flex-col justify-between z-10 bg-white">
-                      <div>
-                        <div className="text-[9px] font-bold text-amber-600 uppercase tracking-wider mb-1 truncate">
-                          ⚡ {discount.label || discount.name}
-                        </div>
-                        <h3 className="text-sm font-extrabold text-gray-900 mb-2 leading-tight line-clamp-2" title={prod.name}>
-                          {prod.name}
-                        </h3>
-                        <div className="flex items-baseline gap-1.5 mb-3">
-                          <span className="text-gray-900 font-extrabold text-base">Rs. {discountedPrice.toFixed(2)}</span>
-                          <span className="text-gray-400 line-through text-[10px] font-semibold">Rs. {prod.price.toFixed(2)}</span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => addSingleDiscountProduct && addSingleDiscountProduct(prod, discount)}
-                        className="w-full bg-[#b45309] text-white hover:bg-[#92400e] py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
-                      >
-                        <ShoppingCart className="w-3.5 h-3.5" />
-                        Add to Cart
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {dailyProducts.length > 4 && (
-            <div className="mt-6 text-center">
-              <button 
-                onClick={() => setShowAllDaily(!showAllDaily)}
-                className="px-5 py-2 border border-[#103e2c] text-[#103e2c] font-bold rounded-lg text-xs hover:bg-[#103e2c] hover:text-white transition-colors"
-              >
-                {showAllDaily ? 'Show Less' : `See All Daily Offers (${dailyProducts.length})`}
-              </button>
-            </div>
-          )}
-        </section>
+        )}
 
       </div>
     </div>

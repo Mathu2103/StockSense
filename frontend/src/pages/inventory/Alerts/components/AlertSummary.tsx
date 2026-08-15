@@ -44,7 +44,7 @@ export default function AlertSummary({
         </div>
 
         <div
-          onClick={() => { setActiveTab('All Alerts'); setSevFilter('CRITICAL'); }}
+          onClick={() => { setActiveTab('All Alerts'); setSevFilter('Critical'); }}
           className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm cursor-pointer hover:border-red-600 hover:shadow-md transition-all"
         >
           <div className="flex items-center gap-2 mb-2">

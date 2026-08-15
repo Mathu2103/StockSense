@@ -61,6 +61,11 @@ export const comboService = {
     return response.data;
   },
 
+  async getCombos(status?: string) {
+    const response = await api.get('/combos', { params: { status } });
+    return response.data;
+  },
+
   async getComboDetails(id: string) {
     const response = await api.get(`/combos/${id}`);
     return response.data;
@@ -98,6 +103,11 @@ export const comboService = {
 
   async cancelCombo(id: string) {
     const response = await api.post(`/combos/${id}/cancel`);
+    return response.data;
+  },
+
+  async deleteCombo(id: string) {
+    const response = await api.delete(`/combos/${id}`);
     return response.data;
   },
 

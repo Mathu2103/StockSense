@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.services.association_rules import mine_association_rules
 from app.services.substitute_detector import detect_substitutes
-from app.services.combo_generator import generate_combo_suggestions
+from app.services.combo_generator import generate_combo_suggestions, generate_suggestions_for_opportunity
 
 router = APIRouter(prefix="/api/combo-analysis", tags=["AI Combo Suggestions"])
 
@@ -240,13 +240,10 @@ def generate_ranked_suggestions(
     db: Session = Depends(get_db)
 ):
     """
-    Triggers suggestion generation for a specific opportunity.
+    Triggers suggestion generation for a specific opportunity only.
     """
-    assoc_run = payload.associationRunId if payload else None
-    forecast_run = payload.forecastRunId if payload else None
-    
     try:
-        suggestions_count = generate_combo_suggestions(db, forecast_run_id=forecast_run, association_run_id=assoc_run)
+        suggestions_count = generate_suggestions_for_opportunity(db, opportunity_id=opportunityId)
         
         # Load the generated suggestions for this opportunity
         sug_query = text("""
