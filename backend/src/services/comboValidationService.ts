@@ -201,18 +201,18 @@ export class ComboValidationService {
     await (prisma as any).$transaction(async (tx: any) => {
       // If activating, lock stock/reserve stock
       if (newStatus === 'ACTIVE' && previousStatus !== 'ACTIVE') {
+        const promoCap = Math.max(1, combo.maximumQuantity || 1);
         for (const item of combo.items) {
-          // Verify stock is available
           const product = await tx.product.findUnique({ where: { sku: item.productId } });
           if (!product || product.currentStock < item.quantity) {
             throw new Error(`Insufficient stock for product ${item.productId} to activate the combo.`);
           }
           
-          // Deduct from currentStock / lock reservedStock if necessary.
-          // Since StockSense has currentStock directly, let's keep track or reserve it.
+          const totalPromoUnits = item.quantity * promoCap;
+          const safeReserve = Math.min(product.currentStock, totalPromoUnits);
           await tx.comboItem.update({
             where: { id: item.id },
-            data: { stockReserved: item.quantity },
+            data: { stockReserved: safeReserve },
           });
         }
       }

@@ -29,9 +29,14 @@ const mapDbReasonToFrontend = (reason: AdjustmentReason): string => {
 };
 
 // Get all GRNs
-export const getGRNs = async (_req: Request, res: Response): Promise<void> => {
+export const getGRNs = async (req: Request, res: Response): Promise<void> => {
   try {
+    const take = req.query.limit ? parseInt(req.query.limit as string) : 100;
+    const skip = req.query.offset ? parseInt(req.query.offset as string) : 0;
+
     const grns = await prisma.goodsReceivingNote.findMany({
+      take,
+      skip,
       include: {
         supplier: true,
         operator: true,

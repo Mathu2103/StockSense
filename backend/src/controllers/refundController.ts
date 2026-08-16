@@ -156,6 +156,53 @@ export const createRefund = async (req: AuthRequest, res: Response): Promise<voi
         }
       }
 
+      // 3. Real-Time Combo Refund Sync
+      for (const item of refundItems) {
+        const originalBillItem = originalBill.billItems.find(bi => bi.sku === item.sku);
+        if (originalBillItem && originalBillItem.discountId) {
+          const discountRef = originalBillItem.discountId;
+          const isLikelyCombo = discountRef.startsWith('COMBO-') || discountRef.length >= 8;
+          if (isLikelyCombo) {
+            const combo = await tx.combo.findFirst({
+              where: {
+                OR: [
+                  { id: discountRef },
+                  { comboCode: discountRef }
+                ]
+              }
+            });
+
+            if (combo) {
+              const refundedQty = parseInt(item.qty);
+              const updatedSoldQty = Math.max(0, combo.soldQuantity - refundedQty);
+              const shouldReactivate = combo.status === 'COMPLETED' && (combo.maximumQuantity <= 0 || updatedSoldQty < combo.maximumQuantity);
+
+              await tx.combo.update({
+                where: { id: combo.id },
+                data: {
+                  soldQuantity: updatedSoldQty,
+                  status: shouldReactivate ? 'ACTIVE' : combo.status
+                }
+              });
+
+              // Adjust ComboPerformance
+              const perf = await tx.comboPerformance.findFirst({ where: { comboId: combo.id } });
+              if (perf) {
+                await tx.comboPerformance.update({
+                  where: { id: perf.id },
+                  data: {
+                    unitsSold: Math.max(0, perf.unitsSold - refundedQty),
+                    revenueGenerated: Math.max(0, perf.revenueGenerated - (combo.comboPrice * refundedQty)),
+                    profitGenerated: Math.max(0, perf.profitGenerated - ((combo.comboPrice - combo.totalCost) * refundedQty)),
+                    status: shouldReactivate ? 'ACTIVE' : perf.status
+                  }
+                });
+              }
+            }
+          }
+        }
+      }
+
       return refund;
     });
 

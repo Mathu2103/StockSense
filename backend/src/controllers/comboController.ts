@@ -447,12 +447,12 @@ export async function createComboDraft(req: AuthRequest, res: Response): Promise
     }
 
     const discountAmount = normalTotalPrice - comboPrice;
-    const discountPercentage = (discountAmount / normalTotalPrice) * 100;
+    const discountPercentage = normalTotalPrice > 0 ? Math.max(0, (discountAmount / normalTotalPrice) * 100) : 0;
     const expectedProfit = comboPrice - totalCost;
-    const expectedMarginPercentage = (expectedProfit / comboPrice) * 100;
+    const expectedMarginPercentage = comboPrice > 0 ? (expectedProfit / comboPrice) * 100 : 0;
 
-    // Estimate safe quantity
-    const maxQty = 50; // Mocked maximum promotional buffer limit
+    // Use requested maximum quantity or fallback to safe promo capacity
+    const maxQty = req.body.maximumQuantity !== undefined ? parseInt(req.body.maximumQuantity) : 80;
 
     // 2. Write to DB
     const combo = await (prisma as any).$transaction(async (tx: any) => {
@@ -631,9 +631,9 @@ export async function updateComboDraft(req: AuthRequest, res: Response): Promise
     }
 
     const discountAmount = normalTotalPrice - comboPrice;
-    const discountPercentage = (discountAmount / normalTotalPrice) * 100;
+    const discountPercentage = normalTotalPrice > 0 ? Math.max(0, (discountAmount / normalTotalPrice) * 100) : 0;
     const expectedProfit = comboPrice - totalCost;
-    const expectedMarginPercentage = (expectedProfit / comboPrice) * 100;
+    const expectedMarginPercentage = comboPrice > 0 ? (expectedProfit / comboPrice) * 100 : 0;
 
     await (prisma as any).$transaction(async (tx: any) => {
       await tx.combo.update({
@@ -719,6 +719,20 @@ export async function deleteCombo(req: AuthRequest, res: Response): Promise<void
         await tx.comboSuggestion.update({
           where: { id: combo.sourceSuggestionId },
           data: { suggestionStatus: 'GENERATED' }
+        });
+      }
+
+      // Revert target product opportunities back to DETECTED so they reappear in opportunity analysis
+      const targetProductIds = combo.items.filter((i: any) => i.role === 'TARGET').map((i: any) => i.productId);
+      if (targetProductIds.length > 0) {
+        await tx.comboOpportunity.updateMany({
+          where: {
+            targetProductId: { in: targetProductIds },
+            opportunityStatus: 'CONVERTED'
+          },
+          data: {
+            opportunityStatus: 'DETECTED'
+          }
         });
       }
 
@@ -856,7 +870,10 @@ export async function getPublicActiveCombos(req: any, res: Response): Promise<vo
       },
       orderBy: { createdAt: 'desc' }
     });
-    res.status(200).json({ success: true, data: active });
+    
+    // Filter out sold-out combos
+    const availableCombos = active.filter((c: any) => c.maximumQuantity <= 0 || c.soldQuantity < c.maximumQuantity);
+    res.status(200).json({ success: true, data: availableCombos });
   } catch (error: any) {
     console.error('Error fetching public combos:', error);
     res.status(500).json({ success: false, message: 'Database error fetching offers.' });
@@ -865,7 +882,6 @@ export async function getPublicActiveCombos(req: any, res: Response): Promise<vo
 
 export async function getPosActiveCombos(req: AuthRequest, res: Response): Promise<void> {
   try {
-    // POS queries details including item codes and barcodes
     const active = await (prisma as any).combo.findMany({
       where: {
         status: { in: ['ACTIVE', 'APPROVED'] },
@@ -889,7 +905,10 @@ export async function getPosActiveCombos(req: AuthRequest, res: Response): Promi
       },
       orderBy: { createdAt: 'desc' }
     });
-    res.status(200).json({ success: true, data: active });
+
+    // Filter out sold-out combos
+    const availableCombos = active.filter((c: any) => c.maximumQuantity <= 0 || c.soldQuantity < c.maximumQuantity);
+    res.status(200).json({ success: true, data: availableCombos });
   } catch (error: any) {
     console.error('Error fetching POS combos:', error);
     res.status(500).json({ success: false, message: 'Database error fetching POS lookup.' });
