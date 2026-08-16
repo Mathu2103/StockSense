@@ -231,10 +231,17 @@ export class ComboValidationService {
       });
 
       if (newStatus === 'PENDING_APPROVAL') {
+        // Clean up any existing notifications for this combo first to prevent duplicates
+        await tx.notification.deleteMany({
+          where: {
+            title: { contains: combo.comboCode }
+          }
+        });
+
         await tx.notification.create({
           data: {
-            type: 'STOCK_VELOCITY',
-            severity: 'WARNING',
+            type: 'COMBO_SUGGESTION',
+            severity: 'INFO',
             title: `Combo Approval Needed — ${combo.name} (${combo.comboCode})`,
             message: `Combo campaign "${combo.name}" (Price: Rs. ${combo.comboPrice}) has been submitted and is pending admin approval.`,
             suggestedAction: 'Review Combo Approval',

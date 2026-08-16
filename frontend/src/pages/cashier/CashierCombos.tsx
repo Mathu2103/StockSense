@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { comboService } from '../../services/comboService';
+import { DiscountService } from '../../services/discountService';
 import { Search, Sparkles, Gift } from 'lucide-react';
 
 export default function CashierCombos() {
@@ -11,10 +12,64 @@ export default function CashierCombos() {
   const fetchPosCombos = async () => {
     try {
       setLoading(true);
-      const payload = await comboService.getPosActiveCombos();
-      if (payload.success) {
-        setCombos(payload.data);
+      const [comboRes, discRes] = await Promise.all([
+        comboService.getPosActiveCombos(),
+        DiscountService.getDiscounts()
+      ]);
+
+      let all: any[] = [];
+      const existingIds = new Set<string>();
+
+      if (comboRes.success && Array.isArray(comboRes.data)) {
+        all = [...comboRes.data];
+        comboRes.data.forEach((c: any) => existingIds.add(c.id));
       }
+
+      if (discRes.success && Array.isArray(discRes.data)) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const mappedDiscounts = discRes.data
+          .filter((d: any) => {
+            if (d.type !== 'COMBO') return false;
+            if (!d.isActive || d.approvalStatus !== 'APPROVED') return false;
+            if (d.endDate && d.endDate < todayStr) return false;
+            if (d.startDate && d.startDate > todayStr) return false;
+            return !existingIds.has(d.id);
+          })
+          .map((d: any) => {
+            const regularTotal = (d.comboItems || []).reduce((acc: number, item: any) => acc + (Number(item.sellingPrice || 0) * (Number(item.minQty) || 1)), 0);
+            const comboPrice = d.comboPrice ? Number(d.comboPrice) : (regularTotal * (1 - (d.discountValue || 0) / 100));
+
+            return {
+              id: d.id,
+              comboCode: d.label || `COMBO-${d.id.substring(0, 6).toUpperCase()}`,
+              name: d.name,
+              description: d.label ? `${d.name} (${d.label})` : `Store combo bundle (${d.discountValue}% OFF)`,
+              comboType: 'STORE_BUNDLE',
+              sourceSuggestionId: null,
+              comboPrice,
+              normalTotalPrice: regularTotal,
+              discountPercentage: d.discountValue || 0,
+              maximumQuantity: 100,
+              soldQuantity: 0,
+              startDate: d.startDate,
+              endDate: d.endDate,
+              items: (d.comboItems || []).map((item: any) => ({
+                productId: item.productId,
+                role: 'BUNDLE',
+                quantity: item.minQty || 1,
+                normalUnitPrice: item.sellingPrice || 0,
+                product: {
+                  name: item.productName || item.productId,
+                  sku: item.productId
+                }
+              }))
+            };
+          });
+
+        all = [...all, ...mappedDiscounts];
+      }
+
+      setCombos(all);
     } catch (error) {
       console.error(error);
     } finally {
@@ -91,7 +146,7 @@ export default function CashierCombos() {
           }`}
         >
           <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-          Smart Combos ({combos.filter(c => !!c.sourceSuggestionId || c.comboType === 'NEAR_EXPIRY' || c.comboType === 'OVERSTOCK' || c.comboType === 'SLOW_MOVING').length})
+          AI Combos ({combos.filter(c => !!c.sourceSuggestionId || c.comboType === 'NEAR_EXPIRY' || c.comboType === 'OVERSTOCK' || c.comboType === 'SLOW_MOVING').length})
         </button>
       </div>
 
