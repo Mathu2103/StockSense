@@ -23,7 +23,7 @@ const quickCreateCategories = [
     bg: 'from-emerald-50 to-emerald-100/40',
     items: [
       { name: 'Add New Product', path: '/manage-products?tab=new-product', icon: 'add_box' },
-      { name: 'Add Category', path: '/manage-products?tab=categories&action=add', icon: 'category' },
+      { name: 'Add Category', path: '/manage-products?tab=categories', icon: 'category' },
     ],
   },
   {

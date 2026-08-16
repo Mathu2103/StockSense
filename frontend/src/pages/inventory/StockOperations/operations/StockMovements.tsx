@@ -4,12 +4,6 @@ import { inventoryOperationsService, LedgerEntry, ProductItem } from './inventor
 export default function StockMovements() {
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [products, setProducts] = useState<ProductItem[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState('All');
-  const [timeFilter, setTimeFilter] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [toast, setToast] = useState<string | null>(null);
 
   // Selected ledger entry for Slide-out Drawer
   const [selectedEntry, setSelectedEntry] = useState<LedgerEntry | null>(null);
@@ -23,11 +17,6 @@ export default function StockMovements() {
     setLedger(log);
     const prods = await inventoryOperationsService.getProducts();
     setProducts(prods);
-  };
-
-  const triggerToast = (message: string) => {
-    setToast(message);
-    setTimeout(() => setToast(null), 3000);
   };
 
   // 1. LEDGER ANALYTICS SUMMARIES & EXPIRY LOSS
@@ -60,93 +49,8 @@ export default function StockMovements() {
     };
   }, [ledger, products]);
 
-  // 2. FIRE / DEAD STOCK INTELLIGENCE ALGORITHMS
-  const intelligenceBadges = useMemo(() => {
-    const saleCounts: Record<string, number> = {};
-    const touchedSkus = new Set<string>();
-
-    ledger.forEach(entry => {
-      touchedSkus.add(entry.sku);
-      if (entry.movementType === 'Sale') {
-        saleCounts[entry.sku] = (saleCounts[entry.sku] || 0) + Math.abs(entry.quantityChange);
-      }
-    });
-
-    // Fast-moving check: Sold more than 10 units in the log
-    const fastMovingSkus = new Set<string>();
-    Object.entries(saleCounts).forEach(([sku, count]) => {
-      if (count >= 10) {
-        fastMovingSkus.add(sku);
-      }
-    });
-
-    // Dead stock check: Catalog products with NO touchpoints in the ledger
-    const deadStockSkus = new Set<string>();
-    products.forEach(p => {
-      if (!touchedSkus.has(p.sku)) {
-        deadStockSkus.add(p.sku);
-      }
-    });
-
-    return {
-      fastMovingSkus,
-      deadStockSkus
-    };
-  }, [ledger, products]);
-
-  // 3. TIME FILTER CHECKER
-  const isWithinTimeRange = (entryDateStr: string) => {
-    const entryDate = new Date(entryDateStr);
-    const now = new Date();
-    
-    if (timeFilter === 'all') return true;
-    
-    if (timeFilter === 'today') {
-      return entryDate.toDateString() === now.toDateString();
-    }
-    
-    if (timeFilter === 'week') {
-      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      return entryDate >= oneWeekAgo;
-    }
-    
-    if (timeFilter === 'month') {
-      const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      return entryDate >= oneMonthAgo;
-    }
-    
-    if (timeFilter === 'custom') {
-      if (!startDate && !endDate) return true;
-      let startMatch = true;
-      let endMatch = true;
-      if (startDate) startMatch = entryDate >= new Date(startDate);
-      if (endDate) endMatch = entryDate <= new Date(endDate + 'T23:59:59');
-      return startMatch && endMatch;
-    }
-    
-    return true;
-  };
-
-  // 4. REAL-TIME FILTERING ENGINE
-  const filteredLedger = useMemo(() => {
-    return ledger.filter(entry => {
-      const matchesSearch = entry.productName.toLowerCase().includes(searchTerm.toLowerCase()) || entry.sku.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesType = selectedType === 'All' || entry.movementType === selectedType;
-      const matchesTime = isWithinTimeRange(entry.timestamp);
-      return matchesSearch && matchesType && matchesTime;
-    });
-  }, [ledger, searchTerm, selectedType, timeFilter, startDate, endDate]);
-
   return (
     <div className="space-y-6 relative">
-      {/* Toast popup */}
-      {toast && (
-        <div className="fixed top-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl shadow-lg">
-          <span className="material-symbols-outlined text-emerald-400">info</span>
-          <span className="text-xs font-extrabold text-white">{toast}</span>
-        </div>
-      )}
-
       {/* DOCK SUMMARY LEDGER METRICS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1">

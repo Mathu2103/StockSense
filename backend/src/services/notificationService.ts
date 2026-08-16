@@ -89,18 +89,9 @@ export class NotificationService {
       });
       const rules = (rulesSetting?.value as any) || {};
 
-      let maxStockPercent = 100;
-      if (rules.maximumStockLimit && rules.maximumStockLimit !== 'No limit') {
-        const parsed = parseInt(rules.maximumStockLimit, 10);
-        if (!isNaN(parsed)) {
-          maxStockPercent = parsed;
-        }
-      }
       const enableLowStockAlerts = rules.enableLowStockAlerts !== false;
       const enableOutOfStockAlerts = rules.enableOutOfStockAlerts !== false;
       const enableExpiringSoonAlerts = rules.enableExpiringSoonAlerts !== false;
-      const enableDeadStockAlerts = rules.enableDeadStockAlerts === true;
-      const enableOverstockAlerts = rules.enableOverstockAlerts === true;
 
       // 2. Fetch all active products
       const products = await prisma.product.findMany({
@@ -111,12 +102,9 @@ export class NotificationService {
 
       for (const product of products) {
         await this.checkAndTriggerAllAlertsForProduct(product, {
-          maxStockPercent,
           enableLowStockAlerts,
           enableOutOfStockAlerts,
-          enableExpiringSoonAlerts,
-          enableDeadStockAlerts,
-          enableOverstockAlerts
+          enableExpiringSoonAlerts
         }, now);
       }
 
@@ -183,46 +171,32 @@ export class NotificationService {
           await this.createNotification({
             type: 'DISCOUNT_APPROVAL',
             severity: 'INFO',
-            title: `Discount Approval Needed — ${disc.name}`,
-            message: `Discount campaign "${disc.name}" (${disc.discountValue}% Off) is awaiting admin approval.`,
-            suggestedAction: 'Review Discount Approval',
+            title: `Discount Campaign Approval Needed — ${disc.name}`,
+            message: `Discount campaign "${disc.name}" (${disc.discountValue}% OFF) has been created and is awaiting approval.`,
+            suggestedAction: 'Review Approval',
             targetRole: Role.ADMIN,
             metadata: { discountId: disc.id, type: 'DISCOUNT_APPROVAL' }
           });
         }
       }
 
+      // Auto-clean notifications for discounts that are no longer DRAFT
       const allDiscountApprovalNotifications = await prisma.notification.findMany({
         where: {
-          OR: [
-            { title: { contains: 'Discount Approval Needed' } },
-            { title: { contains: 'Discount Campaign Approval Needed' } }
-          ]
+          type: 'DISCOUNT_APPROVAL'
         }
       });
 
       for (const notif of allDiscountApprovalNotifications) {
-        const discId = (notif.metadata as any)?.discountId;
-        if (discId) {
+        const discountId = (notif.metadata as any)?.discountId;
+        if (discountId) {
           const disc = await prisma.discount.findUnique({
-            where: { id: discId }
+            where: { id: discountId }
           });
           if (!disc || disc.approvalStatus !== 'DRAFT') {
             await prisma.notification.delete({
               where: { id: notif.id }
             });
-          }
-        } else {
-          const discNameMatch = notif.title.replace('Discount Approval Needed — ', '').replace('Discount Campaign Approval Needed', '').trim();
-          if (discNameMatch) {
-            const disc = await prisma.discount.findFirst({
-              where: { name: discNameMatch }
-            });
-            if (!disc || disc.approvalStatus !== 'DRAFT') {
-              await prisma.notification.delete({
-                where: { id: notif.id }
-              });
-            }
           }
         }
       }
@@ -247,28 +221,16 @@ export class NotificationService {
       });
       const rules = (rulesSetting?.value as any) || {};
 
-      let maxStockPercent = 100;
-      if (rules.maximumStockLimit && rules.maximumStockLimit !== 'No limit') {
-        const parsed = parseInt(rules.maximumStockLimit, 10);
-        if (!isNaN(parsed)) {
-          maxStockPercent = parsed;
-        }
-      }
       const enableLowStockAlerts = rules.enableLowStockAlerts !== false;
       const enableOutOfStockAlerts = rules.enableOutOfStockAlerts !== false;
       const enableExpiringSoonAlerts = rules.enableExpiringSoonAlerts !== false;
-      const enableDeadStockAlerts = rules.enableDeadStockAlerts === true;
-      const enableOverstockAlerts = rules.enableOverstockAlerts === true;
 
       const now = new Date();
 
       await this.checkAndTriggerAllAlertsForProduct(product, {
-        maxStockPercent,
         enableLowStockAlerts,
         enableOutOfStockAlerts,
-        enableExpiringSoonAlerts,
-        enableDeadStockAlerts,
-        enableOverstockAlerts
+        enableExpiringSoonAlerts
       }, now);
     } catch (error) {
       console.error('Error checking stock alerts:', error);
@@ -281,12 +243,9 @@ export class NotificationService {
   static async checkAndTriggerAllAlertsForProduct(
     product: any,
     config: {
-      maxStockPercent: number;
       enableLowStockAlerts: boolean;
       enableOutOfStockAlerts: boolean;
       enableExpiringSoonAlerts: boolean;
-      enableDeadStockAlerts: boolean;
-      enableOverstockAlerts: boolean;
     },
     now: Date
   ) {
@@ -358,41 +317,13 @@ export class NotificationService {
       });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // 2. Overstock Alert
-    // ─────────────────────────────────────────────────────────────────────────
-    if (config.enableOverstockAlerts) {
-      const overstockLimit = Math.round((config.maxStockPercent / 100) * targetCapacity);
-      if (currentStock > overstockLimit) {
-        const existing = await prisma.notification.findFirst({
-          where: { sku, type: 'OVERSTOCK' }
-        });
-        if (!existing) {
-          const pct = Math.round((currentStock / targetCapacity) * 100);
-          await this.createNotification({
-            type: 'OVERSTOCK',
-            severity: 'WARNING',
-            title: `${product.name} — Overstock Alert`,
-            message: `Stock is at ${currentStock} ${currentStock === 1 ? 'unit' : 'units'} (${pct}% of ${targetCapacity} capacity), exceeding the limit of ${overstockLimit} ${overstockLimit === 1 ? 'unit' : 'units'}.`,
-            sku,
-            suggestedAction: 'Remove Shelf',
-          });
-        }
-      } else {
-        // Resolve Overstock
-        await prisma.notification.deleteMany({
-          where: { sku, type: 'OVERSTOCK' }
-        });
-      }
-    } else {
-      // Disabled - Resolve Overstock
-      await prisma.notification.deleteMany({
-        where: { sku, type: 'OVERSTOCK' }
-      });
-    }
+    // Clean up any disabled/redundant alert types (OVERSTOCK, STOCK_VELOCITY)
+    await prisma.notification.deleteMany({
+      where: { sku, type: { in: ['OVERSTOCK', 'STOCK_VELOCITY'] } }
+    });
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 3. Expiry Alerts (EXPIRING_SOON & EXPIRED)
+    // 2. Expiry Alerts (EXPIRING_SOON & EXPIRED)
     // ─────────────────────────────────────────────────────────────────────────
     if (config.enableExpiringSoonAlerts && product.expiryDate && currentStock > 0) {
       const expiryDate = new Date(product.expiryDate);
@@ -466,56 +397,6 @@ export class NotificationService {
           sku,
           type: { in: ['EXPIRING_SOON', 'EXPIRED'] }
         }
-      });
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // 4. Dead Stock Alert (STOCK_VELOCITY)
-    // ─────────────────────────────────────────────────────────────────────────
-    if (config.enableDeadStockAlerts) {
-      // Check products created at least 30 days ago
-      const productAgeDays = Math.floor((now.getTime() - new Date(product.createdAt).getTime()) / (1000 * 60 * 60 * 24));
-      if (productAgeDays >= 30) {
-        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        const saleCount = await prisma.billItem.count({
-          where: {
-            sku,
-            bill: {
-              createdAt: { gte: thirtyDaysAgo }
-            }
-          }
-        });
-
-        if (saleCount === 0 && currentStock > 0) {
-          const existing = await prisma.notification.findFirst({
-            where: { sku, type: 'STOCK_VELOCITY' }
-          });
-          if (!existing) {
-            await this.createNotification({
-              type: 'STOCK_VELOCITY',
-              severity: 'WARNING',
-              title: `${product.name} — Dead Stock Warning`,
-              message: `No sales recorded for this product in the last 30 days. Consider creating a bundle discount or clearance markdown.`,
-              sku,
-              suggestedAction: 'Create Promotion',
-            });
-          }
-        } else {
-          // Has sales or stock is 0 - Resolve Dead Stock
-          await prisma.notification.deleteMany({
-            where: { sku, type: 'STOCK_VELOCITY' }
-          });
-        }
-      } else {
-        // New product - Resolve Dead Stock
-        await prisma.notification.deleteMany({
-          where: { sku, type: 'STOCK_VELOCITY' }
-        });
-      }
-    } else {
-      // Disabled - Resolve Dead Stock
-      await prisma.notification.deleteMany({
-        where: { sku, type: 'STOCK_VELOCITY' }
       });
     }
 

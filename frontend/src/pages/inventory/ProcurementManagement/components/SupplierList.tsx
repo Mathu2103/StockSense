@@ -1,4 +1,6 @@
+import { useState, useMemo, useEffect } from 'react';
 import { Supplier } from '../constants/supplierConstants';
+import Pagination from '@/components/shared/Pagination';
 
 interface SupplierListProps {
   suppliersList: Supplier[];
@@ -7,7 +9,6 @@ interface SupplierListProps {
   onSearchChange: (value: string) => void;
   onSupplierClick: (supplier: Supplier) => void;
   onEditClick: (supplier: Supplier) => void;
-  onAddClick: () => void;
 }
 
 export default function SupplierList({
@@ -17,72 +18,42 @@ export default function SupplierList({
   onSearchChange,
   onSupplierClick,
   onEditClick,
-  onAddClick,
 }: SupplierListProps) {
   const totalSuppliersCount = suppliersList.length;
-  const activeSuppliersCount = totalSuppliersCount;
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const paginatedSuppliers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredSuppliers.slice(start, start + pageSize);
+  }, [filteredSuppliers, currentPage, pageSize]);
 
   return (
-    <div className="space-y-6">
-      {/* Top Statistics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Card 1: Total Suppliers */}
-        <div className="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant shadow-sm flex flex-col gap-2 transition-all duration-300 hover:scale-[1.02]">
-          <div className="flex items-center justify-between text-outline">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-[20px]">local_shipping</span>
-              <span className="text-[11px] font-bold uppercase tracking-wider">Total Suppliers</span>
-            </div>
-            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Updated</span>
-          </div>
-          <div className="text-3xl font-black text-on-surface mt-1">{totalSuppliersCount}</div>
-          <p className="text-xs text-outline font-medium">Total registered suppliers</p>
+    <div className="space-y-4">
+      {/* Search and Filter Toolbar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-surface-container-lowest border border-outline-variant rounded-xl p-4 shadow-sm">
+        <div className="relative flex-1">
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant text-[18px]">
+            search
+          </span>
+          <input
+            type="text"
+            placeholder="Search by name, company, email or phone..."
+            value={searchTerm}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="w-full rounded-lg border border-outline-variant bg-background py-2 pl-9 pr-4 text-xs font-semibold outline-none focus:ring-1 focus:ring-primary"
+          />
         </div>
-
-        {/* Card 2: Active Suppliers */}
-        <div className="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant shadow-sm flex flex-col gap-2 transition-all duration-300 hover:scale-[1.02]">
-          <div className="flex items-center justify-between text-emerald-600">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[20px]">verified_user</span>
-              <span className="text-[11px] font-bold uppercase tracking-wider">Active Suppliers</span>
-            </div>
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-            </span>
-          </div>
-          <div className="text-3xl font-black text-on-surface mt-1">{activeSuppliersCount}</div>
-          <p className="text-xs text-outline font-medium">Currently active suppliers</p>
-        </div>
-      </div>
-
-      {/* Top Actions Panel */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-surface-container-lowest border border-outline-variant rounded-xl p-4 shadow-sm">
-        {/* Search Input */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
-          <div className="relative min-w-[280px] flex-1">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant text-[18px]">
-              search
-            </span>
-            <input
-              type="text"
-              placeholder="Search by name, company or email..."
-              value={searchTerm}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full rounded-lg border border-outline-variant bg-background py-2 pl-9 pr-4 text-xs font-semibold outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-        </div>
-
-        {/* Actions Buttons */}
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <button
-            onClick={onAddClick}
-            className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-extrabold hover:bg-primary/95 shadow-sm transition-all flex items-center gap-2"
-          >
-            <span className="material-symbols-outlined text-[16px]">person_add</span>
-            Add Supplier
-          </button>
+        <div className="text-xs font-bold text-outline shrink-0 flex items-center gap-1.5">
+          <span>Showing</span>
+          <span className="text-on-surface bg-slate-100 px-2 py-0.5 rounded-md">{filteredSuppliers.length}</span>
+          <span>of {totalSuppliersCount} suppliers</span>
         </div>
       </div>
 
@@ -101,14 +72,14 @@ export default function SupplierList({
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant font-semibold text-slate-700">
-              {filteredSuppliers.length === 0 ? (
+              {paginatedSuppliers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-outline font-bold text-sm">
                     No suppliers found matching criteria.
                   </td>
                 </tr>
               ) : (
-                filteredSuppliers.map((s) => (
+                paginatedSuppliers.map((s) => (
                   <tr
                     key={s.id}
                     className="hover:bg-primary/5 transition-colors group cursor-pointer"
@@ -144,8 +115,23 @@ export default function SupplierList({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredSuppliers.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+          pageSizeOptions={[10, 20, 50]}
+          itemName="suppliers"
+        />
       </div>
     </div>
   );
 }
+
 

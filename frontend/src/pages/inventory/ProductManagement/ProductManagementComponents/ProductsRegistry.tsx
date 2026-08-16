@@ -1,5 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import ProductFilters from './SubComponents/ProductFilters';
+import { getProductReorderThreshold } from '../../StockOperations/operations/inventoryOperationsService';
+import Pagination from '@/components/shared/Pagination';
 export type ProductStatus = 'Active' | 'Inactive' | 'Disconnected';
 
 // ── Category colour palette (cycles via hash so every category gets a unique, consistent colour) ──
@@ -65,6 +68,7 @@ type ProductsRegistryProps = {
   initialSearch?: string;
   initialCategory?: string;
   initialBrand?: string;
+  initialQuickFilter?: 'All' | 'Active' | 'Low Stock' | 'Out of Stock';
   showConfirm?: (title: string, message: React.ReactNode, onConfirm: () => void) => void;
 };
 
@@ -78,6 +82,7 @@ export default function ProductsRegistry({
   initialSearch = '',
   initialCategory = 'All Categories',
   initialBrand = '',
+  initialQuickFilter = 'All',
   showConfirm,
 }: ProductsRegistryProps) {
   // Details view state
@@ -90,7 +95,7 @@ export default function ProductsRegistry({
   const [statusFilter, setStatusFilter] = useState('All Statuses');
   const [brandFilter, setBrandFilter] = useState(initialBrand);
   const [typeFilter, setTypeFilter] = useState('All Types');
-  const [quickFilter, setQuickFilter] = useState<'All' | 'Active' | 'Low Stock' | 'Out of Stock'>('All');
+  const [quickFilter, setQuickFilter] = useState<'All' | 'Active' | 'Low Stock' | 'Out of Stock'>(initialQuickFilter || 'All');
 
   const [reorderPercent, setReorderPercent] = useState<number>(25);
   React.useEffect(() => {
@@ -106,7 +111,7 @@ export default function ProductsRegistry({
   }, [products]);
 
   const getReorderLimit = (p: ProductItem) => {
-    return Math.round((reorderPercent / 100) * (p.targetCapacity || 100));
+    return getProductReorderThreshold(p);
   };
 
   const _handleArchive = (product: ProductItem) => {
@@ -139,6 +144,12 @@ export default function ProductsRegistry({
   React.useEffect(() => {
     setBrandFilter(initialBrand);
   }, [initialBrand]);
+
+  React.useEffect(() => {
+    if (initialQuickFilter) {
+      setQuickFilter(initialQuickFilter);
+    }
+  }, [initialQuickFilter]);
 
   // Reactive calculations for filtered items
   const filteredProducts = useMemo(() => {
@@ -196,6 +207,21 @@ export default function ProductsRegistry({
 
     return { total, active, lowStock, outOfStock, totalValue };
   }, [filteredProducts, reorderPercent]);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Reset pagination to page 1 on filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, categoryFilter, supplierFilter, statusFilter, brandFilter, typeFilter, quickFilter]);
+
+  // Paginated product slice
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredProducts.slice(start, start + pageSize);
+  }, [filteredProducts, currentPage, pageSize]);
 
   // Formatting Currency
   const formatCurrency = (val: number) => {
@@ -365,16 +391,13 @@ export default function ProductsRegistry({
                   <th className="px-5 py-3.5 text-left min-w-[230px]">Product Details</th>
                   <th className="px-4 py-3.5 text-left">SKU / Barcode</th>
                   <th className="px-4 py-3.5 text-center">Category</th>
-                  <th className="px-4 py-3.5 text-left">Supplier</th>
-                  <th className="px-4 py-3.5 text-center">Unit Type</th>
                   <th className="px-4 py-3.5 text-right">Stock / Capacity</th>
-                  <th className="px-4 py-3.5 text-right">Reorder Limit</th>
                   <th className="px-4 py-3.5 text-right">Selling Price</th>
                   <th className="px-5 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-on-surface-variant">
-                {filteredProducts.map((p) => {
+                {paginatedProducts.map((p) => {
                   const isOutOfStock = p.stock === 0;
                   const isLowStock = p.stock > 0 && p.stock <= getReorderLimit(p);
 
@@ -428,19 +451,6 @@ export default function ProductsRegistry({
                         })()}
                       </td>
 
-                      {/* Supplier */}
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium">
-                          <span className="material-symbols-outlined text-[14px] text-slate-400">local_shipping</span>
-                          {p.supplier}
-                        </div>
-                      </td>
-
-                      {/* Unit Type — centered */}
-                      <td className="px-4 py-3.5 text-center">
-                        <span className="text-[12px] font-bold text-on-surface uppercase tracking-wide">{p.unitType}</span>
-                      </td>
-
                       {/* Stock / Capacity — right aligned */}
                       <td className="px-4 py-3.5 text-right whitespace-nowrap">
                         <p className={`text-[12px] font-bold ${
@@ -462,13 +472,6 @@ export default function ProductsRegistry({
                           }`} />
                           {isOutOfStock ? 'OUT OF STOCK' : isLowStock ? 'LOW STOCK' : 'IN STOCK'}
                         </p>
-                      </td>
-
-                      {/* Reorder Limit — right aligned */}
-                      <td className="px-4 py-3.5 text-right whitespace-nowrap">
-                        <span className="text-[12px] font-bold text-slate-500">
-                          {getReorderLimit(p)} ({reorderPercent}%)
-                        </span>
                       </td>
 
                       {/* Selling Price — right aligned */}
@@ -494,186 +497,202 @@ export default function ProductsRegistry({
                 })}
               </tbody>
             </table>
+
+            {/* Pagination Controls */}
+            <Pagination
+              currentPage={currentPage}
+              totalItems={filteredProducts.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              }}
+              pageSizeOptions={[10, 25, 50]}
+              itemName="products"
+            />
           </div>
         )}
       </div>
 
       {/* Product Details Modal */}
-      {viewingProduct && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
-          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-5 border-b border-outline-variant/60 shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">inventory</span>
-                <h3 className="text-sm font-bold text-on-surface">Product Specification Details</h3>
+      {viewingProduct &&
+        createPortal(
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-lg max-h-[88vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-5 border-b border-outline-variant/60 shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">inventory</span>
+                  <h3 className="text-sm font-bold text-on-surface">Product Specification Details</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setViewingProduct(null)}
+                  className="text-outline hover:text-on-surface transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setViewingProduct(null)}
-                className="text-outline hover:text-on-surface transition-colors"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
 
-            {/* Modal Body */}
-            <div className="p-6 space-y-5 overflow-y-auto flex-1">
-              {/* Product Header Card */}
-              <div className="flex items-start gap-4 p-4 bg-slate-50 border border-outline-variant/60 rounded-xl">
-                {viewingProduct.imageUrl ? (
-                  <img
-                    src={viewingProduct.imageUrl}
-                    alt={viewingProduct.name}
-                    className="w-16 h-16 rounded-xl object-cover border border-slate-200 shadow-sm shrink-0 bg-white"
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-xl flex items-center justify-center bg-primary text-white font-black text-2xl uppercase shrink-0 shadow-sm">
-                    {viewingProduct.name.charAt(0)}
+              {/* Modal Body */}
+              <div className="p-6 space-y-5 overflow-y-auto flex-1">
+                {/* Product Header Card */}
+                <div className="flex items-start gap-4 p-4 bg-slate-50 border border-outline-variant/60 rounded-xl">
+                  {viewingProduct.imageUrl ? (
+                    <img
+                      src={viewingProduct.imageUrl}
+                      alt={viewingProduct.name}
+                      className="w-16 h-16 rounded-xl object-cover border border-slate-200 shadow-sm shrink-0 bg-white"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-xl flex items-center justify-center bg-primary text-white font-black text-2xl uppercase shrink-0 shadow-sm">
+                      {viewingProduct.name.charAt(0)}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <span className="inline-block bg-primary/10 text-primary px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider mb-1">
+                      {viewingProduct.status}
+                    </span>
+                    <h4 className="text-base font-extrabold text-on-surface leading-snug line-clamp-2">{viewingProduct.name}</h4>
+                    <p className="text-xs text-outline font-semibold mt-1">
+                      {viewingProduct.brand ? `${viewingProduct.brand} • ` : ''}{viewingProduct.subcategory || 'General'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Description */}
+                {viewingProduct.description && (
+                  <div className="space-y-1.5">
+                    <span className="block text-[10px] font-black text-outline uppercase tracking-wider">Description</span>
+                    <p className="text-xs text-on-surface-variant leading-relaxed bg-white p-3 border border-outline-variant/60 rounded-lg">
+                      {viewingProduct.description}
+                    </p>
                   </div>
                 )}
-                <div className="min-w-0">
-                  <span className="inline-block bg-primary/10 text-primary px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider mb-1">
-                    {viewingProduct.status}
-                  </span>
-                  <h4 className="text-base font-extrabold text-on-surface leading-snug line-clamp-2">{viewingProduct.name}</h4>
-                  <p className="text-xs text-outline font-semibold mt-1">
-                    {viewingProduct.brand ? `${viewingProduct.brand} • ` : ''}{viewingProduct.subcategory || 'General'}
-                  </p>
-                </div>
-              </div>
 
-              {/* Description */}
-              {viewingProduct.description && (
-                <div className="space-y-1.5">
-                  <span className="block text-[10px] font-black text-outline uppercase tracking-wider">Description</span>
-                  <p className="text-xs text-on-surface-variant leading-relaxed bg-white p-3 border border-outline-variant/60 rounded-lg">
-                    {viewingProduct.description}
-                  </p>
+                {/* Key Specs Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-50/50 p-3 border border-outline-variant/40 rounded-lg">
+                    <span className="block text-[9px] font-bold text-outline uppercase tracking-wider">SKU ID</span>
+                    <span className="block text-xs font-bold text-on-surface mt-0.5">{viewingProduct.sku}</span>
+                  </div>
+                  <div className="bg-slate-50/50 p-3 border border-outline-variant/40 rounded-lg">
+                    <span className="block text-[9px] font-bold text-outline uppercase tracking-wider">Barcode / EAN</span>
+                    <span className="block text-xs font-bold text-on-surface mt-0.5">{viewingProduct.barcode}</span>
+                  </div>
+                  <div className="bg-slate-50/50 p-3 border border-outline-variant/40 rounded-lg">
+                    <span className="block text-[9px] font-bold text-outline uppercase tracking-wider">Category</span>
+                    <span className="block text-xs font-bold text-on-surface mt-0.5">{viewingProduct.category}</span>
+                  </div>
+                  <div className="bg-slate-50/50 p-3 border border-outline-variant/40 rounded-lg">
+                    <span className="block text-[9px] font-bold text-outline uppercase tracking-wider">Supplier</span>
+                    <span className="block text-xs font-bold text-on-surface mt-0.5">{viewingProduct.supplier}</span>
+                  </div>
                 </div>
-              )}
 
-              {/* Key Specs Grid */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-50/50 p-3 border border-outline-variant/40 rounded-lg">
-                  <span className="block text-[9px] font-bold text-outline uppercase tracking-wider">SKU ID</span>
-                  <span className="block text-xs font-bold text-on-surface mt-0.5">{viewingProduct.sku}</span>
-                </div>
-                <div className="bg-slate-50/50 p-3 border border-outline-variant/40 rounded-lg">
-                  <span className="block text-[9px] font-bold text-outline uppercase tracking-wider">Barcode / EAN</span>
-                  <span className="block text-xs font-bold text-on-surface mt-0.5">{viewingProduct.barcode}</span>
-                </div>
-                <div className="bg-slate-50/50 p-3 border border-outline-variant/40 rounded-lg">
-                  <span className="block text-[9px] font-bold text-outline uppercase tracking-wider">Category</span>
-                  <span className="block text-xs font-bold text-on-surface mt-0.5">{viewingProduct.category}</span>
-                </div>
-                <div className="bg-slate-50/50 p-3 border border-outline-variant/40 rounded-lg">
-                  <span className="block text-[9px] font-bold text-outline uppercase tracking-wider">Supplier</span>
-                  <span className="block text-xs font-bold text-on-surface mt-0.5">{viewingProduct.supplier}</span>
-                </div>
-              </div>
-
-              {/* Stock and Reorder Status Section */}
-              <div className="border border-outline-variant/60 rounded-xl p-4 space-y-3">
-                <h5 className="text-[10px] font-black text-outline uppercase tracking-wider">Stock Levels & Capacity</h5>
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="text-[11px] text-outline font-semibold">Current Stock / Target Capacity</span>
-                    <span className="text-sm font-extrabold text-on-surface mt-0.5">
-                      {viewingProduct.stock} / {viewingProduct.targetCapacity || 100} {viewingProduct.unitType}(s)
+                {/* Stock and Reorder Status Section */}
+                <div className="border border-outline-variant/60 rounded-xl p-4 space-y-3">
+                  <h5 className="text-[10px] font-black text-outline uppercase tracking-wider">Stock Levels & Capacity</h5>
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <span className="text-[11px] text-outline font-semibold">Current Stock / Target Capacity</span>
+                      <span className="text-sm font-extrabold text-on-surface mt-0.5">
+                        {viewingProduct.stock} / {viewingProduct.targetCapacity || 100} {viewingProduct.unitType}(s)
+                      </span>
+                    </div>
+                    <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md ${
+                      viewingProduct.stock === 0 ? 'bg-red-50 text-red-600' :
+                      viewingProduct.stock <= getReorderLimit(viewingProduct) ? 'bg-amber-50 text-[#d97706]' :
+                      'bg-emerald-50 text-emerald-600'
+                    }`}>
+                      {viewingProduct.stock === 0 ? 'Out of Stock' :
+                       viewingProduct.stock <= getReorderLimit(viewingProduct) ? 'Low Stock' : 'In Stock'}
                     </span>
                   </div>
-                  <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md ${
-                    viewingProduct.stock === 0 ? 'bg-red-50 text-red-600' :
-                    viewingProduct.stock <= getReorderLimit(viewingProduct) ? 'bg-amber-50 text-[#d97706]' :
-                    'bg-emerald-50 text-emerald-600'
-                  }`}>
-                    {viewingProduct.stock === 0 ? 'Out of Stock' :
-                     viewingProduct.stock <= getReorderLimit(viewingProduct) ? 'Low Stock' : 'In Stock'}
-                  </span>
+
+                  {/* Stock progress bar */}
+                  <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                    <div
+                      style={{ width: `${Math.min(100, (viewingProduct.stock / (viewingProduct.targetCapacity || 100)) * 100)}%` }}
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        viewingProduct.stock === 0 ? 'bg-red-500' :
+                        viewingProduct.stock <= getReorderLimit(viewingProduct) ? 'bg-amber-500' : 'bg-primary'
+                      }`}
+                    ></div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-outline-variant">
+                    <span>Reorder Point: {getReorderLimit(viewingProduct)} units ({reorderPercent}%)</span>
+                    <span>{Math.round((viewingProduct.stock / (viewingProduct.targetCapacity || 100)) * 100)}% Filled</span>
+                  </div>
                 </div>
 
-                {/* Stock progress bar */}
-                <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                  <div
-                    style={{ width: `${Math.min(100, (viewingProduct.stock / (viewingProduct.targetCapacity || 100)) * 100)}%` }}
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      viewingProduct.stock === 0 ? 'bg-red-500' :
-                      viewingProduct.stock <= getReorderLimit(viewingProduct) ? 'bg-amber-500' : 'bg-primary'
-                    }`}
-                  ></div>
+                {/* Financial Breakdown Section */}
+                <div className="border border-outline-variant/60 rounded-xl p-4 space-y-3 bg-emerald-50/20">
+                  <h5 className="text-[10px] font-black uppercase tracking-wider text-emerald-800">Financial Breakdown</h5>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="flex flex-col">
+                      <span className="text-[9px] text-outline font-semibold">Cost Price</span>
+                      <span className="text-xs font-extrabold text-on-surface">Rs. {viewingProduct.costPrice.toFixed(2)}</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[9px] text-outline font-semibold">Selling Price</span>
+                      <span className="text-xs font-extrabold text-on-surface">Rs. {viewingProduct.sellingPrice.toFixed(2)}</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[9px] text-outline font-semibold">Profit Margin</span>
+                      <span className="text-xs font-extrabold text-emerald-600">
+                        Rs. {(viewingProduct.sellingPrice - viewingProduct.costPrice).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-outline-variant/40 pt-2 text-[10px] font-bold text-outline-variant">
+                    <span>Markup: {((viewingProduct.sellingPrice - viewingProduct.costPrice) / (viewingProduct.costPrice || 1) * 100).toFixed(1)}%</span>
+                    <span>Profit Margin %: {((viewingProduct.sellingPrice - viewingProduct.costPrice) / (viewingProduct.sellingPrice || 1) * 100).toFixed(1)}%</span>
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] font-semibold text-outline-variant">
-                  <span>Reorder Point: {getReorderLimit(viewingProduct)} units ({reorderPercent}%)</span>
-                  <span>{Math.round((viewingProduct.stock / (viewingProduct.targetCapacity || 100)) * 100)}% Filled</span>
-                </div>
+                {/* Expiry and Batch Details */}
+                {(viewingProduct.mfgDate || viewingProduct.expiryDate || (viewingProduct as any).batchNumber) && (
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                    <h5 className="text-[10px] font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[16px] text-primary">event_note</span>
+                      Expiry & Batch Details
+                    </h5>
+                    <div className="grid grid-cols-3 gap-2 text-[11px]">
+                      <div>
+                        <span className="block text-[9px] text-outline font-semibold">Mfg Date</span>
+                        <span className="font-bold text-on-surface">{viewingProduct.mfgDate || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] text-outline font-semibold">Expiry Date</span>
+                        <span className="font-bold text-on-surface">{viewingProduct.expiryDate || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] text-outline font-semibold">Batch Number</span>
+                        <span className="font-bold text-on-surface">{(viewingProduct as any).batchNumber || 'N/A'}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Financial Breakdown Section */}
-              <div className="border border-outline-variant/60 rounded-xl p-4 space-y-3 bg-emerald-50/20">
-                <h5 className="text-[10px] font-black uppercase tracking-wider text-emerald-800">Financial Breakdown</h5>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="flex flex-col">
-                    <span className="text-[9px] text-outline font-semibold">Cost Price</span>
-                    <span className="text-xs font-extrabold text-on-surface">Rs. {viewingProduct.costPrice.toFixed(2)}</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[9px] text-outline font-semibold">Selling Price</span>
-                    <span className="text-xs font-extrabold text-on-surface">Rs. {viewingProduct.sellingPrice.toFixed(2)}</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[9px] text-outline font-semibold">Profit Margin</span>
-                    <span className="text-xs font-extrabold text-emerald-600">
-                      Rs. {(viewingProduct.sellingPrice - viewingProduct.costPrice).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between border-t border-outline-variant/40 pt-2 text-[10px] font-bold text-outline-variant">
-                  <span>Markup: {((viewingProduct.sellingPrice - viewingProduct.costPrice) / (viewingProduct.costPrice || 1) * 100).toFixed(1)}%</span>
-                  <span>Profit Margin %: {((viewingProduct.sellingPrice - viewingProduct.costPrice) / (viewingProduct.sellingPrice || 1) * 100).toFixed(1)}%</span>
-                </div>
+              {/* Modal Footer */}
+              <div className="px-5 py-4 bg-slate-50 border-t flex justify-end shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setViewingProduct(null)}
+                  className="px-5 py-2 bg-primary text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all shadow-sm"
+                >
+                  Close Details
+                </button>
               </div>
-
-              {/* Expiry and Batch Details */}
-              {(viewingProduct.mfgDate || viewingProduct.expiryDate || (viewingProduct as any).batchNumber) && (
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                  <h5 className="text-[10px] font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[16px] text-primary">event_note</span>
-                    Expiry & Batch Details
-                  </h5>
-                  <div className="grid grid-cols-3 gap-2 text-[11px]">
-                    <div>
-                      <span className="block text-[9px] text-outline font-semibold">Mfg Date</span>
-                      <span className="font-bold text-on-surface">{viewingProduct.mfgDate || 'N/A'}</span>
-                    </div>
-                    <div>
-                      <span className="block text-[9px] text-outline font-semibold">Expiry Date</span>
-                      <span className="font-bold text-on-surface">{viewingProduct.expiryDate || 'N/A'}</span>
-                    </div>
-                    <div>
-                      <span className="block text-[9px] text-outline font-semibold">Batch Number</span>
-                      <span className="font-bold text-on-surface">{(viewingProduct as any).batchNumber || 'N/A'}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
-
-            {/* Modal Footer */}
-            <div className="px-5 py-4 bg-slate-50 border-t flex justify-end shrink-0">
-              <button
-                type="button"
-                onClick={() => setViewingProduct(null)}
-                className="px-5 py-2 bg-primary text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all shadow-sm"
-              >
-                Close Details
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

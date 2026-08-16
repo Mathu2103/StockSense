@@ -1,6 +1,8 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
+import { toast } from 'sonner';
+import Pagination from '@/components/shared/Pagination';
 import { inventoryOperationsService, ProductItem, AdjustmentRecord } from './inventoryOperationsService';
 import { api } from '../../../../services/axiosInstance';
 
@@ -117,14 +119,17 @@ export default function StockAdjustments() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [adjustments, setAdjustments] = useState<AdjustmentRecord[]>([]);
-  const [toast, setToast] = useState<string | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Operators (admins + managers) for the Authorized Operator dropdown
   const [operators, setOperators] = useState<{ id: string; name: string; role: string }[]>([]);
 
   // Form state
   const [selectedProductIndex, setSelectedProductIndex] = useState(0);
-  const [qtyDelta, setQtyDelta] = useState<number>(-5);
+  const [qtyDelta, setQtyDelta] = useState<number | string>(-1);
   const [selectedReason, setSelectedReason] = useState<'Damaged' | 'Lost' | 'Expired' | 'Returned' | 'Counting error' | 'System correction'>('Damaged');
   const [adjustedBy, setAdjustedBy] = useState('');
 
@@ -194,10 +199,8 @@ export default function StockAdjustments() {
     }
   }, [searchParams, products, setSearchParams]);
 
-  const triggerToast = (message: string) => {
-    setToast(message);
-    setTimeout(() => setToast(null), 3000);
-  };
+  // Numeric helper for delta
+  const deltaNum = typeof qtyDelta === 'string' ? (parseInt(qtyDelta, 10) || 0) : qtyDelta;
 
   // 1. ACTIVE SELECTION DETAILS
   const activeProduct = useMemo(() => {
@@ -208,8 +211,8 @@ export default function StockAdjustments() {
   // 2. LIVE HIGH DISCREPANCY WARNING DETECTOR
   const liveWarning = useMemo(() => {
     if (!activeProduct) return null;
-    const value = Math.abs(qtyDelta * activeProduct.sellingPrice);
-    const count = Math.abs(qtyDelta);
+    const value = Math.abs(deltaNum * activeProduct.sellingPrice);
+    const count = Math.abs(deltaNum);
     
     if (count >= 50 || value >= 5000) {
       return {
@@ -219,7 +222,7 @@ export default function StockAdjustments() {
       };
     }
     return null;
-  }, [activeProduct, qtyDelta]);
+  }, [activeProduct, deltaNum]);
 
   // 3. ADJUSTMENT ANALYTICS SUMMARY
   const analyticsSummary = useMemo(() => {
@@ -236,7 +239,6 @@ export default function StockAdjustments() {
     });
 
     const averageVal = adjustments.length > 0 ? Math.round(totalValue / adjustments.length) : 0;
-
     return {
       totalValue,
       totalItemsCount,
@@ -247,12 +249,23 @@ export default function StockAdjustments() {
     };
   }, [adjustments]);
 
+  const paginatedAdjustments = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return adjustments.slice(start, start + pageSize);
+  }, [adjustments, currentPage, pageSize]);
+
   // 4. SUBMIT ADJUSTMENT FLOW
   const handleSaveAdjustment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeProduct) return;
-    if (qtyDelta === 0) {
-      triggerToast('Stock change quantity delta cannot be zero.');
+
+    const parsedDelta = typeof qtyDelta === 'string' ? parseInt(qtyDelta, 10) : qtyDelta;
+    if (isNaN(parsedDelta) || parsedDelta === 0) {
+      toast.error('Stock change quantity delta cannot be empty or zero.');
+      return;
+    }
+    if (activeProduct.stock + parsedDelta < 0) {
+      toast.error(`Cannot reduce ${Math.abs(parsedDelta)} units for "${activeProduct.name}". Current available stock is only ${activeProduct.stock}.`);
       return;
     }
 
@@ -260,7 +273,7 @@ export default function StockAdjustments() {
       const newAdj = await inventoryOperationsService.createAdjustment({
         productName: activeProduct.name,
         sku: activeProduct.sku,
-        qtyChanged: qtyDelta,
+        qtyChanged: parsedDelta,
         reason: selectedReason,
         adjustedBy,
         date: new Date().toISOString().split('T')[0]
@@ -270,24 +283,17 @@ export default function StockAdjustments() {
       const adjs = await inventoryOperationsService.getAdjustments();
       setAdjustments(adjs);
       
-    // Reset qty delta to negative of new product stock
-      setQtyDelta(-Math.abs(products[selectedProductIndex] ? products[selectedProductIndex].stock : 5));
+      // Reset qty delta
+      setQtyDelta(activeProduct.stock > 0 ? -1 : 1);
       
-      triggerToast(`Stock adjustment record ${newAdj.adjustmentNumber} synchronized successfully!`);
+      toast.success(`Stock adjustment for "${activeProduct.name}" (${newAdj.adjustmentNumber}) synchronized successfully!`);
     } catch (err: any) {
-      triggerToast(err.message || 'Error occurred while saving stock adjustment.');
+      toast.error(err.message || 'Error occurred while saving stock adjustment.');
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Toast alert */}
-      {toast && (
-        <div className="fixed top-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl shadow-lg animate-in fade-in slide-in-from-top-4 duration-200">
-          <span className="material-symbols-outlined text-emerald-400">check_circle</span>
-          <span className="text-xs font-extrabold text-white">{toast}</span>
-        </div>
-      )}
 
       {/* DOCK ADJUSTMENTS ANALYTICS CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
@@ -334,7 +340,12 @@ export default function StockAdjustments() {
                     value={activeProduct.name}
                     onChange={(val) => {
                       const idx = products.findIndex(p => p.name === val);
-                      if (idx !== -1) setSelectedProductIndex(idx);
+                      if (idx !== -1) {
+                        setSelectedProductIndex(idx);
+                        if (products[idx].stock === 0 && Number(qtyDelta) < 0) {
+                          setQtyDelta(1);
+                        }
+                      }
                     }}
                   />
                 )}
@@ -344,10 +355,16 @@ export default function StockAdjustments() {
               <div>
                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Quantity Change (+/-)</label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   value={qtyDelta}
-                  onChange={(e) => setQtyDelta(parseInt(e.target.value) || 0)}
-                  placeholder="-5 for damages, +5 for found stock"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || val === '-' || val === '+' || /^[+-]?\d*$/.test(val)) {
+                      setQtyDelta(val);
+                    }
+                  }}
+                  placeholder="e.g. -5 or +5"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-[#0b8252]"
                 />
               </div>
@@ -402,7 +419,7 @@ export default function StockAdjustments() {
                     <div className="col-span-2">
                       <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wider">Stock Transition Preview</span>
                       <span className="font-mono font-bold text-slate-500">
-                        {activeProduct.stock} <span className="text-slate-300 mx-1">→</span> <span className="text-slate-800 font-black">{Math.max(0, activeProduct.stock + qtyDelta)}</span>
+                        {activeProduct.stock} <span className="text-slate-300 mx-1">→</span> <span className="text-slate-800 font-black">{Math.max(0, activeProduct.stock + deltaNum)}</span>
                       </span>
                     </div>
                   </div>
@@ -433,7 +450,7 @@ export default function StockAdjustments() {
         {/* ADJUSTMENT HISTORY TABLE */}
         <div className="w-full bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
           <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">Adjustment Audit Log</h3>
-          <div className="overflow-x-auto rounded-xl border border-slate-100 max-h-[480px]">
+          <div className="overflow-x-auto rounded-xl border border-slate-100">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50 text-slate-500 font-black uppercase text-[10px] border-b border-slate-100">
@@ -449,14 +466,14 @@ export default function StockAdjustments() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
-                {adjustments.length === 0 ? (
+                {paginatedAdjustments.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="px-4 py-12 text-center text-slate-400 font-bold">
                       No adjustments logged yet.
                     </td>
                   </tr>
                 ) : (
-                  adjustments.map((a) => (
+                  paginatedAdjustments.map((a) => (
                     <tr key={a.id} className="hover:bg-slate-50/50 select-none transition-colors">
                       <td className="px-4 py-3 text-slate-500 font-mono font-bold">
                         {new Date(a.date).toLocaleDateString(undefined, {
@@ -498,6 +515,20 @@ export default function StockAdjustments() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          <Pagination
+            currentPage={currentPage}
+            totalItems={adjustments.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setCurrentPage(1);
+            }}
+            pageSizeOptions={[10, 20, 50]}
+            itemName="adjustments"
+          />
         </div>
       </div>
 

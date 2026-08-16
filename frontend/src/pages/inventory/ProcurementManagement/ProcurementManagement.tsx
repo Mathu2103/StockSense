@@ -381,6 +381,15 @@ export default function ProcurementManagement() {
                   Manage your partner suppliers and supply chain directory.
                 </p>
               </div>
+
+              <button
+                type="button"
+                onClick={handleOpenAddModal}
+                className="flex items-center gap-1.5 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-sm hover:opacity-90 transition-opacity shrink-0"
+              >
+                <span className="material-symbols-outlined text-[18px]">person_add</span>
+                Add Supplier
+              </button>
             </div>
 
             <SupplierList
@@ -390,7 +399,6 @@ export default function ProcurementManagement() {
               onSearchChange={setSearchTerm}
               onSupplierClick={setViewingSupplier}
               onEditClick={handleOpenEditModal}
-              onAddClick={handleOpenAddModal}
             />
 
           </div>

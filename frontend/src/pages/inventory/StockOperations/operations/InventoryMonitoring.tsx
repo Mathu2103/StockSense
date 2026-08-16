@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { toast } from 'sonner';
 import { inventoryOperationsService, ProductItem } from './inventoryOperationsService';
 
 export default function InventoryMonitoring() {
@@ -6,7 +7,6 @@ export default function InventoryMonitoring() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState<'name' | 'stock-desc' | 'stock-asc' | 'value-desc'>('stock-asc');
-  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     loadProducts();
@@ -17,14 +17,9 @@ export default function InventoryMonitoring() {
     setProducts(prods);
   };
 
-  const triggerToast = (message: string) => {
-    setToast(message);
-    setTimeout(() => setToast(null), 3000);
-  };
-
   // Mock ordering trigger for smart reorder suggestions
   const handleRestockOrder = (productName: string) => {
-    triggerToast(`Restock purchase order initiated for: "${productName}" (sent to Procurement)`);
+    toast.info(`Restock purchase order initiated for: "${productName}" (sent to Procurement)`);
   };
 
   // 1. DYNAMIC CATEGORIES FOR SELECTOR
@@ -116,14 +111,6 @@ export default function InventoryMonitoring() {
 
   return (
     <div className="space-y-6">
-      {/* Toast alert */}
-      {toast && (
-        <div className="fixed top-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl shadow-lg animate-in fade-in slide-in-from-top-4 duration-200">
-          <span className="material-symbols-outlined text-emerald-400">info</span>
-          <span className="text-xs font-extrabold text-white">{toast}</span>
-        </div>
-      )}
-
       {/* DOCK STATISTICS AND VALUE CALCULATIONS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
