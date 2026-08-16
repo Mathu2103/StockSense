@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { ProductItem } from './ProductsRegistry';
 import { toast } from 'sonner';
 import { DiscountService, DiscountPayload } from '../../../../services/discountService';
+import { comboService } from '../../../../services/comboService';
 
 export interface DiscountItem {
   id: string;
@@ -20,10 +21,13 @@ export interface DiscountItem {
   productIds: string[];
   comboItems?: {
     productId: string;
+    productName?: string;
     minQty: number;
   }[];
   createdAt: string;
   approvalStatus: 'DRAFT' | 'APPROVED';
+  isRealCombo?: boolean;
+  rawCombo?: any;
 }
 
 interface DiscountRegistryProps {
@@ -61,16 +65,61 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
   // Product search filter inside modal
   const [productSearch, setProductSearch] = useState('');
 
-  // Fetch discounts on mount
+  // Fetch discounts and combo campaigns on mount
   const fetchDiscounts = async () => {
     try {
       setLoading(true);
-      const res = await DiscountService.getDiscounts();
-      if (res.success) {
-        setDiscounts(res.data);
-      } else {
-        toast.error('Failed to load discount campaigns.');
+      const [discRes, comboRes] = await Promise.all([
+        DiscountService.getDiscounts(),
+        comboService.getCombosList()
+      ]);
+
+      let allItems: DiscountItem[] = [];
+
+      if (discRes.success && Array.isArray(discRes.data)) {
+        allItems = [...discRes.data];
       }
+
+      if (comboRes && comboRes.success && Array.isArray(comboRes.data)) {
+        const comboDiscountItems: DiscountItem[] = comboRes.data.map((c: any) => {
+          const endDateStr = c.endDate ? new Date(c.endDate).toISOString().split('T')[0] : undefined;
+          const startDateStr = c.startDate ? new Date(c.startDate).toISOString().split('T')[0] : (c.createdAt ? new Date(c.createdAt).toISOString().split('T')[0] : undefined);
+          
+          const mappedItems = (c.items || []).map((i: any) => ({
+            productId: i.productId || i.product?.id || i.product?.sku,
+            productName: i.product?.name || i.productId,
+            minQty: i.quantity || 1
+          }));
+
+          return {
+            id: c.id,
+            name: c.name,
+            type: 'COMBO',
+            discountValue: Math.round(c.discountPercentage || 0),
+            label: c.comboCode || 'SMART COMBO',
+            imageUrl: c.imageUrl || (c.items && c.items[0]?.product?.imageUrl) || undefined,
+            startDate: startDateStr,
+            endDate: endDateStr,
+            isActive: c.status === 'APPROVED' || c.status === 'ACTIVE' || c.status === 'PENDING_APPROVAL' || c.status === 'DRAFT',
+            productIds: mappedItems.map((m: any) => m.productId),
+            comboItems: mappedItems,
+            createdAt: c.createdAt ? new Date(c.createdAt).toISOString() : new Date().toISOString(),
+            approvalStatus: (c.status === 'APPROVED' || c.status === 'ACTIVE') ? 'APPROVED' : 'DRAFT',
+            isRealCombo: true,
+            rawCombo: c
+          };
+        });
+
+        // Deduplicate entries if any combo exists in both lists
+        const existingNames = new Set(allItems.map(d => d.name.toLowerCase()));
+        comboDiscountItems.forEach(cItem => {
+          if (!existingNames.has(cItem.name.toLowerCase())) {
+            allItems.push(cItem);
+          }
+        });
+      }
+
+      setDiscounts(allItems);
     } catch (err) {
       console.error('Failed to fetch discounts:', err);
       toast.error('Server error loading discounts.');
@@ -455,9 +504,10 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
                   <div className="mt-1 pl-5 space-y-0.5 border-l border-primary/30 max-h-24 overflow-y-auto">
                     {discount.comboItems.map((item, idx) => {
                       const prod = products.find(p => p.id === item.productId || p.sku === item.productId);
+                      const displayName = prod ? prod.name : (item.productName || item.productId);
                       return (
                         <div key={idx} className="text-[10px] text-outline-variant font-medium">
-                          • {prod ? prod.name : 'Unknown Product'} (x{item.minQty})
+                          • {displayName} (x{item.minQty})
                         </div>
                       );
                     })}
