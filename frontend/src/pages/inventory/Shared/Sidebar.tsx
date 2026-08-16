@@ -39,7 +39,6 @@ export default function Sidebar() {
         { name: 'Overview & Health', path: '/inventory-analytics', icon: 'trending_up' },
         { name: 'AI Demand Forecasting', path: '/ai-demand-forecasting', icon: 'psychology' },
         { name: 'AI Combo Suggester', path: '/inventory-combo', icon: 'auto_awesome' },
-        ...(isAdmin ? [{ name: 'Combo Approvals', path: '/admin/combo-approvals', icon: 'verified' }] : [])
       ]
     },
     
@@ -66,7 +65,18 @@ export default function Sidebar() {
         { name: 'Stock Adjustments', path: '/inventory-operations?tab=adjustments', icon: 'tune' },
       ]
     },
-    { name: 'Alerts', path: '/alerts', icon: 'notifications' },
+    ...(isAdmin
+      ? [{
+          name: 'Alerts',
+          path: '/alerts',
+          icon: 'notifications',
+          subLinks: [
+            { name: 'Alerts & Notifications', path: '/alerts', icon: 'notifications' },
+            { name: 'Combo Approvals', path: '/admin/combo-approvals', icon: 'verified' },
+          ]
+        }]
+      : [{ name: 'Alerts', path: '/alerts', icon: 'notifications' }]
+    ),
     { name: 'Reports', path: '/reports', icon: 'bar_chart' },
   ];
 
