@@ -284,27 +284,14 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
 
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
                   {filteredCombos.map(combo => {
-                    const isAi = !!combo.sourceSuggestionId || 
-                      combo.comboType === 'NEAR_EXPIRY' || 
-                      combo.comboType === 'OVERSTOCK' || 
-                      combo.comboType === 'SLOW_MOVING' || 
-                      combo.comboType === 'DEAD_STOCK';
-
                     return (
                       <div key={combo.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-md transition-all flex flex-col justify-between space-y-4">
                         <div>
                           <div className="flex justify-between items-start gap-2 mb-2">
                             <div>
-                              {isAi ? (
-                                <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 text-[10px] font-black uppercase px-2 py-0.5 rounded border border-amber-200/80 mb-1">
-                                  <Sparkles className="w-2.5 h-2.5" />
-                                  AI Combo • {combo.comboType || 'Clearance'}
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 bg-emerald-50 text-[#103e2c] text-[10px] font-black uppercase px-2 py-0.5 rounded border border-emerald-200/80 mb-1">
-                                  Store Combo • Bundle
-                                </span>
-                              )}
+                              <span className="inline-flex items-center gap-1 bg-emerald-50 text-[#103e2c] text-[10px] font-black uppercase px-2 py-0.5 rounded border border-emerald-200/80 mb-1">
+                                Combo Offer
+                              </span>
                               <h3 className="font-extrabold text-gray-900 text-sm leading-snug">{combo.name}</h3>
                               <p className="text-[10px] text-gray-400 font-mono mt-0.5">CODE: {combo.comboCode}</p>
                             </div>
@@ -320,7 +307,6 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
                             <div key={idx} className="flex justify-between items-center text-xs font-semibold text-gray-700">
                               <span className="line-clamp-1 pr-2">
                                 • {item.quantity}x {item.product?.name || item.productId}
-                                {item.role === 'TARGET' && <span className="ml-1 text-[9px] text-emerald-800 bg-emerald-100 px-1 py-0.2 rounded font-bold">Clearance</span>}
                               </span>
                               <span className="text-gray-400 font-mono text-[10px] shrink-0">Rs. {((item.normalUnitPrice || item.product?.sellingPrice || 0) * item.quantity).toFixed(0)}</span>
                             </div>

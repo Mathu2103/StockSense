@@ -208,19 +208,12 @@ export default function OffersPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {allCombos.map(combo => {
-                    const isAi = !!combo.sourceSuggestionId || 
-                      combo.comboType === 'NEAR_EXPIRY' || 
-                      combo.comboType === 'OVERSTOCK' || 
-                      combo.comboType === 'SLOW_MOVING' || 
-                      combo.comboType === 'DEAD_STOCK';
-
                     return (
                       <div key={combo.id} className="bg-white rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col justify-between group">
                         
                         {/* Products Stack & Visual Header */}
                         <div className="relative bg-gradient-to-br from-emerald-50/60 to-gray-50/80 p-6 border-b border-gray-100 flex items-center justify-center">
                           <div className="absolute top-4 left-4 bg-[#103e2c] text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1">
-                            {isAi && <Sparkles className="w-3 h-3 text-emerald-300" />}
                             Save {combo.discountPercentage.toFixed(0)}%
                           </div>
                           <div className="absolute top-4 right-4 text-[10px] font-mono font-bold text-gray-400">
@@ -253,15 +246,9 @@ export default function OffersPage() {
                         <div className="p-6 md:p-8 flex flex-col justify-between flex-1 space-y-6">
                           <div>
                             <div className="mb-2 flex items-center gap-2">
-                              {isAi ? (
-                                <span className="text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded uppercase flex items-center gap-1">
-                                  <Sparkles className="w-2.5 h-2.5" /> AI Recommended
-                                </span>
-                              ) : (
-                                <span className="text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded uppercase">
-                                  Store Bundle
-                                </span>
-                              )}
+                              <span className="text-[10px] font-black bg-emerald-50 text-[#103e2c] border border-emerald-200 px-2 py-0.5 rounded uppercase">
+                                Combo Deal
+                              </span>
                             </div>
                             <h3 className="text-xl font-black text-gray-900 mb-2 leading-tight">{combo.name}</h3>
                             <p className="text-gray-500 text-xs line-clamp-2 leading-relaxed">

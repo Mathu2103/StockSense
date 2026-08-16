@@ -1,13 +1,12 @@
 import { useEffect, useState, useMemo } from 'react';
 import { comboService } from '../../services/comboService';
 import { DiscountService } from '../../services/discountService';
-import { Search, Sparkles, Gift } from 'lucide-react';
+import { Search, Gift } from 'lucide-react';
 
 export default function CashierCombos() {
   const [combos, setCombos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<'ALL' | 'AI_COMBOS' | 'CUSTOM'>('ALL');
 
   const fetchPosCombos = async () => {
     try {
@@ -84,21 +83,13 @@ export default function CashierCombos() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     return combos.filter(c => {
-      const matchesSearch = !q || (
+      return !q || (
         c.name.toLowerCase().includes(q) || 
         c.comboCode.toLowerCase().includes(q) ||
         c.items.some((i: any) => (i.product?.name || '').toLowerCase().includes(q) || (i.product?.sku || '').toLowerCase().includes(q))
       );
-
-      const isAi = !!c.sourceSuggestionId || c.comboType === 'NEAR_EXPIRY' || c.comboType === 'OVERSTOCK' || c.comboType === 'SLOW_MOVING' || c.comboType === 'DEAD_STOCK';
-      
-      let matchesCat = true;
-      if (categoryFilter === 'AI_COMBOS') matchesCat = isAi;
-      if (categoryFilter === 'CUSTOM') matchesCat = !isAi;
-
-      return matchesSearch && matchesCat;
     });
-  }, [combos, search, categoryFilter]);
+  }, [combos, search]);
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 font-sans text-gray-900 bg-gray-50/50 min-h-screen">
@@ -107,7 +98,7 @@ export default function CashierCombos() {
           <h1 className="text-3xl font-extrabold text-gray-900 flex items-center gap-2">
             POS Active Combo Deals <span className="text-emerald-500">⚡</span>
           </h1>
-          <p className="text-gray-500 text-sm mt-1">Cashier lookup screen for active bundle discount codes and admin-approved AI combos.</p>
+          <p className="text-gray-500 text-sm mt-1">Cashier lookup screen for active bundle discount codes and combo offers.</p>
         </div>
 
         {/* Search Filter */}
@@ -125,29 +116,9 @@ export default function CashierCombos() {
 
       {/* Filter Tabs */}
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setCategoryFilter('ALL')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            categoryFilter === 'ALL'
-              ? 'bg-[#103e2c] text-white shadow-sm'
-              : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-          }`}
-        >
+        <div className="bg-[#103e2c] text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm">
           All Active Combos ({combos.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setCategoryFilter('AI_COMBOS')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-            categoryFilter === 'AI_COMBOS'
-              ? 'bg-[#103e2c] text-white shadow-sm'
-              : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-          }`}
-        >
-          <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-          AI Combos ({combos.filter(c => !!c.sourceSuggestionId || c.comboType === 'NEAR_EXPIRY' || c.comboType === 'OVERSTOCK' || c.comboType === 'SLOW_MOVING').length})
-        </button>
+        </div>
       </div>
 
       {loading ? (
@@ -159,20 +130,13 @@ export default function CashierCombos() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((combo) => {
-            const isAi = !!combo.sourceSuggestionId || combo.comboType === 'NEAR_EXPIRY' || combo.comboType === 'OVERSTOCK' || combo.comboType === 'SLOW_MOVING';
             return (
               <div key={combo.id} className="bg-white rounded-2xl p-6 border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.02)] space-y-4 hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start">
                   <div>
-                    {isAi ? (
-                      <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 text-[9px] font-black uppercase px-2 py-0.5 rounded border border-amber-200 mb-1">
-                        <Sparkles className="w-2.5 h-2.5" /> AI Recommended
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 text-[9px] font-black uppercase px-2 py-0.5 rounded border border-emerald-200 mb-1">
-                        Store Bundle
-                      </span>
-                    )}
+                    <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 text-[9px] font-black uppercase px-2 py-0.5 rounded border border-emerald-200 mb-1">
+                      Combo Offer
+                    </span>
                     <h3 className="font-extrabold text-gray-900 leading-snug text-sm">{combo.name}</h3>
                     <p className="text-[10px] text-gray-400 font-mono mt-0.5 uppercase font-bold">CODE: {combo.comboCode}</p>
                   </div>

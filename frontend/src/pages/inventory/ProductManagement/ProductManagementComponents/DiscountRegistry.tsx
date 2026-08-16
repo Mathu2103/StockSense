@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom';
 import { ProductItem } from './ProductsRegistry';
 import { toast } from 'sonner';
 import { DiscountService, DiscountPayload } from '../../../../services/discountService';
-import { comboService } from '../../../../services/comboService';
 
 export interface DiscountItem {
   id: string;
@@ -26,8 +25,6 @@ export interface DiscountItem {
   }[];
   createdAt: string;
   approvalStatus: 'DRAFT' | 'APPROVED';
-  isRealCombo?: boolean;
-  rawCombo?: any;
 }
 
 interface DiscountRegistryProps {
@@ -65,58 +62,17 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
   // Product search filter inside modal
   const [productSearch, setProductSearch] = useState('');
 
-  // Fetch discounts and combo campaigns on mount
+  // Fetch discounts on mount
   const fetchDiscounts = async () => {
     try {
       setLoading(true);
       const discRes = await DiscountService.getDiscounts();
 
-      if (discRes.success && Array.isArray(discRes.data)) {
+      if (discRes && discRes.success && Array.isArray(discRes.data)) {
         setDiscounts(discRes.data);
       } else {
         setDiscounts([]);
       }
-
-      if (comboRes && comboRes.success && Array.isArray(comboRes.data)) {
-        const comboDiscountItems: DiscountItem[] = comboRes.data.map((c: any) => {
-          const endDateStr = c.endDate ? new Date(c.endDate).toISOString().split('T')[0] : undefined;
-          const startDateStr = c.startDate ? new Date(c.startDate).toISOString().split('T')[0] : (c.createdAt ? new Date(c.createdAt).toISOString().split('T')[0] : undefined);
-          
-          const mappedItems = (c.items || []).map((i: any) => ({
-            productId: i.productId || i.product?.id || i.product?.sku,
-            productName: i.product?.name || i.productId,
-            minQty: i.quantity || 1
-          }));
-
-          return {
-            id: c.id,
-            name: c.name,
-            type: 'COMBO',
-            discountValue: Math.round(c.discountPercentage || 0),
-            label: c.comboCode || 'SMART COMBO',
-            imageUrl: c.imageUrl || (c.items && c.items[0]?.product?.imageUrl) || undefined,
-            startDate: startDateStr,
-            endDate: endDateStr,
-            isActive: c.status === 'APPROVED' || c.status === 'ACTIVE' || c.status === 'PENDING_APPROVAL' || c.status === 'DRAFT',
-            productIds: mappedItems.map((m: any) => m.productId),
-            comboItems: mappedItems,
-            createdAt: c.createdAt ? new Date(c.createdAt).toISOString() : new Date().toISOString(),
-            approvalStatus: (c.status === 'APPROVED' || c.status === 'ACTIVE') ? 'APPROVED' : 'DRAFT',
-            isRealCombo: true,
-            rawCombo: c
-          };
-        });
-
-        // Deduplicate entries if any combo exists in both lists
-        const existingNames = new Set(allItems.map(d => d.name.toLowerCase()));
-        comboDiscountItems.forEach(cItem => {
-          if (!existingNames.has(cItem.name.toLowerCase())) {
-            allItems.push(cItem);
-          }
-        });
-      }
-
-      setDiscounts(allItems);
     } catch (err) {
       console.error('Failed to fetch discounts:', err);
       toast.error('Server error loading discounts.');
