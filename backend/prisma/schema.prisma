@@ -831,7 +831,7 @@ model ComboAnchorCandidate {
   id                       String   @id @default(uuid()) @map("id")
   opportunityId            String   @map("opportunity_id")
   anchorProductId          String   @map("anchor_product_id")
-  associationRuleId        String   @map("association_rule_id")
+  associationRuleId        String?  @map("association_rule_id")
   pairPurchaseCount        Int      @map("pair_purchase_count")
   support                  Float    @map("support")
   confidence               Float    @map("confidence")
@@ -855,9 +855,9 @@ model ComboAnchorCandidate {
   createdAt                DateTime @default(now()) @map("created_at")
 
   // Relations
-  opportunity     ComboOpportunity       @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
-  anchorProduct   Product                @relation(fields: [anchorProductId], references: [sku])
-  associationRule ProductAssociationRule @relation(fields: [associationRuleId], references: [id], onDelete: Cascade)
+  opportunity     ComboOpportunity        @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  anchorProduct   Product                 @relation(fields: [anchorProductId], references: [sku])
+  associationRule ProductAssociationRule? @relation(fields: [associationRuleId], references: [id], onDelete: Cascade)
 
   @@unique([opportunityId, anchorProductId])
   @@index([opportunityId])

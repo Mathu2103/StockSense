@@ -230,6 +230,28 @@ export class ComboValidationService {
         },
       });
 
+      if (newStatus === 'PENDING_APPROVAL') {
+        await tx.notification.create({
+          data: {
+            type: 'STOCK_VELOCITY',
+            severity: 'WARNING',
+            title: `Combo Approval Needed — ${combo.name} (${combo.comboCode})`,
+            message: `Combo campaign "${combo.name}" (Price: Rs. ${combo.comboPrice}) has been submitted and is pending admin approval.`,
+            suggestedAction: 'Review Combo Approval',
+            targetRole: Role.ADMIN,
+            metadata: { comboId: combo.id, comboCode: combo.comboCode, type: 'COMBO_APPROVAL' }
+          }
+        });
+      }
+
+      if (newStatus === 'APPROVED' || newStatus === 'REJECTED' || newStatus === 'CHANGES_REQUESTED') {
+        await tx.notification.deleteMany({
+          where: {
+            title: { contains: combo.comboCode }
+          }
+        });
+      }
+
       // Automatically update related target product opportunities to CONVERTED when approved or activated
       if (newStatus === 'APPROVED' || newStatus === 'ACTIVE') {
         const productSkus = combo.items.map((i: any) => i.productId);

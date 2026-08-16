@@ -45,29 +45,29 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
     );
   }, [posCombos]);
 
-  // 3. Seasonal Discounts (Deduplicated by SKU)
-  const seasonalProducts = useMemo(() => {
-    const seenSkus = new Set<string>();
-    const items: any[] = [];
-    discounts.filter(d => d.type === 'SEASONAL').forEach(discount => {
-      (discount.productIds || []).forEach((skuId: string) => {
-        if (!seenSkus.has(skuId)) {
-          const prod = products.find(p => p.sku === skuId || p.id === skuId);
-          if (prod) {
-            seenSkus.add(skuId);
-            items.push({ discount, prod, skuId });
-          }
-        }
-      });
+  // 3. Seasonal Discounts & Packages
+  const seasonalCampaigns = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    return discounts.filter(d => {
+      if (d.type !== 'SEASONAL') return false;
+      if (!d.isActive || d.approvalStatus !== 'APPROVED') return false;
+      if (d.endDate && d.endDate < todayStr) return false;
+      if (d.startDate && d.startDate > todayStr) return false;
+      return true;
     });
-    return items;
-  }, [discounts, products]);
+  }, [discounts]);
 
   // 4. Daily Flash Deals (Deduplicated by SKU)
   const dailyProducts = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
     const seenSkus = new Set<string>();
     const items: any[] = [];
-    discounts.filter(d => d.type === 'DAILY').forEach(discount => {
+    discounts.filter(d => {
+      if (d.type !== 'DAILY') return false;
+      if (!d.isActive || d.approvalStatus !== 'APPROVED') return false;
+      if (d.applicableDate && d.applicableDate < todayStr) return false;
+      return true;
+    }).forEach(discount => {
       (discount.productIds || []).forEach((skuId: string) => {
         if (!seenSkus.has(skuId)) {
           const prod = products.find(p => p.sku === skuId || p.id === skuId);
@@ -102,14 +102,18 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
     );
   }, [superSaverCombos, q]);
 
-  const filteredSeasonal = useMemo(() => {
-    if (!q) return seasonalProducts;
-    return seasonalProducts.filter(item => 
-      item.prod.name.toLowerCase().includes(q) || 
-      item.prod.sku.toLowerCase().includes(q) ||
-      (item.discount.name || '').toLowerCase().includes(q)
-    );
-  }, [seasonalProducts, q]);
+  const filteredSeasonalCampaigns = useMemo(() => {
+    if (!q) return seasonalCampaigns;
+    return seasonalCampaigns.filter(d => {
+      const nameMatch = (d.name || '').toLowerCase().includes(q);
+      const labelMatch = (d.label || '').toLowerCase().includes(q);
+      const prodMatch = (d.productIds || []).some((skuId: string) => {
+        const p = products.find(prod => prod.sku === skuId || prod.id === skuId);
+        return p && (p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q));
+      });
+      return nameMatch || labelMatch || prodMatch;
+    });
+  }, [seasonalCampaigns, q, products]);
 
   const filteredDaily = useMemo(() => {
     if (!q) return dailyProducts;
@@ -123,9 +127,9 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
   const showAiSection = (selectedCategory === 'ALL' || selectedCategory === 'AI_COMBOS') && filteredAiCombos.length > 0;
   const showSuperSection = (selectedCategory === 'ALL' || selectedCategory === 'SUPER_SAVERS') && filteredSuperCombos.length > 0;
   const showDailySection = (selectedCategory === 'ALL' || selectedCategory === 'DAILY') && filteredDaily.length > 0;
-  const showSeasonalSection = (selectedCategory === 'ALL' || selectedCategory === 'SEASONAL') && filteredSeasonal.length > 0;
+  const showSeasonalSection = (selectedCategory === 'ALL' || selectedCategory === 'SEASONAL') && filteredSeasonalCampaigns.length > 0;
 
-  const totalResults = filteredAiCombos.length + filteredSuperCombos.length + filteredDaily.length + filteredSeasonal.length;
+  const totalResults = filteredAiCombos.length + filteredSuperCombos.length + filteredDaily.length + filteredSeasonalCampaigns.length;
 
   return (
     <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-[#f8f9fc] relative font-sans">
@@ -211,7 +215,7 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
             }`}
           >
             <Calendar className="w-3.5 h-3.5 text-blue-500" />
-            Seasonal Specials ({filteredSeasonal.length})
+            Seasonal Specials ({filteredSeasonalCampaigns.length})
           </button>
         </div>
 
@@ -223,7 +227,7 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
         ) : (
           <div className="space-y-12">
             
-            {/* 1. AI-Suggested & Approved Combo Packs */}
+            {/* 1. Smart Combos */}
             {showAiSection && (
               <section className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -232,7 +236,7 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
                       <Sparkles className="w-4 h-4 text-amber-600" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-black text-gray-900">AI-Suggested & Approved Combo Packs</h2>
+                      <h2 className="text-lg font-black text-gray-900">Smart Combos</h2>
                       <p className="text-gray-400 text-xs">High-demand pairing bundles approved by Admin for stock clearance.</p>
                     </div>
                   </div>
@@ -442,47 +446,89 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
                     </div>
                     <div>
                       <h2 className="text-lg font-black text-gray-900">Seasonal & Festival Specials</h2>
-                      <p className="text-gray-400 text-xs">Exclusive seasonal promotions.</p>
+                      <p className="text-gray-400 text-xs">Exclusive seasonal promotions & multi-item packages.</p>
                     </div>
                   </div>
                   <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
-                    {filteredSeasonal.length} Seasonal Deals
+                    {filteredSeasonalCampaigns.length} Active Seasonal Offers
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {filteredSeasonal.map(({ discount, prod }, idx) => {
-                    const discountedPrice = prod.price * (1 - discount.discountValue / 100);
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+                  {filteredSeasonalCampaigns.map((discount: any) => {
+                    const packageProds = (discount.productIds || []).map((skuId: string) => 
+                      products.find(p => p.sku === skuId || p.id === skuId)
+                    ).filter(Boolean);
+
                     return (
-                      <div key={`${discount.id}-${prod.sku}-${idx}`} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-md transition-all flex flex-col justify-between space-y-3">
+                      <div key={discount.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-md transition-all flex flex-col justify-between space-y-4">
                         <div>
-                          <div className="flex justify-between items-start gap-1 mb-2">
-                            <span className="bg-blue-50 text-blue-800 text-[9px] font-black uppercase px-2 py-0.5 rounded border border-blue-200">
-                              {discount.label || 'Seasonal Offer'}
-                            </span>
-                            <span className="bg-blue-600 text-white text-[9px] font-black px-2 py-0.5 rounded shadow-xs">
+                          <div className="flex justify-between items-start gap-2 mb-2">
+                            <div>
+                              <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-800 text-[10px] font-black uppercase px-2 py-0.5 rounded border border-blue-200/80 mb-1">
+                                <Calendar className="w-2.5 h-2.5" />
+                                {discount.label || 'Seasonal Offer'}
+                              </span>
+                              <h3 className="font-extrabold text-gray-900 text-sm leading-snug">{discount.name}</h3>
+                              {discount.endDate && (
+                                <p className="text-[10px] text-gray-400 font-medium mt-0.5">
+                                  Valid till: {discount.endDate}
+                                </p>
+                              )}
+                            </div>
+                            <span className="bg-blue-600 text-white text-[10px] font-black px-2.5 py-1 rounded-lg shrink-0 shadow-xs">
                               {discount.discountValue}% OFF
                             </span>
                           </div>
-                          <h4 className="font-extrabold text-gray-900 text-xs line-clamp-2 min-h-[32px] leading-snug">{prod.name}</h4>
-                          <p className="text-[10px] text-gray-400 font-mono mt-0.5">SKU: {prod.sku}</p>
+
+                          {/* Package Items Breakdown */}
+                          <div className="space-y-2 bg-gray-50/80 p-3 rounded-xl border border-gray-100 mt-3">
+                            <p className="text-[9px] font-black uppercase text-gray-400 tracking-wider">
+                              Package Items Included ({packageProds.length} Products):
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {packageProds.map((prod: any, idx: number) => {
+                                const discountedPrice = prod.price * (1 - discount.discountValue / 100);
+                                return (
+                                  <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white border border-gray-100 shadow-xs">
+                                    <div className="min-w-0 pr-2">
+                                      <p className="text-xs font-bold text-gray-800 truncate">{prod.name}</p>
+                                      <div className="flex items-baseline gap-1">
+                                        <span className="text-[11px] font-black text-emerald-700">Rs. {discountedPrice.toFixed(0)}</span>
+                                        <span className="text-[9px] text-gray-400 line-through">Rs. {prod.price.toFixed(0)}</span>
+                                      </div>
+                                    </div>
+                                    {addSingleDiscountProduct && (
+                                      <button
+                                        type="button"
+                                        onClick={() => addSingleDiscountProduct(prod, discount)}
+                                        className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-lg transition-colors cursor-pointer shrink-0"
+                                        title="Add this item only"
+                                      >
+                                        <ShoppingCart className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
                         </div>
 
-                        <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
-                          <div>
-                            <span className="text-[10px] text-gray-400 line-through block">Rs. {prod.price.toFixed(2)}</span>
-                            <span className="text-sm font-black text-gray-900">Rs. {discountedPrice.toFixed(2)}</span>
-                          </div>
-                          {addSingleDiscountProduct && (
-                            <button
-                              type="button"
-                              onClick={() => addSingleDiscountProduct(prod, discount)}
-                              className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-xl transition-colors cursor-pointer"
-                              title="Add discounted product"
-                            >
-                              <ShoppingCart className="w-4 h-4" />
-                            </button>
-                          )}
+                        {/* Footer & Add All to Cart */}
+                        <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-4">
+                          <span className="text-[10px] font-bold text-blue-700">
+                            {discount.discountValue}% Promotional Discount Applied
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => addDiscountProductsToCart(discount)}
+                            className="bg-[#103e2c] text-white hover:bg-[#165a40] px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer shrink-0"
+                          >
+                            <ShoppingCart className="w-3.5 h-3.5" />
+                            Add Package Deal to Bill
+                          </button>
                         </div>
                       </div>
                     );

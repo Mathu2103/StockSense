@@ -104,6 +104,97 @@ export class NotificationService {
           enableOverstockAlerts
         }, now);
       }
+
+      // 3. Scan & Generate Combo & Discount Approval Alerts (Target Role: ADMIN)
+      const pendingCombos = await prisma.combo.findMany({
+        where: { status: 'PENDING_APPROVAL' }
+      });
+
+      for (const combo of pendingCombos) {
+        const existing = await prisma.notification.findFirst({
+          where: { 
+            type: 'STOCK_VELOCITY', 
+            title: { contains: combo.comboCode } 
+          }
+        });
+
+        if (!existing) {
+          await this.createNotification({
+            type: 'STOCK_VELOCITY',
+            severity: 'WARNING',
+            title: `Combo Approval Needed — ${combo.name} (${combo.comboCode})`,
+            message: `Combo campaign "${combo.name}" (Price: Rs. ${combo.comboPrice}) has been submitted and is pending admin approval.`,
+            suggestedAction: 'Review Combo Approval',
+            targetRole: Role.ADMIN,
+            metadata: { comboId: combo.id, comboCode: combo.comboCode, type: 'COMBO_APPROVAL' }
+          });
+        }
+      }
+
+      // Auto-clean notifications for combos that are no longer PENDING_APPROVAL
+      const allComboApprovalNotifications = await prisma.notification.findMany({
+        where: {
+          title: { contains: 'Combo Approval Needed' }
+        }
+      });
+
+      for (const notif of allComboApprovalNotifications) {
+        const comboCodeMatch = notif.title.match(/\((COMBO-[A-Z0-9]+)\)/);
+        if (comboCodeMatch && comboCodeMatch[1]) {
+          const comboCode = comboCodeMatch[1];
+          const combo = await prisma.combo.findUnique({
+            where: { comboCode }
+          });
+          if (!combo || combo.status !== 'PENDING_APPROVAL') {
+            await prisma.notification.delete({
+              where: { id: notif.id }
+            });
+          }
+        }
+      }
+
+      const pendingDiscounts = await prisma.discount.findMany({
+        where: { approvalStatus: 'DRAFT' }
+      });
+
+      for (const disc of pendingDiscounts) {
+        const existing = await prisma.notification.findFirst({
+          where: {
+            type: 'STOCK_VELOCITY',
+            title: { contains: disc.name }
+          }
+        });
+
+        if (!existing) {
+          await this.createNotification({
+            type: 'STOCK_VELOCITY',
+            severity: 'WARNING',
+            title: `Discount Approval Needed — ${disc.name}`,
+            message: `Discount campaign "${disc.name}" (${disc.discountValue}% Off) is awaiting admin approval.`,
+            suggestedAction: 'Review Discount Approval',
+            targetRole: Role.ADMIN,
+            metadata: { discountId: disc.id, type: 'DISCOUNT_APPROVAL' }
+          });
+        }
+      }
+
+      const allDiscountApprovalNotifications = await prisma.notification.findMany({
+        where: {
+          title: { contains: 'Discount Approval Needed' }
+        }
+      });
+
+      for (const notif of allDiscountApprovalNotifications) {
+        const discNameMatch = notif.title.replace('Discount Approval Needed — ', '').trim();
+        const disc = await prisma.discount.findFirst({
+          where: { name: discNameMatch }
+        });
+        if (!disc || disc.approvalStatus !== 'DRAFT') {
+          await prisma.notification.delete({
+            where: { id: notif.id }
+          });
+        }
+      }
     } catch (error) {
       console.error('Error scanning all stock alerts:', error);
     }

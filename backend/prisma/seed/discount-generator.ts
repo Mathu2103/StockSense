@@ -44,10 +44,12 @@ export function generateDiscounts(
   let dpCount = 0;
   let dciCount = 0;
 
-  // Let's create some seasonal campaigns for 2023, 2024, 2025
-  const years = [2023, 2024, 2025];
+  // Let's create seasonal campaigns for 2023, 2024, 2025, 2026
+  const years = [2023, 2024, 2025, 2026];
 
   years.forEach((year) => {
+    const isCurrentYear = year === 2026;
+
     // 1. School Season Promotion (January 1 to January 20)
     // Affects School Supplies (seasonal: 'SCHOOL_JAN')
     const schoolDiscId = `disc-school-${year}`;
@@ -64,7 +66,7 @@ export function generateDiscounts(
       dailyStartTime: null,
       dailyEndTime: null,
       applicableDate: null,
-      isActive: true,
+      isActive: false, // January is past in 2026
       approvalStatus: ApprovalStatus.APPROVED,
     });
 
@@ -80,15 +82,36 @@ export function generateDiscounts(
       minBillAmount: null,
       label: 'AVURUDU10',
       startDate: new Date(`${year}-04-05T00:00:00Z`),
-      endDate: new Date(`${year}-04-16T23:59:59Z`),
+      endDate: isCurrentYear ? new Date(`2026-12-31T23:59:59Z`) : new Date(`${year}-04-16T23:59:59Z`),
       dailyStartTime: null,
       dailyEndTime: null,
       applicableDate: null,
-      isActive: true,
+      isActive: isCurrentYear,
       approvalStatus: ApprovalStatus.APPROVED,
     });
 
-    // 3. December Cake Festival (November 15 to December 31)
+    // 3. August Harvest & Festival Special 2026 (Active Current Season)
+    if (isCurrentYear) {
+      const augustDiscId = `disc-august-${year}`;
+      discounts.push({
+        id: augustDiscId,
+        name: `August Festival & Super Harvest Deals ${year}`,
+        type: DiscountType.SEASONAL,
+        discountValue: 12,
+        comboPrice: null,
+        minBillAmount: null,
+        label: 'HARVEST12',
+        startDate: new Date(`2026-08-01T00:00:00Z`),
+        endDate: new Date(`2026-08-31T23:59:59Z`),
+        dailyStartTime: null,
+        dailyEndTime: null,
+        applicableDate: null,
+        isActive: true,
+        approvalStatus: ApprovalStatus.APPROVED,
+      });
+    }
+
+    // 4. December Cake Festival (November 15 to December 31)
     // Affects Cake Ingredients (seasonal: 'FESTIVAL_DEC')
     const cakeDiscId = `disc-cake-${year}`;
     discounts.push({
@@ -104,7 +127,7 @@ export function generateDiscounts(
       dailyStartTime: null,
       dailyEndTime: null,
       applicableDate: null,
-      isActive: true,
+      isActive: isCurrentYear,
       approvalStatus: ApprovalStatus.APPROVED,
     });
 

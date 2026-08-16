@@ -162,9 +162,8 @@ def generate_combo_suggestions(db: Session, forecast_run_id: str = None, associa
         if curr_stock <= 0 or sku in expiring_skus:
             continue
 
-        # Check for Dead Stock (no sales in last 90 days / recent 30 is 0)
-        # Note: if recent30Sales is 0, we flag as Dead stock risk
-        if recent_sales == 0:
+        # Check for Dead Stock (no sales or very low sales < 10 with zero sales ratio / low movement)
+        if recent_sales == 0 or behavior == "DEAD":
             priority = 85.0
             detected_opportunities.append({
                 "targetProductId": sku,
@@ -179,6 +178,29 @@ def generate_combo_suggestions(db: Session, forecast_run_id: str = None, associa
                 "stockCoverageDays": coverage,
                 "excessStock": curr_stock,
                 "daysSinceLastSale": 90,
+                "expiryDate": None,
+                "daysToExpiry": None,
+                "priorityScore": priority
+            })
+            continue
+
+        # Check for Seasonal Excess (primary behavior is SEASONAL)
+        if behavior == "SEASONAL":
+            excess = max(0, curr_stock - pred_demand)
+            priority = 82.0
+            detected_opportunities.append({
+                "targetProductId": sku,
+                "targetBatchId": None,
+                "opportunityType": "SEASONAL",
+                "velocityClass": "SEASONAL",
+                "currentStock": curr_stock,
+                "availableStock": curr_stock,
+                "predictedDemand": pred_demand,
+                "safetyStock": safety,
+                "requiredStock": req_stock,
+                "stockCoverageDays": coverage,
+                "excessStock": excess,
+                "daysSinceLastSale": 0,
                 "expiryDate": None,
                 "daysToExpiry": None,
                 "priorityScore": priority
