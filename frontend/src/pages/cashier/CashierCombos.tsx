@@ -91,7 +91,7 @@ export default function CashierCombos() {
           }`}
         >
           <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-          AI Approved Combos ({combos.filter(c => !!c.sourceSuggestionId || c.comboType === 'NEAR_EXPIRY' || c.comboType === 'OVERSTOCK' || c.comboType === 'SLOW_MOVING').length})
+          Smart Combos ({combos.filter(c => !!c.sourceSuggestionId || c.comboType === 'NEAR_EXPIRY' || c.comboType === 'OVERSTOCK' || c.comboType === 'SLOW_MOVING').length})
         </button>
         <button
           type="button"
