@@ -327,54 +327,200 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
     );
   };
 
-  // Filtered List for Dashboard Display
-  const filteredDiscounts = discounts.filter(d => {
-    const matchesSearch = d.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      (d.label && d.label.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesType = typeFilter === 'ALL' || d.type === typeFilter;
-    return matchesSearch && matchesType;
-  });
+  // Split into Active/Current (top) and Expired/Past (bottom blurred)
+  const { activeFilteredDiscounts, expiredFilteredDiscounts } = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const filtered = discounts.filter(d => {
+      const matchesSearch = d.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (d.label && d.label.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesType = typeFilter === 'ALL' || d.type === typeFilter;
+      return matchesSearch && matchesType;
+    });
 
-  // Handle URL action=add / add-combo and sku + campaign_name trigger
-  useEffect(() => {
-    const action = searchParams.get('action');
-    const sku = searchParams.get('sku');
-    const campaignNameParam = searchParams.get('campaign_name');
-    if ((action === 'add' || action === 'add-combo') && products.length > 0) {
-      // Clear URL params so we don't reopen/repopulate on subsequent renders
-      setSearchParams(prev => {
-        prev.delete('action');
-        prev.delete('sku');
-        prev.delete('campaign_name');
-        return prev;
-      }, { replace: true });
+    const active = filtered.filter(d => !d.endDate || d.endDate >= todayStr);
+    const expired = filtered.filter(d => d.endDate && d.endDate < todayStr);
 
-      let initialProductIds: string[] = [];
-      let initialComboItems: { productId: string; minQty: number }[] = [];
+    return {
+      activeFilteredDiscounts: active,
+      expiredFilteredDiscounts: expired
+    };
+  }, [discounts, searchTerm, typeFilter]);
 
-      if (sku) {
-        const product = products.find(p => p.sku.toLowerCase() === sku.toLowerCase() || p.id.toLowerCase() === sku.toLowerCase());
-        if (product) {
-          if (action === 'add-combo') {
-            initialComboItems = [{ productId: product.id, minQty: 1 }];
-          } else {
-            initialProductIds = [product.sku];
-          }
-        }
-      }
+  // Helper renderer for discount card
+  const renderDiscountCard = (discount: DiscountItem, isExpired: boolean) => (
+    <div
+      key={discount.id}
+      className={`bg-surface-container-lowest border rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col ${
+        isExpired 
+          ? 'border-red-200/40 bg-slate-50/60 opacity-55 blur-[0.4px] hover:opacity-100 hover:blur-none hover:border-red-300 hover:bg-white' 
+          : 'border-outline-variant/60'
+      }`}
+    >
+      <div
+        onClick={() => setViewingDiscount(discount)}
+        className="cursor-pointer hover:bg-slate-50/20 transition-colors flex-1 flex flex-col"
+        title="Click to view details"
+      >
+        <div className="h-32 w-full relative bg-slate-100">
+          <img
+            src={discount.imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=600&auto=format&fit=crop'}
+            alt={discount.name}
+            className={`w-full h-full object-cover ${isExpired ? 'grayscale-[0.3]' : ''}`}
+          />
+          <div className="absolute top-3 right-3 flex gap-1.5">
+            <span className="bg-white/90 backdrop-blur-sm px-2.5 py-0.5 rounded-full text-[10px] font-black text-primary border border-primary/20">
+              {discount.type}
+            </span>
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border backdrop-blur-sm shadow-sm ${
+              discount.approvalStatus === 'APPROVED'
+                ? 'bg-emerald-500/90 text-white border-emerald-500/30'
+                : 'bg-amber-500/95 text-white border-amber-500/30 font-black'
+            }`}>
+              {discount.approvalStatus}
+            </span>
+          </div>
+          {discount.label && (
+            <div className="absolute bottom-3 left-3 bg-[#0a3822]/85 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
+              {discount.label}
+            </div>
+          )}
+        </div>
 
-      handleOpenAddModal(initialProductIds, initialComboItems);
+        <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
+          <div>
+            <div className="flex items-start justify-between">
+              <h3 className="font-bold text-sm text-on-surface line-clamp-1">{discount.name}</h3>
+              {isExpired ? (
+                <div className="flex items-center gap-1.5 bg-red-50 text-red-700 px-2 py-0.5 rounded border border-red-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
+                  <span className="text-[10px] font-black uppercase tracking-wider">Expired</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-2 h-2 rounded-full ${discount.isActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                  <span className="text-[10px] font-bold text-outline uppercase">{discount.isActive ? 'Active' : 'Paused'}</span>
+                </div>
+              )}
+            </div>
 
-      if (action === 'add-combo') {
-        setType('COMBO');
-      }
+            <div className="mt-3 text-xs text-outline space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-outline text-[16px]">local_offer</span>
+                <span>
+                  Discount Value: <strong className="text-on-surface">{discount.discountValue}% Off</strong>
+                </span>
+              </div>
 
-      // Pre-fill campaign name if provided from alert
-      if (campaignNameParam) {
-        setName(campaignNameParam);
-      }
-    }
-  }, [searchParams, products, setSearchParams]);
+              {discount.type === 'SEASONAL' && (
+                <div className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-outline text-[16px]">calendar_month</span>
+                  <span>
+                    Validity: <strong className="text-on-surface">{discount.startDate} to {discount.endDate}</strong>
+                  </span>
+                </div>
+              )}
+
+              {discount.type === 'DAILY' && (
+                <>
+                  {discount.applicableDate && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-outline text-[16px]">calendar_month</span>
+                      <span>
+                        Date: <strong className="text-on-surface">{discount.applicableDate}</strong>
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-outline text-[16px]">schedule</span>
+                    <span>
+                      Daily Hours: <strong className="text-on-surface">{discount.dailyStartTime} - {discount.dailyEndTime}</strong>
+                    </span>
+                  </div>
+                </>
+              )}
+
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-outline text-[16px]">shopping_basket</span>
+                  <span>
+                    Applied to:{' '}
+                    <strong className="text-on-surface">
+                      {discount.type === 'COMBO'
+                        ? `${discount.comboItems?.length || 0} Combo Items`
+                        : `${discount.productIds?.length || 0} Products`}
+                    </strong>
+                  </span>
+                </div>
+                {discount.type === 'COMBO' && discount.comboItems && discount.comboItems.length > 0 && (
+                  <div className="mt-1 pl-5 space-y-0.5 border-l border-primary/30 max-h-24 overflow-y-auto">
+                    {discount.comboItems.map((item, idx) => {
+                      const prod = products.find(p => p.id === item.productId || p.sku === item.productId);
+                      return (
+                        <div key={idx} className="text-[10px] text-outline-variant font-medium">
+                          • {prod ? prod.name : 'Unknown Product'} (x{item.minQty})
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {discount.type !== 'COMBO' && discount.productIds && discount.productIds.length > 0 && (
+                  <div className="mt-1 pl-5 space-y-0.5 border-l border-primary/30 max-h-20 overflow-y-auto">
+                    {discount.productIds.slice(0, 3).map((pId, idx) => {
+                      const prod = products.find(p => p.id === pId || p.sku === pId);
+                      return (
+                        <div key={idx} className="text-[10px] text-outline-variant font-medium truncate">
+                          • {prod ? prod.name : pId}
+                        </div>
+                      );
+                    })}
+                    {discount.productIds.length > 3 && (
+                      <div className="text-[9px] text-outline font-bold pl-2">
+                        + {discount.productIds.length - 3} more products
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="p-4 border-t border-outline-variant/60 flex items-center justify-between bg-slate-50/50" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => toggleDiscountStatus(discount.id, discount.isActive)}
+            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border ${
+              discount.isActive
+                ? 'border-red-200 text-red-700 bg-red-50 hover:bg-red-100'
+                : 'border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+            }`}
+          >
+            {discount.isActive ? 'Pause' : 'Activate'}
+          </button>
+        </div>
+
+        <div className="flex gap-1">
+          <button
+            type="button"
+            onClick={() => handleOpenEditModal(discount)}
+            className="p-1 text-primary hover:bg-primary/5 rounded-lg transition-colors"
+          >
+            <span className="material-symbols-outlined text-[16px]">edit</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDelete(discount)}
+            className="p-1 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          >
+            <span className="material-symbols-outlined text-[16px]">delete</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -458,174 +604,41 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
           <p className="text-sm font-bold text-outline">Loading discount campaigns from database...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredDiscounts.map(discount => (
-            <div
-              key={discount.id}
-              className="bg-surface-container-lowest border border-outline-variant/60 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col"
-            >
-              <div
-                onClick={() => setViewingDiscount(discount)}
-                className="cursor-pointer hover:bg-slate-50/20 transition-colors flex-1 flex flex-col"
-                title="Click to view details"
-              >
-                <div className="h-32 w-full relative bg-slate-100">
-                  <img
-                    src={discount.imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=600&auto=format&fit=crop'}
-                    alt={discount.name}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-3 right-3 flex gap-1.5">
-                    <span className="bg-white/90 backdrop-blur-sm px-2.5 py-0.5 rounded-full text-[10px] font-black text-primary border border-primary/20">
-                      {discount.type}
-                    </span>
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border backdrop-blur-sm shadow-sm ${
-                      discount.approvalStatus === 'APPROVED'
-                        ? 'bg-emerald-500/90 text-white border-emerald-500/30'
-                        : 'bg-amber-500/95 text-white border-amber-500/30 font-black'
-                    }`}>
-                      {discount.approvalStatus}
-                    </span>
-                  </div>
-                  {discount.label && (
-                    <div className="absolute bottom-3 left-3 bg-[#0a3822]/85 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm">
-                      {discount.label}
-                    </div>
-                  )}
-                </div>
+        <div className="space-y-10">
+          {/* Active / Current Campaigns (Top Section) */}
+          <div className="space-y-4">
+            <h2 className="text-xs font-black uppercase tracking-wider text-emerald-800 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200 inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+              Active & Current Campaigns ({activeFilteredDiscounts.length})
+            </h2>
 
-                <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
-                  <div>
-                    <div className="flex items-start justify-between">
-                      <h3 className="font-bold text-sm text-on-surface line-clamp-1">{discount.name}</h3>
-                      <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${discount.isActive ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                        <span className="text-[10px] font-bold text-outline uppercase">{discount.isActive ? 'Active' : 'Paused'}</span>
-                      </div>
-                    </div>
+            {activeFilteredDiscounts.length === 0 ? (
+              <div className="p-8 text-center bg-white rounded-2xl border border-gray-100 text-gray-400 text-xs font-bold">
+                No active current campaigns. Newly created campaigns will appear here.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {activeFilteredDiscounts.map(discount => renderDiscountCard(discount, false))}
+              </div>
+            )}
+          </div>
 
-                    <div className="mt-3 text-xs text-outline space-y-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-outline text-[16px]">local_offer</span>
-                        <span>
-                          Discount Value: <strong className="text-on-surface">{discount.discountValue}% Off</strong>
-                        </span>
-                      </div>
-
-                      {discount.type === 'SEASONAL' && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="material-symbols-outlined text-outline text-[16px]">calendar_month</span>
-                          <span>
-                            Validity: <strong className="text-on-surface">{discount.startDate} to {discount.endDate}</strong>
-                          </span>
-                        </div>
-                      )}
-
-                      {discount.type === 'DAILY' && (
-                        <>
-                          {discount.applicableDate && (
-                            <div className="flex items-center gap-1.5">
-                              <span className="material-symbols-outlined text-outline text-[16px]">calendar_month</span>
-                              <span>
-                                Date: <strong className="text-on-surface">{discount.applicableDate}</strong>
-                              </span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-1.5">
-                            <span className="material-symbols-outlined text-outline text-[16px]">schedule</span>
-                            <span>
-                              Daily Hours: <strong className="text-on-surface">{discount.dailyStartTime} - {discount.dailyEndTime}</strong>
-                            </span>
-                          </div>
-                        </>
-                      )}
-
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="material-symbols-outlined text-outline text-[16px]">shopping_basket</span>
-                          <span>
-                            Applied to:{' '}
-                            <strong className="text-on-surface">
-                              {discount.type === 'COMBO'
-                                ? `${discount.comboItems?.length || 0} Combo Items`
-                                : `${discount.productIds?.length || 0} Products`}
-                            </strong>
-                          </span>
-                        </div>
-                        {discount.type === 'COMBO' && discount.comboItems && discount.comboItems.length > 0 && (
-                          <div className="mt-1 pl-5 space-y-0.5 border-l border-primary/30 max-h-24 overflow-y-auto">
-                            {discount.comboItems.map((item, idx) => {
-                              const prod = products.find(p => p.id === item.productId || p.sku === item.productId);
-                              return (
-                                <div key={idx} className="text-[10px] text-outline-variant font-medium">
-                                  • {prod ? prod.name : 'Unknown Product'} (x{item.minQty})
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                        {discount.type !== 'COMBO' && discount.productIds && discount.productIds.length > 0 && (
-                          <div className="mt-1 pl-5 space-y-0.5 border-l border-primary/30 max-h-20 overflow-y-auto">
-                            {discount.productIds.slice(0, 3).map((pId, idx) => {
-                              const prod = products.find(p => p.id === pId || p.sku === pId);
-                              return (
-                                <div key={idx} className="text-[10px] text-outline-variant font-medium truncate">
-                                  • {prod ? prod.name : pId}
-                                </div>
-                              );
-                            })}
-                            {discount.productIds.length > 3 && (
-                              <div className="text-[9px] text-outline font-bold pl-2">
-                                + {discount.productIds.length - 3} more products
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+          {/* Expired / Past Campaigns (Bottom Blurred Section) */}
+          {expiredFilteredDiscounts.length > 0 && (
+            <div className="space-y-4 pt-8 border-t border-gray-200/80">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <h2 className="text-xs font-black uppercase tracking-wider text-gray-500 bg-gray-100 px-3 py-1 rounded-lg border border-gray-200 inline-flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-gray-400" />
+                  Expired & Past Campaigns ({expiredFilteredDiscounts.length})
+                </h2>
+                <span className="text-[11px] font-medium text-gray-400">
+                  Historical campaign records (blurred at bottom for reference)
+                </span>
               </div>
 
-              {/* Action Buttons */}
-              <div className="p-4 border-t border-outline-variant/60 flex items-center justify-between bg-slate-50/50" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => toggleDiscountStatus(discount.id, discount.isActive)}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border ${
-                      discount.isActive
-                        ? 'border-red-200 text-red-700 bg-red-50 hover:bg-red-100'
-                        : 'border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
-                    }`}
-                  >
-                    {discount.isActive ? 'Pause' : 'Activate'}
-                  </button>
-                </div>
-
-                <div className="flex gap-1">
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEditModal(discount)}
-                    className="p-1 text-primary hover:bg-primary/5 rounded-lg transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">edit</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(discount)}
-                    className="p-1 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">delete</span>
-                  </button>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {expiredFilteredDiscounts.map(discount => renderDiscountCard(discount, true))}
               </div>
-            </div>
-          ))}
-          {filteredDiscounts.length === 0 && (
-            <div className="col-span-full py-12 text-center bg-surface-container-lowest border border-outline-variant/60 rounded-2xl shadow-sm">
-              <span className="material-symbols-outlined text-[48px] text-outline/30">local_offer</span>
-              <p className="text-sm font-bold text-outline mt-2">No discount campaigns found.</p>
             </div>
           )}
         </div>

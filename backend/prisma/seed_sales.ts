@@ -3,7 +3,7 @@ import { PaymentMethod, Role } from '@prisma/client';
 
 async function main() {
   console.log('Seeding sales bills and draft bills...');
-
+  
   // Find a cashier or admin to associate with the bills
   let user = await prisma.user.findFirst({
     where: { role: Role.CASHIER }

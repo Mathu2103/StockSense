@@ -22,7 +22,13 @@ export default function OffersPage() {
         ]);
 
         if (discRes.success) {
-          const activeApproved = discRes.data.filter((d: any) => d.isActive && d.approvalStatus === 'APPROVED');
+          const todayStr = new Date().toISOString().split('T')[0];
+          const activeApproved = discRes.data.filter((d: any) => {
+            if (!d.isActive || d.approvalStatus !== 'APPROVED') return false;
+            if (d.endDate && d.endDate < todayStr) return false;
+            if (d.startDate && d.startDate > todayStr) return false;
+            return true;
+          });
           setDiscounts(activeApproved);
         }
 
@@ -61,7 +67,12 @@ export default function OffersPage() {
     );
   }, [publicCombos]);
 
-  // 3. Seasonal Discounts (Deduplicated by SKU)
+  // 3. Seasonal Discount Campaigns & Packages
+  const seasonalCampaigns = useMemo(() => {
+    return discounts.filter(d => d.type === 'SEASONAL');
+  }, [discounts]);
+
+  // Seasonal Items (Extracted from active seasonal campaigns)
   const seasonalProducts = useMemo(() => {
     const seenSkus = new Set<string>();
     const items: any[] = [];
@@ -94,9 +105,9 @@ export default function OffersPage() {
   const showAiSection = (activeFilter === 'ALL' || activeFilter === 'AI_COMBOS') && aiApprovedCombos.length > 0;
   const showSuperSection = (activeFilter === 'ALL' || activeFilter === 'SUPER_SAVERS') && superSaverCombos.length > 0;
   const showDailySection = (activeFilter === 'ALL' || activeFilter === 'DAILY') && dailyProducts.length > 0;
-  const showSeasonalSection = (activeFilter === 'ALL' || activeFilter === 'SEASONAL') && seasonalProducts.length > 0;
+  const showSeasonalSection = (activeFilter === 'ALL' || activeFilter === 'SEASONAL') && seasonalCampaigns.length > 0;
 
-  const totalOffersCount = aiApprovedCombos.length + superSaverCombos.length + dailyProducts.length + seasonalProducts.length;
+  const totalOffersCount = aiApprovedCombos.length + superSaverCombos.length + dailyProducts.length + seasonalCampaigns.length;
 
   return (
     <div className="min-h-screen bg-[#f8f9fc] relative overflow-hidden font-sans pb-32">
@@ -142,7 +153,7 @@ export default function OffersPage() {
             }`}
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            AI Smart Combos ({aiApprovedCombos.length})
+            Smart Combos ({aiApprovedCombos.length})
           </button>
           <button
             type="button"
@@ -178,7 +189,7 @@ export default function OffersPage() {
             }`}
           >
             <Calendar className="w-3.5 h-3.5 text-blue-500" />
-            Seasonal Specials ({seasonalProducts.length})
+            Seasonal Specials ({seasonalCampaigns.length})
           </button>
         </div>
 
@@ -432,41 +443,78 @@ export default function OffersPage() {
                     <span className="text-[10px] font-black uppercase tracking-wider text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                       🎉 Seasonal Specials
                     </span>
-                    <h2 className="text-2xl md:text-3xl font-black text-gray-900 mt-1">Festive & Seasonal Deals</h2>
-                    <p className="text-gray-500 text-xs">Celebrate the season with exclusive discounts on your favorite essentials.</p>
+                    <h2 className="text-2xl md:text-3xl font-black text-gray-900 mt-1">Festive & Seasonal Offer Packages</h2>
+                    <p className="text-gray-500 text-xs">Celebrate the season with exclusive festival package discounts on selected items.</p>
                   </div>
                   <span className="text-xs font-bold text-gray-400">
-                    {seasonalProducts.length} Items on Sale
+                    {seasonalCampaigns.length} Active Seasonal Offers
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                  {seasonalProducts.map(({ discount, prod }, idx) => {
-                    const discountedPrice = prod.sellingPrice * (1 - discount.discountValue / 100);
-                    return (
-                      <div key={`${discount.id}-${prod.sku}-${idx}`} className="flex flex-col justify-between bg-white p-5 rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-xl transition-all border border-gray-100 group">
-                        <div>
-                          <div className="w-28 h-28 mx-auto rounded-2xl overflow-hidden shadow-sm border border-gray-100 bg-gray-50 mb-3 flex items-center justify-center group-hover:scale-105 transition-transform">
-                            <img 
-                              src={prod.imageUrl || "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?q=80&w=600&auto=format&fit=crop"} 
-                              alt={prod.name} 
-                              className="w-full h-full object-cover" 
-                            />
-                          </div>
-                          <span className="inline-block bg-blue-50 text-blue-800 text-[9px] font-black px-2 py-0.5 rounded border border-blue-200/60 mb-1.5">
-                            {discount.label || `${discount.discountValue}% OFF`}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {seasonalCampaigns.map((discount: any) => (
+                    <div key={discount.id} className="bg-white rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col justify-between group">
+                      
+                      {/* Campaign Header & Badge */}
+                      <div className="relative bg-gradient-to-br from-blue-50/80 to-indigo-50/40 p-6 border-b border-gray-100 flex flex-col justify-between">
+                        <div className="flex items-center justify-between">
+                          <span className="bg-blue-800 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1">
+                            <Calendar className="w-3 h-3 text-blue-200" />
+                            {discount.discountValue}% OFF SEASONAL DEAL
                           </span>
-                          <h3 className="text-xs font-black text-gray-900 line-clamp-2 min-h-[32px] leading-snug">{prod.name}</h3>
-                          <p className="text-[10px] text-gray-400 font-mono mt-0.5">{prod.sku}</p>
+                          <span className="text-[10px] font-black text-blue-800 bg-blue-100/80 px-2 py-0.5 rounded uppercase tracking-wide">
+                            {discount.label || 'FESTIVE'}
+                          </span>
                         </div>
-                        
-                        <div className="pt-3 border-t border-gray-100 flex items-baseline gap-2 mt-3">
-                          <span className="text-gray-400 line-through text-[11px] font-semibold">Rs. {prod.sellingPrice.toFixed(0)}</span>
-                          <span className="text-[#103e2c] font-black text-base">Rs. {discountedPrice.toFixed(0)}</span>
+
+                        <div className="mt-4">
+                          <h3 className="text-xl font-black text-gray-900 leading-tight">{discount.name}</h3>
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 mt-1">
+                            <Clock className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Valid: {discount.startDate} to {discount.endDate}</span>
+                          </div>
                         </div>
                       </div>
-                    );
-                  })}
+
+                      {/* Package Items Included */}
+                      <div className="p-6 flex flex-col justify-between flex-1 space-y-4">
+                        <div>
+                          <p className="text-[10px] font-black uppercase text-gray-400 tracking-wider mb-2">
+                            Included Package Items ({discount.products?.length || 0} Items):
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {(discount.products || []).map((prod: any, idx: number) => {
+                              const discountedPrice = prod.sellingPrice * (1 - discount.discountValue / 100);
+                              return (
+                                <div key={idx} className="flex items-center gap-3 p-2.5 rounded-2xl bg-gray-50/80 border border-gray-100">
+                                  <img
+                                    src={prod.imageUrl || "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?q=80&w=600&auto=format&fit=crop"}
+                                    alt={prod.name}
+                                    className="w-12 h-12 object-cover rounded-xl border border-gray-200/80 bg-white"
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    <h4 className="text-xs font-bold text-gray-900 truncate">{prod.name}</h4>
+                                    <div className="flex items-baseline gap-1.5 mt-0.5">
+                                      <span className="text-xs font-black text-[#103e2c]">Rs. {discountedPrice.toFixed(0)}</span>
+                                      <span className="text-[10px] text-gray-400 line-through">Rs. {prod.sellingPrice.toFixed(0)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-emerald-800 font-bold">
+                          <span className="flex items-center gap-1">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            {discount.discountValue}% Promotional Discount Applied at POS
+                          </span>
+                        </div>
+                      </div>
+
+                    </div>
+                  ))}
                 </div>
               </section>
             )}
