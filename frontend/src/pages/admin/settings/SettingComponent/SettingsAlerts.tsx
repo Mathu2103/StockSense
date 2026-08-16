@@ -1,6 +1,6 @@
 import { Toggle } from './Toggle';
-
 import { StockRulesConfig } from "./types";
+import { toast } from 'sonner';
 
 interface Props {
   rules: StockRulesConfig;
@@ -13,6 +13,13 @@ export default function SettingsAlerts({ rules, onChange }: Props) {
       ...rules,
       [field]: value
     });
+
+    const friendlyName = field
+      .replace('enable', '')
+      .replace('Alerts', ' Alerts')
+      .replace(/([A-Z])/g, ' $1')
+      .trim();
+    toast.info(`${friendlyName} configured to ${value ? 'ENABLED' : 'DISABLED'}`);
   };
 
   return (
@@ -33,7 +40,7 @@ export default function SettingsAlerts({ rules, onChange }: Props) {
       </div>
 
       <div className="bg-white border border-slate-100 rounded-xl p-2 shadow-sm">
-        
+
         {/* Low Stock Alerts */}
         <div className="flex items-center justify-between p-4 border-b border-slate-50">
           <div className="flex items-center gap-4">

@@ -47,7 +47,7 @@ export default function SettingsAccount() {
   return (
     <div className="max-w-4xl animate-in fade-in duration-300">
       <div className="bg-white border border-slate-100 rounded-xl p-8 shadow-sm">
-        <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-50">
+        <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-50">
           <div>
             <h2 className="text-xl font-bold text-slate-800">Account Settings</h2>
             <p className="text-[14px] text-slate-500 mt-1">Configure your login preferences and system security.</p>

@@ -52,6 +52,15 @@ export default function DashboardPage() {
                     Welcome back, <strong className="text-emerald-700">{currentAdmin?.name || 'Administrator'}</strong>. Oversee store performance, manage team credentials, and configure global inventory system rules.
                   </p>
                 </div>
+                <div className="shrink-0">
+                  <div className="inline-flex items-center gap-3 px-4 py-2.5 bg-white border border-slate-200 rounded-2xl shadow-sm">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">Store Operational</p>
+                      <p className="text-[10px] font-medium text-slate-500">Last updated: {new Date().toLocaleTimeString()}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -60,16 +69,16 @@ export default function DashboardPage() {
               <div className="space-y-6 animate-in fade-in duration-300">
                 
                 {error ? (
-                  <div className="bg-red-50 border border-red-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center shadow-sm">
-                    <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4">
+                  <div className="bg-rose-50 border border-rose-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center shadow-sm">
+                    <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mb-4">
                       <span className="material-symbols-outlined text-3xl">error</span>
                     </div>
-                    <h3 className="text-xl font-bold text-red-900 mb-2">Unable to load dashboard</h3>
-                    <p className="text-red-700 max-w-md mx-auto mb-6">{error}</p>
+                    <h3 className="text-xl font-bold text-rose-900 mb-2">Unable to load dashboard</h3>
+                    <p className="text-rose-700 max-w-md mx-auto mb-6">{error}</p>
                     <button 
                       onClick={loadMetrics}
                       disabled={loading}
-                      className="px-6 py-2.5 bg-red-600 text-white rounded-xl font-bold shadow-sm hover:bg-red-700 transition-colors disabled:opacity-70 flex items-center gap-2"
+                      className="px-6 py-2.5 bg-rose-600 text-white rounded-xl font-bold shadow-sm hover:bg-rose-700 transition-colors disabled:opacity-70 flex items-center gap-2"
                     >
                       <span className={`material-symbols-outlined text-[20px] ${loading ? 'animate-spin' : ''}`}>refresh</span>
                       {loading ? 'Retrying...' : 'Retry'}
@@ -79,6 +88,8 @@ export default function DashboardPage() {
                   <>
                     {/* Snapshot Cards */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      
+                      {/* GROSS SALES TODAY */}
                       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex items-center gap-4">
                         <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shadow-inner">
                           <span className="material-symbols-outlined text-2xl">payments</span>
@@ -86,42 +97,49 @@ export default function DashboardPage() {
                         <div>
                           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Gross Sales Today</p>
                           <p className="text-2xl font-black text-slate-900">Rs. {metrics?.grossSalesToday.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}</p>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${metrics?.salesPercentageChange && metrics.salesPercentageChange > 0 ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-slate-600 bg-slate-50 border-slate-200'}`}>
+                          <span className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded border ${metrics?.salesPercentageChange && metrics.salesPercentageChange > 0 ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-slate-600 bg-slate-50 border-slate-200'}`}>
                             {metrics?.salesPercentageChange && metrics.salesPercentageChange > 0 ? '+' : ''}{metrics?.salesPercentageChange?.toFixed(1) || 0}% vs yesterday
                           </span>
                         </div>
                       </div>
 
+                      {/* TRANSACTIONS TODAY */}
                       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex items-center gap-4">
                         <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shadow-inner">
-                          <span className="material-symbols-outlined text-2xl">point_of_sale</span>
+                          <span className="material-symbols-outlined text-2xl">receipt_long</span>
                         </div>
                         <div>
-                          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">POS Registers</p>
-                          <p className="text-2xl font-black text-slate-900">{metrics?.activeRegisters || 0} Active</p>
-                          <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">Cashier Users</span>
+                          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Transactions Today</p>
+                          <p className="text-2xl font-black text-slate-900">{metrics?.transactionsToday || 0}</p>
+                          <span className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded border ${metrics?.transactionsPercentageChange && metrics.transactionsPercentageChange > 0 ? 'text-blue-600 bg-blue-50 border-blue-100' : 'text-slate-600 bg-slate-50 border-slate-200'}`}>
+                            {metrics?.transactionsPercentageChange && metrics.transactionsPercentageChange > 0 ? '+' : ''}{metrics?.transactionsPercentageChange?.toFixed(1) || 0}% vs yesterday
+                          </span>
                         </div>
                       </div>
 
+                      {/* SUPERMARKET HEALTH */}
                       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center shadow-inner">
-                          <span className="material-symbols-outlined text-2xl">warning</span>
-                        </div>
-                        <div>
-                          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Active Stock Alerts</p>
-                          <p className="text-2xl font-black text-amber-600">{metrics?.activeStockAlerts || 0} Items</p>
-                          <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">Below threshold rules</span>
-                        </div>
-                      </div>
-
-                      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-rose-50 text-rose-700 flex items-center justify-center shadow-inner">
+                        <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center shadow-inner">
                           <span className="material-symbols-outlined text-2xl">dns</span>
                         </div>
                         <div>
                           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Supermarket Health</p>
                           <p className="text-2xl font-black text-slate-900">{metrics?.supermarketHealth?.toFixed(1) || '100.0'}%</p>
-                          <span className="text-[10px] font-bold text-[#0b8252] bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">Stock Availability</span>
+                          <span className="inline-block mt-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">Stock Availability</span>
+                        </div>
+                      </div>
+
+                      {/* NEEDS ATTENTION */}
+                      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-rose-50 text-rose-700 flex items-center justify-center shadow-inner">
+                          <span className="material-symbols-outlined text-2xl">crisis_alert</span>
+                        </div>
+                        <div>
+                          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Needs Attention</p>
+                          <p className="text-2xl font-black text-slate-900">{metrics?.activeStockAlerts || 0} Issues</p>
+                          <span className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded border ${metrics?.activeStockAlerts ? 'text-rose-600 bg-rose-50 border-rose-100' : 'text-slate-600 bg-slate-50 border-slate-200'}`}>
+                            {metrics?.activeStockAlerts ? 'Action Required' : 'Healthy State'}
+                          </span>
                         </div>
                       </div>
                     </div>
