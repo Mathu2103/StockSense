@@ -90,20 +90,8 @@ export default function CashierCombos() {
               : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
           }`}
         >
-          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+          <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
           Smart Combos ({combos.filter(c => !!c.sourceSuggestionId || c.comboType === 'NEAR_EXPIRY' || c.comboType === 'OVERSTOCK' || c.comboType === 'SLOW_MOVING').length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setCategoryFilter('CUSTOM')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-            categoryFilter === 'CUSTOM'
-              ? 'bg-[#103e2c] text-white shadow-sm'
-              : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-          }`}
-        >
-          <Gift className="w-3.5 h-3.5 text-emerald-600" />
-          Custom Bundles ({combos.filter(c => !c.sourceSuggestionId && c.comboType !== 'NEAR_EXPIRY' && c.comboType !== 'OVERSTOCK' && c.comboType !== 'SLOW_MOVING').length})
         </button>
       </div>
 

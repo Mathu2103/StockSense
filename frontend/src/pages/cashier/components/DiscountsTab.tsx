@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ShoppingCart, Search, Sparkles, Flame, Calendar, Gift, Zap } from 'lucide-react';
+import { ShoppingCart, Search, Sparkles, Flame, Calendar } from 'lucide-react';
 
 interface DiscountsTabProps {
   discounts: any[];
@@ -15,7 +15,6 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
   discounts,
   posCombos = [],
   products,
-  addComboToCart,
   addApprovedComboToCart,
   addDiscountProductsToCart,
   addSingleDiscountProduct
@@ -23,7 +22,7 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
 
-  // 1. AI-Suggested & Approved Combos
+  // 1. Smart Combos
   const aiApprovedCombos = useMemo(() => {
     return posCombos.filter(c => 
       !!c.sourceSuggestionId || 
@@ -34,18 +33,7 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
     );
   }, [posCombos]);
 
-  // 2. Standard / Super Saver Combos (Manual/Curated)
-  const superSaverCombos = useMemo(() => {
-    return posCombos.filter(c => 
-      !c.sourceSuggestionId && 
-      c.comboType !== 'NEAR_EXPIRY' && 
-      c.comboType !== 'OVERSTOCK' && 
-      c.comboType !== 'SLOW_MOVING' && 
-      c.comboType !== 'DEAD_STOCK'
-    );
-  }, [posCombos]);
-
-  // 3. Seasonal Discounts & Packages
+  // 2. Seasonal Discounts & Packages
   const seasonalCampaigns = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
     return discounts.filter(d => {
@@ -57,26 +45,53 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
     });
   }, [discounts]);
 
-  // 4. Daily Flash Deals (Deduplicated by SKU)
+  // 3. Daily Flash Deals (Deduplicated by SKU)
   const dailyProducts = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
     const seenSkus = new Set<string>();
     const items: any[] = [];
+    
     discounts.filter(d => {
       if (d.type !== 'DAILY') return false;
       if (!d.isActive || d.approvalStatus !== 'APPROVED') return false;
-      if (d.applicableDate && d.applicableDate < todayStr) return false;
+      if (d.endDate && d.endDate < todayStr) return false;
+      if (d.startDate && d.startDate > todayStr) return false;
       return true;
     }).forEach(discount => {
-      (discount.productIds || []).forEach((skuId: string) => {
-        if (!seenSkus.has(skuId)) {
-          const prod = products.find(p => p.sku === skuId || p.id === skuId);
-          if (prod) {
-            seenSkus.add(skuId);
-            items.push({ discount, prod, skuId });
+      // 1. Check direct discount.products array (populated by backend endpoint)
+      if (discount.products && discount.products.length > 0) {
+        discount.products.forEach((prod: any) => {
+          if (prod && prod.sku && !seenSkus.has(prod.sku)) {
+            seenSkus.add(prod.sku);
+            items.push({
+              discount,
+              prod: {
+                ...prod,
+                price: prod.price || prod.sellingPrice || 0
+              },
+              skuId: prod.sku
+            });
           }
-        }
-      });
+        });
+      } else {
+        // 2. Fallback to productIds matching with products state
+        (discount.productIds || []).forEach((skuId: string) => {
+          if (!seenSkus.has(skuId)) {
+            const prod = products.find(p => p.sku === skuId || p.id === skuId);
+            if (prod) {
+              seenSkus.add(skuId);
+              items.push({
+                discount,
+                prod: {
+                  ...prod,
+                  price: prod.price || prod.sellingPrice || 0
+                },
+                skuId
+              });
+            }
+          }
+        });
+      }
     });
     return items;
   }, [discounts, products]);
@@ -92,15 +107,6 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
       (c.items || []).some((i: any) => (i.product?.name || '').toLowerCase().includes(q) || (i.product?.sku || '').toLowerCase().includes(q))
     );
   }, [aiApprovedCombos, q]);
-
-  const filteredSuperCombos = useMemo(() => {
-    if (!q) return superSaverCombos;
-    return superSaverCombos.filter(c => 
-      c.name.toLowerCase().includes(q) || 
-      c.comboCode.toLowerCase().includes(q) ||
-      (c.items || []).some((i: any) => (i.product?.name || '').toLowerCase().includes(q) || (i.product?.sku || '').toLowerCase().includes(q))
-    );
-  }, [superSaverCombos, q]);
 
   const filteredSeasonalCampaigns = useMemo(() => {
     if (!q) return seasonalCampaigns;
@@ -118,18 +124,17 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
   const filteredDaily = useMemo(() => {
     if (!q) return dailyProducts;
     return dailyProducts.filter(item => 
-      item.prod.name.toLowerCase().includes(q) || 
-      item.prod.sku.toLowerCase().includes(q) ||
+      (item.prod.name || '').toLowerCase().includes(q) || 
+      (item.prod.sku || '').toLowerCase().includes(q) ||
       (item.discount.name || '').toLowerCase().includes(q)
     );
   }, [dailyProducts, q]);
 
   const showAiSection = (selectedCategory === 'ALL' || selectedCategory === 'AI_COMBOS') && filteredAiCombos.length > 0;
-  const showSuperSection = (selectedCategory === 'ALL' || selectedCategory === 'SUPER_SAVERS') && filteredSuperCombos.length > 0;
   const showDailySection = (selectedCategory === 'ALL' || selectedCategory === 'DAILY') && filteredDaily.length > 0;
   const showSeasonalSection = (selectedCategory === 'ALL' || selectedCategory === 'SEASONAL') && filteredSeasonalCampaigns.length > 0;
 
-  const totalResults = filteredAiCombos.length + filteredSuperCombos.length + filteredDaily.length + filteredSeasonalCampaigns.length;
+  const totalResults = filteredAiCombos.length + filteredDaily.length + filteredSeasonalCampaigns.length;
 
   return (
     <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-[#f8f9fc] relative font-sans">
@@ -139,9 +144,9 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-5 rounded-2xl border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
           <div>
             <h1 className="text-2xl font-black text-gray-900 flex items-center gap-2">
-              Cashier Deals & Combo Lookup <span className="text-emerald-600">⚡</span>
+              Special Offers & Smart Combos
             </h1>
-            <p className="text-gray-400 text-xs mt-0.5">Quickly find active bundle discounts, AI recommendations, and flash specials.</p>
+            <p className="text-gray-400 text-xs mt-0.5">Discover hand-crafted bundle promotions, AI-optimized smart combinations, and limited-time discounts.</p>
           </div>
 
           <div className="w-full md:w-80 relative">
@@ -164,7 +169,7 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
               selectedCategory === 'ALL' 
                 ? 'bg-[#103e2c] text-white shadow-sm' 
-                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200/60'
+                : 'bg-white text-gray-600 hover:bg-emerald-50/60 border border-gray-200/60'
             }`}
           >
             All Active Deals ({totalResults})
@@ -175,23 +180,11 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
               selectedCategory === 'AI_COMBOS' 
                 ? 'bg-[#103e2c] text-white shadow-sm' 
-                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200/60'
+                : 'bg-white text-gray-600 hover:bg-emerald-50/60 border border-gray-200/60'
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            AI Approved Combos ({filteredAiCombos.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedCategory('SUPER_SAVERS')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
-              selectedCategory === 'SUPER_SAVERS' 
-                ? 'bg-[#103e2c] text-white shadow-sm' 
-                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200/60'
-            }`}
-          >
-            <Gift className="w-3.5 h-3.5 text-emerald-500" />
-            Super Saver Combos ({filteredSuperCombos.length})
+            <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+            Smart Combos ({filteredAiCombos.length})
           </button>
           <button
             type="button"
@@ -199,10 +192,10 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
               selectedCategory === 'DAILY' 
                 ? 'bg-[#103e2c] text-white shadow-sm' 
-                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200/60'
+                : 'bg-white text-gray-600 hover:bg-emerald-50/60 border border-gray-200/60'
             }`}
           >
-            <Flame className="w-3.5 h-3.5 text-orange-500" />
+            <Flame className="w-3.5 h-3.5 text-emerald-600" />
             Daily Flash Deals ({filteredDaily.length})
           </button>
           <button
@@ -211,10 +204,10 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
               selectedCategory === 'SEASONAL' 
                 ? 'bg-[#103e2c] text-white shadow-sm' 
-                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200/60'
+                : 'bg-white text-gray-600 hover:bg-emerald-50/60 border border-gray-200/60'
             }`}
           >
-            <Calendar className="w-3.5 h-3.5 text-blue-500" />
+            <Calendar className="w-3.5 h-3.5 text-emerald-700" />
             Seasonal Specials ({filteredSeasonalCampaigns.length})
           </button>
         </div>
@@ -232,15 +225,15 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
               <section className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center">
-                      <Sparkles className="w-4 h-4 text-amber-600" />
+                    <div className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center">
+                      <Sparkles className="w-4 h-4 text-emerald-700" />
                     </div>
                     <div>
                       <h2 className="text-lg font-black text-gray-900">Smart Combos</h2>
                       <p className="text-gray-400 text-xs">High-demand pairing bundles approved by Admin for stock clearance.</p>
                     </div>
                   </div>
-                  <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                  <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/80">
                     {filteredAiCombos.length} Combos Active
                   </span>
                 </div>
@@ -251,14 +244,14 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
                       <div>
                         <div className="flex justify-between items-start gap-2 mb-2">
                           <div>
-                            <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 text-[10px] font-black uppercase px-2 py-0.5 rounded border border-amber-200/80 mb-1">
+                            <span className="inline-flex items-center gap-1 bg-emerald-50 text-[#103e2c] text-[10px] font-black uppercase px-2 py-0.5 rounded border border-emerald-200/80 mb-1">
                               <Sparkles className="w-2.5 h-2.5" />
-                              AI Recommended • {combo.comboType || 'Clearance'}
+                              Smart Combo • {combo.comboType || 'Clearance'}
                             </span>
                             <h3 className="font-extrabold text-gray-900 text-sm leading-snug">{combo.name}</h3>
                             <p className="text-[10px] text-gray-400 font-mono mt-0.5">CODE: {combo.comboCode}</p>
                           </div>
-                          <span className="bg-emerald-800 text-white text-[10px] font-black px-2.5 py-1 rounded-lg shrink-0 shadow-xs">
+                          <span className="bg-[#103e2c] text-white text-[10px] font-black px-2.5 py-1 rounded-lg shrink-0 shadow-xs">
                             {combo.discountPercentage.toFixed(0)}% OFF
                           </span>
                         </div>
@@ -270,7 +263,7 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
                             <div key={idx} className="flex justify-between items-center text-xs font-semibold text-gray-700">
                               <span className="line-clamp-1 pr-2">
                                 • {item.quantity}x {item.product?.name || item.productId}
-                                {item.role === 'TARGET' && <span className="ml-1 text-[9px] text-rose-600 bg-rose-50 px-1 py-0.2 rounded font-bold">Clearance</span>}
+                                {item.role === 'TARGET' && <span className="ml-1 text-[9px] text-emerald-800 bg-emerald-100 px-1 py-0.2 rounded font-bold">Clearance</span>}
                               </span>
                               <span className="text-gray-400 font-mono text-[10px] shrink-0">Rs. {((item.normalUnitPrice || item.product?.sellingPrice || 0) * item.quantity).toFixed(0)}</span>
                             </div>
@@ -283,9 +276,9 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
                         <div>
                           <div className="flex items-baseline gap-1.5">
                             <span className="text-xs text-gray-400 line-through">Rs. {combo.normalTotalPrice.toFixed(0)}</span>
-                            <span className="text-lg font-black text-emerald-800">Rs. {combo.comboPrice.toFixed(0)}</span>
+                            <span className="text-lg font-black text-[#103e2c]">Rs. {combo.comboPrice.toFixed(0)}</span>
                           </div>
-                          <p className="text-[10px] text-emerald-700 font-bold">
+                          <p className="text-[10px] text-emerald-800 font-bold">
                             Save Rs. {(combo.normalTotalPrice - combo.comboPrice).toFixed(0)} per pack
                           </p>
                         </div>
@@ -305,92 +298,20 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
               </section>
             )}
 
-            {/* 2. Custom & Super Saver Combos */}
-            {showSuperSection && (
-              <section className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center">
-                      <Gift className="w-4 h-4 text-emerald-600" />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-black text-gray-900">Custom & Super Saver Combos</h2>
-                      <p className="text-gray-400 text-xs">Standard store curated package deals.</p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                    {filteredSuperCombos.length} Combos Active
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-                  {filteredSuperCombos.map(combo => (
-                    <div key={combo.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-md transition-all flex flex-col justify-between space-y-4">
-                      <div>
-                        <div className="flex justify-between items-start gap-2 mb-2">
-                          <div>
-                            <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 text-[10px] font-black uppercase px-2 py-0.5 rounded border border-emerald-200/80 mb-1">
-                              Store Curated Bundle
-                            </span>
-                            <h3 className="font-extrabold text-gray-900 text-sm leading-snug">{combo.name}</h3>
-                            <p className="text-[10px] text-gray-400 font-mono mt-0.5">CODE: {combo.comboCode}</p>
-                          </div>
-                          <span className="bg-emerald-800 text-white text-[10px] font-black px-2.5 py-1 rounded-lg shrink-0 shadow-xs">
-                            {combo.discountPercentage.toFixed(0)}% OFF
-                          </span>
-                        </div>
-
-                        <div className="space-y-1.5 bg-gray-50/80 p-3 rounded-xl border border-gray-100 mt-3">
-                          <p className="text-[9px] font-black uppercase text-gray-400 tracking-wider">Bundle Items:</p>
-                          {combo.items.map((item: any, idx: number) => (
-                            <div key={idx} className="flex justify-between items-center text-xs font-semibold text-gray-700">
-                              <span className="line-clamp-1 pr-2">• {item.quantity}x {item.product?.name || item.productId}</span>
-                              <span className="text-gray-400 font-mono text-[10px] shrink-0">Rs. {((item.normalUnitPrice || item.product?.sellingPrice || 0) * item.quantity).toFixed(0)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-4">
-                        <div>
-                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-xs text-gray-400 line-through">Rs. {combo.normalTotalPrice.toFixed(0)}</span>
-                            <span className="text-lg font-black text-emerald-800">Rs. {combo.comboPrice.toFixed(0)}</span>
-                          </div>
-                          <p className="text-[10px] text-emerald-700 font-bold">
-                            Save Rs. {(combo.normalTotalPrice - combo.comboPrice).toFixed(0)}
-                          </p>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => addApprovedComboToCart && addApprovedComboToCart(combo)}
-                          className="bg-[#103e2c] text-white hover:bg-[#165a40] px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer shrink-0"
-                        >
-                          <ShoppingCart className="w-3.5 h-3.5" />
-                          Add Combo to Bill
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* 3. Daily Flash Deals */}
+            {/* 2. Today's Flash Daily Deals */}
             {showDailySection && (
               <section className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-orange-50 border border-orange-200 flex items-center justify-center">
-                      <Flame className="w-4 h-4 text-orange-600" />
+                    <div className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center">
+                      <Flame className="w-4 h-4 text-emerald-700" />
                     </div>
                     <div>
                       <h2 className="text-lg font-black text-gray-900">Today's Daily Flash Deals</h2>
                       <p className="text-gray-400 text-xs">Time-limited special daily item discounts.</p>
                     </div>
                   </div>
-                  <span className="text-xs font-bold text-orange-700 bg-orange-50 px-2.5 py-1 rounded-lg border border-orange-200">
+                  <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/80">
                     {filteredDaily.length} Products on Sale
                   </span>
                 </div>
@@ -402,10 +323,10 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
                       <div key={`${discount.id}-${prod.sku}-${idx}`} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-md transition-all flex flex-col justify-between space-y-3">
                         <div>
                           <div className="flex justify-between items-start gap-1 mb-2">
-                            <span className="bg-orange-50 text-orange-800 text-[9px] font-black uppercase px-2 py-0.5 rounded border border-orange-200">
+                            <span className="bg-emerald-50 text-[#103e2c] text-[9px] font-black uppercase px-2 py-0.5 rounded border border-emerald-200/80">
                               {discount.dailyEndTime ? `Ends ${discount.dailyEndTime}` : 'Daily Deal'}
                             </span>
-                            <span className="bg-orange-600 text-white text-[9px] font-black px-2 py-0.5 rounded shadow-xs">
+                            <span className="bg-[#103e2c] text-white text-[9px] font-black px-2 py-0.5 rounded shadow-xs">
                               {discount.discountValue}% OFF
                             </span>
                           </div>
@@ -422,7 +343,7 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
                             <button
                               type="button"
                               onClick={() => addSingleDiscountProduct(prod, discount)}
-                              className="p-2 bg-orange-50 hover:bg-orange-100 text-orange-800 rounded-xl transition-colors cursor-pointer"
+                              className="p-2 bg-emerald-50 hover:bg-emerald-100 text-[#103e2c] rounded-xl transition-colors cursor-pointer"
                               title="Add discounted product"
                             >
                               <ShoppingCart className="w-4 h-4" />
@@ -436,20 +357,20 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
               </section>
             )}
 
-            {/* 4. Seasonal & Festival Specials */}
+            {/* 3. Seasonal & Festival Specials */}
             {showSeasonalSection && (
               <section className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center">
-                      <Calendar className="w-4 h-4 text-blue-600" />
+                    <div className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center">
+                      <Calendar className="w-4 h-4 text-emerald-700" />
                     </div>
                     <div>
                       <h2 className="text-lg font-black text-gray-900">Seasonal & Festival Specials</h2>
                       <p className="text-gray-400 text-xs">Exclusive seasonal promotions & multi-item packages.</p>
                     </div>
                   </div>
-                  <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
+                  <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/80">
                     {filteredSeasonalCampaigns.length} Active Seasonal Offers
                   </span>
                 </div>
@@ -465,7 +386,7 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
                         <div>
                           <div className="flex justify-between items-start gap-2 mb-2">
                             <div>
-                              <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-800 text-[10px] font-black uppercase px-2 py-0.5 rounded border border-blue-200/80 mb-1">
+                              <span className="inline-flex items-center gap-1 bg-emerald-50 text-[#103e2c] text-[10px] font-black uppercase px-2 py-0.5 rounded border border-emerald-200/80 mb-1">
                                 <Calendar className="w-2.5 h-2.5" />
                                 {discount.label || 'Seasonal Offer'}
                               </span>
@@ -476,7 +397,7 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
                                 </p>
                               )}
                             </div>
-                            <span className="bg-blue-600 text-white text-[10px] font-black px-2.5 py-1 rounded-lg shrink-0 shadow-xs">
+                            <span className="bg-[#103e2c] text-white text-[10px] font-black px-2.5 py-1 rounded-lg shrink-0 shadow-xs">
                               {discount.discountValue}% OFF
                             </span>
                           </div>
@@ -494,7 +415,7 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
                                     <div className="min-w-0 pr-2">
                                       <p className="text-xs font-bold text-gray-800 truncate">{prod.name}</p>
                                       <div className="flex items-baseline gap-1">
-                                        <span className="text-[11px] font-black text-emerald-700">Rs. {discountedPrice.toFixed(0)}</span>
+                                        <span className="text-[11px] font-black text-emerald-800">Rs. {discountedPrice.toFixed(0)}</span>
                                         <span className="text-[9px] text-gray-400 line-through">Rs. {prod.price.toFixed(0)}</span>
                                       </div>
                                     </div>
@@ -502,7 +423,7 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
                                       <button
                                         type="button"
                                         onClick={() => addSingleDiscountProduct(prod, discount)}
-                                        className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-lg transition-colors cursor-pointer shrink-0"
+                                        className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-[#103e2c] rounded-lg transition-colors cursor-pointer shrink-0"
                                         title="Add this item only"
                                       >
                                         <ShoppingCart className="w-3.5 h-3.5" />
@@ -517,7 +438,7 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
 
                         {/* Footer & Add All to Cart */}
                         <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-4">
-                          <span className="text-[10px] font-bold text-blue-700">
+                          <span className="text-[10px] font-bold text-emerald-800">
                             {discount.discountValue}% Promotional Discount Applied
                           </span>
 
