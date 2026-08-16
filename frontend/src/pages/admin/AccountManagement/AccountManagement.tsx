@@ -49,6 +49,9 @@ export default function AccountManagement() {
   // Password Reset Modal
   const [passwordResetUser, setPasswordResetUser] = useState<AuthUser | null>(null);
 
+  // Status Change Confirmation Modal
+  const [statusConfirmUser, setStatusConfirmUser] = useState<AuthUser | null>(null);
+
   // Load Users (We load backend users and map additional mock fields like phone/username for UI demonstration if needed, but the backend handles name, email, role)
   const loadUsers = async () => {
     setLoading(true);
@@ -257,8 +260,16 @@ export default function AccountManagement() {
   const activeManagers = users.filter(u => u.role === 'INVENTORY_MANAGER' && u.isActive !== false).length;
   const inactiveAccounts = users.filter(u => u.isActive === false).length;
 
+  const passChecks = {
+    length: formData.password.length >= 8,
+    upper: /[A-Z]/.test(formData.password),
+    lower: /[a-z]/.test(formData.password),
+    number: /\d/.test(formData.password),
+    special: /[@$!%*?&]/.test(formData.password)
+  };
+
   return (
-    <div className="flex h-screen bg-[#f8f9fa] text-slate-800 font-sans overflow-hidden">
+    <div className="flex h-screen bg-[radial-gradient(circle_at_top_right,_rgba(11,130,82,0.10),_transparent_30%),linear-gradient(180deg,_#f8fafc_0%,_#f5f7fb_100%)] text-slate-800 font-sans overflow-hidden">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden relative">
         <AdminHeader />
@@ -442,7 +453,7 @@ export default function AccountManagement() {
                               </button>
                               <button 
                                 title={user.isActive !== false ? "Deactivate Account" : "Activate Account"}
-                                onClick={() => handleToggleStatus(user.id)}
+                                onClick={() => setStatusConfirmUser(user)}
                                 className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
                                   user.isActive !== false 
                                     ? 'text-slate-400 hover:text-amber-600 hover:bg-amber-50' 
@@ -476,10 +487,10 @@ export default function AccountManagement() {
 
       {/* Add Employee Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border border-slate-200">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 pt-6 pb-2 flex items-center justify-between bg-white">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-[#0b8252]/10 text-[#0b8252] flex items-center justify-center">
                   <span className="material-symbols-outlined">person_add</span>
@@ -508,27 +519,27 @@ export default function AccountManagement() {
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Full Name <span className="text-rose-500">*</span></label>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Full Name <span className="text-rose-500">*</span></label>
                       <input 
                         type="text" 
                         required
                         name="name"
                         value={formData.name}
                         onChange={handleChange}
-                        className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.name ? 'border-rose-500' : 'border-slate-200'} rounded-xl text-sm focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252]`}
+                        className={`w-full px-4 py-2.5 bg-white border ${formErrors.name ? 'border-rose-500' : 'border-slate-200'} rounded-lg text-sm focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252] shadow-sm`}
                         placeholder="e.g. John Doe"
                       />
                       {formErrors.name && <p className="text-[10px] text-rose-500 mt-1 font-medium">{formErrors.name}</p>}
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Email Address <span className="text-rose-500">*</span></label>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Email Address <span className="text-rose-500">*</span></label>
                       <input 
                         type="email" 
                         required
                         name="email"
                         value={formData.email}
                         onChange={handleChange}
-                        className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.email ? 'border-rose-500' : (emailCheck.available ? 'border-[#0b8252]' : 'border-slate-200')} rounded-xl text-sm focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252]`}
+                        className={`w-full px-4 py-2.5 bg-white border ${formErrors.email ? 'border-rose-500' : (emailCheck.available ? 'border-[#0b8252]' : 'border-slate-200')} rounded-lg text-sm focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252] shadow-sm`}
                         placeholder="user@example.com"
                       />
                       {formErrors.email ? (
@@ -553,7 +564,7 @@ export default function AccountManagement() {
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Temporary Password <span className="text-rose-500">*</span></label>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Temporary Password <span className="text-rose-500">*</span></label>
                       <div className="relative">
                         <input 
                           type={showPassword ? "text" : "password"}
@@ -561,8 +572,8 @@ export default function AccountManagement() {
                           name="password"
                           value={formData.password}
                           onChange={handleChange}
-                          className={`w-full pl-4 pr-10 py-2.5 bg-slate-50 border ${formErrors.password ? 'border-rose-500' : 'border-slate-200'} rounded-xl text-sm focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252]`}
-                          placeholder="Min. 8 chars, 1 Uppercase, 1 Number, 1 Special"
+                          className={`w-full pl-4 pr-10 py-2.5 bg-white border ${formErrors.password ? 'border-rose-500' : 'border-slate-200'} rounded-lg text-sm focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252] shadow-sm`}
+                          placeholder="Min. 8 chars, 1 Uppercase, 1 Number"
                         />
                         <button 
                           type="button" 
@@ -575,7 +586,7 @@ export default function AccountManagement() {
                       {formErrors.password && <p className="text-[10px] text-rose-500 mt-1 font-medium">{formErrors.password}</p>}
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Confirm Password <span className="text-rose-500">*</span></label>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Confirm Password <span className="text-rose-500">*</span></label>
                       <div className="relative">
                         <input 
                           type={showConfirmPassword ? "text" : "password"}
@@ -583,7 +594,7 @@ export default function AccountManagement() {
                           name="confirmPassword"
                           value={formData.confirmPassword}
                           onChange={handleChange}
-                          className={`w-full pl-4 pr-10 py-2.5 bg-slate-50 border ${formErrors.confirmPassword ? 'border-rose-500' : 'border-slate-200'} rounded-xl text-sm focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252]`}
+                          className={`w-full pl-4 pr-10 py-2.5 bg-white border ${formErrors.confirmPassword ? 'border-rose-500' : 'border-slate-200'} rounded-lg text-sm focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252] shadow-sm`}
                           placeholder="Confirm password"
                         />
                         <button 
@@ -597,23 +608,23 @@ export default function AccountManagement() {
                       {formErrors.confirmPassword && <p className="text-[10px] text-rose-500 mt-1 font-medium">{formErrors.confirmPassword}</p>}
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Phone Number</label>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Phone Number</label>
                       <input 
                         type="tel" 
                         name="phone"
                         value={formData.phone}
                         onChange={handleChange}
-                        className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.phone ? 'border-rose-500' : 'border-slate-200'} rounded-xl text-sm focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252]`}
+                        className={`w-full px-4 py-2.5 bg-white border ${formErrors.phone ? 'border-rose-500' : 'border-slate-200'} rounded-lg text-sm focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252] shadow-sm`}
                         placeholder="0771234567"
                       />
                       {formErrors.phone && <p className="text-[10px] text-rose-500 mt-1 font-medium">{formErrors.phone}</p>}
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Account Status</label>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Account Status</label>
                       <select 
                         value={formData.status}
                         onChange={(e) => setFormData({...formData, status: e.target.value})}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252] cursor-pointer"
+                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252] cursor-pointer shadow-sm"
                       >
                         <option value="ACTIVE">Active (Can Login)</option>
                         <option value="INACTIVE">Inactive (Suspended)</option>
@@ -639,9 +650,9 @@ export default function AccountManagement() {
                   </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <label className={`relative flex flex-col p-4 cursor-pointer rounded-2xl border-2 transition-all ${
+                    <label className={`relative flex flex-col p-4 cursor-pointer rounded-lg border-2 transition-all ${
                       formData.role === 'CASHIER' 
-                        ? 'border-[#0b8252] bg-[#0b8252]/5' 
+                        ? 'border-[#0b8252] bg-white shadow-sm' 
                         : 'border-slate-200 bg-white hover:border-slate-300'
                     }`}>
                       <input 
@@ -653,22 +664,24 @@ export default function AccountManagement() {
                         className="sr-only" 
                       />
                       <div className="flex justify-between items-start mb-2">
-                        <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
-                          <span className="material-symbols-outlined">point_of_sale</span>
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                          formData.role === 'CASHIER' ? 'bg-[#e6f4ef] text-[#0b8252]' : 'bg-slate-50 text-slate-400'
+                        }`}>
+                          <span className="material-symbols-outlined text-[18px]">point_of_sale</span>
                         </div>
                         <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                          formData.role === 'CASHIER' ? 'border-[#0b8252] bg-[#0b8252]' : 'border-slate-300'
+                          formData.role === 'CASHIER' ? 'border-[#0b8252] bg-[#0b8252]' : 'border-slate-300 bg-white'
                         }`}>
                           {formData.role === 'CASHIER' && <span className="material-symbols-outlined text-[14px] text-white">check</span>}
                         </span>
                       </div>
-                      <h4 className="font-bold text-slate-900">Cashier</h4>
-                      <p className="text-xs text-slate-500 mt-1">Point of Sale operations and checkout handling.</p>
+                      <h4 className="font-bold text-slate-900 mt-2">Cashier</h4>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">Point of Sale operations and checkout handling.</p>
                     </label>
 
-                    <label className={`relative flex flex-col p-4 cursor-pointer rounded-2xl border-2 transition-all ${
+                    <label className={`relative flex flex-col p-4 cursor-pointer rounded-lg border-2 transition-all ${
                       formData.role === 'INVENTORY_MANAGER' 
-                        ? 'border-[#0b8252] bg-[#0b8252]/5' 
+                        ? 'border-[#0b8252] bg-white shadow-sm' 
                         : 'border-slate-200 bg-white hover:border-slate-300'
                     }`}>
                       <input 
@@ -680,17 +693,19 @@ export default function AccountManagement() {
                         className="sr-only" 
                       />
                       <div className="flex justify-between items-start mb-2">
-                        <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                          <span className="material-symbols-outlined">inventory_2</span>
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                          formData.role === 'INVENTORY_MANAGER' ? 'bg-[#e6f4ef] text-[#0b8252]' : 'bg-slate-50 text-slate-400'
+                        }`}>
+                          <span className="material-symbols-outlined text-[18px]">inventory_2</span>
                         </div>
                         <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                          formData.role === 'INVENTORY_MANAGER' ? 'border-[#0b8252] bg-[#0b8252]' : 'border-slate-300'
+                          formData.role === 'INVENTORY_MANAGER' ? 'border-[#0b8252] bg-[#0b8252]' : 'border-slate-300 bg-white'
                         }`}>
                           {formData.role === 'INVENTORY_MANAGER' && <span className="material-symbols-outlined text-[14px] text-white">check</span>}
                         </span>
                       </div>
-                      <h4 className="font-bold text-slate-900">Inventory Manager</h4>
-                      <p className="text-xs text-slate-500 mt-1">Full access to stock, procurement, and reports.</p>
+                      <h4 className="font-bold text-slate-900 mt-2">Inventory Manager</h4>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">Full access to stock, procurement, and reports.</p>
                     </label>
                   </div>
 
@@ -730,11 +745,11 @@ export default function AccountManagement() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+            <div className="px-6 pb-6 pt-2 bg-white flex justify-end gap-3">
               <button 
                 type="button"
                 onClick={() => setShowAddModal(false)}
-                className="px-5 py-2.5 rounded-xl font-bold text-sm text-slate-600 hover:bg-slate-200 transition-colors"
+                className="px-5 py-2.5 font-bold text-sm text-slate-600 hover:text-slate-800 transition-colors"
               >
                 Cancel
               </button>
@@ -742,7 +757,7 @@ export default function AccountManagement() {
                 type="submit"
                 form="add-employee-form"
                 disabled={submitting}
-                className="px-6 py-2.5 rounded-xl font-bold text-sm bg-[#0b8252] text-white hover:bg-[#096b43] transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
+                className="px-6 py-2.5 rounded-lg font-bold text-sm bg-[#0b8252] text-white hover:bg-[#096b43] transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
               >
                 {submitting && <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>}
                 {submitting ? 'Creating...' : 'Create Account'}
@@ -754,9 +769,9 @@ export default function AccountManagement() {
 
       {/* Edit Employee Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border border-slate-200">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 pt-6 pb-2 flex items-center justify-between bg-white">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-[#0b8252]/10 text-[#0b8252] flex items-center justify-center">
                   <span className="material-symbols-outlined">edit</span>
@@ -783,26 +798,26 @@ export default function AccountManagement() {
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Full Name <span className="text-rose-500">*</span></label>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Full Name <span className="text-rose-500">*</span></label>
                       <input 
                         type="text" 
                         required
                         name="name"
                         value={editFormData.name}
                         onChange={handleEditChange}
-                        className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.name ? 'border-rose-500' : 'border-slate-200'} rounded-xl text-sm focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252]`}
+                        className={`w-full px-4 py-2.5 bg-white border ${formErrors.name ? 'border-rose-500' : 'border-slate-200'} rounded-lg text-sm focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252] shadow-sm`}
                       />
                       {formErrors.name && <p className="text-[10px] text-rose-500 mt-1 font-medium">{formErrors.name}</p>}
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Email Address <span className="text-rose-500">*</span></label>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Email Address <span className="text-rose-500">*</span></label>
                       <input 
                         type="email" 
                         required
                         name="email"
                         value={editFormData.email}
                         onChange={handleEditChange}
-                        className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.email ? 'border-rose-500' : 'border-slate-200'} rounded-xl text-sm focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252]`}
+                        className={`w-full px-4 py-2.5 bg-white border ${formErrors.email ? 'border-rose-500' : 'border-slate-200'} rounded-lg text-sm focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252] shadow-sm`}
                       />
                       {formErrors.email && <p className="text-[10px] text-rose-500 mt-1 font-medium">{formErrors.email}</p>}
                     </div>
@@ -816,22 +831,22 @@ export default function AccountManagement() {
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Phone Number</label>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Phone Number</label>
                       <input 
                         type="tel" 
                         name="phone"
                         value={editFormData.phone}
                         onChange={handleEditChange}
-                        className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.phone ? 'border-rose-500' : 'border-slate-200'} rounded-xl text-sm focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252]`}
+                        className={`w-full px-4 py-2.5 bg-white border ${formErrors.phone ? 'border-rose-500' : 'border-slate-200'} rounded-lg text-sm focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252] shadow-sm`}
                       />
                       {formErrors.phone && <p className="text-[10px] text-rose-500 mt-1 font-medium">{formErrors.phone}</p>}
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Account Status</label>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Account Status</label>
                       <select 
                         value={editFormData.isActive ? 'ACTIVE' : 'INACTIVE'}
                         onChange={(e) => setEditFormData({...editFormData, isActive: e.target.value === 'ACTIVE'})}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252] cursor-pointer"
+                        className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-[#0b8252] focus:ring-1 focus:ring-[#0b8252] cursor-pointer shadow-sm"
                       >
                         <option value="ACTIVE">Active (Can Login)</option>
                         <option value="INACTIVE">Inactive (Suspended)</option>
@@ -846,9 +861,9 @@ export default function AccountManagement() {
                     Assigned Role
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <label className={`relative flex flex-col p-4 cursor-pointer rounded-2xl border-2 transition-all ${
+                    <label className={`relative flex flex-col p-4 cursor-pointer rounded-lg border-2 transition-all ${
                       editFormData.role === 'CASHIER' 
-                        ? 'border-[#0b8252] bg-[#0b8252]/5' 
+                        ? 'border-[#0b8252] bg-white shadow-sm' 
                         : 'border-slate-200 bg-white hover:border-slate-300'
                     }`}>
                       <input 
@@ -860,21 +875,24 @@ export default function AccountManagement() {
                         className="sr-only" 
                       />
                       <div className="flex justify-between items-start mb-2">
-                        <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
-                          <span className="material-symbols-outlined">point_of_sale</span>
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                          editFormData.role === 'CASHIER' ? 'bg-[#e6f4ef] text-[#0b8252]' : 'bg-slate-50 text-slate-400'
+                        }`}>
+                          <span className="material-symbols-outlined text-[18px]">point_of_sale</span>
                         </div>
                         <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                          editFormData.role === 'CASHIER' ? 'border-[#0b8252] bg-[#0b8252]' : 'border-slate-300'
+                          editFormData.role === 'CASHIER' ? 'border-[#0b8252] bg-[#0b8252]' : 'border-slate-300 bg-white'
                         }`}>
                           {editFormData.role === 'CASHIER' && <span className="material-symbols-outlined text-[14px] text-white">check</span>}
                         </span>
                       </div>
-                      <h4 className="font-bold text-slate-900">Cashier</h4>
+                      <h4 className="font-bold text-slate-900 mt-2">Cashier</h4>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">Point of Sale operations and checkout handling.</p>
                     </label>
 
-                    <label className={`relative flex flex-col p-4 cursor-pointer rounded-2xl border-2 transition-all ${
+                    <label className={`relative flex flex-col p-4 cursor-pointer rounded-lg border-2 transition-all ${
                       editFormData.role === 'INVENTORY_MANAGER' 
-                        ? 'border-[#0b8252] bg-[#0b8252]/5' 
+                        ? 'border-[#0b8252] bg-white shadow-sm' 
                         : 'border-slate-200 bg-white hover:border-slate-300'
                     }`}>
                       <input 
@@ -886,23 +904,26 @@ export default function AccountManagement() {
                         className="sr-only" 
                       />
                       <div className="flex justify-between items-start mb-2">
-                        <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                          <span className="material-symbols-outlined">inventory_2</span>
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                          editFormData.role === 'INVENTORY_MANAGER' ? 'bg-[#e6f4ef] text-[#0b8252]' : 'bg-slate-50 text-slate-400'
+                        }`}>
+                          <span className="material-symbols-outlined text-[18px]">inventory_2</span>
                         </div>
                         <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                          editFormData.role === 'INVENTORY_MANAGER' ? 'border-[#0b8252] bg-[#0b8252]' : 'border-slate-300'
+                          editFormData.role === 'INVENTORY_MANAGER' ? 'border-[#0b8252] bg-[#0b8252]' : 'border-slate-300 bg-white'
                         }`}>
                           {editFormData.role === 'INVENTORY_MANAGER' && <span className="material-symbols-outlined text-[14px] text-white">check</span>}
                         </span>
                       </div>
-                      <h4 className="font-bold text-slate-900">Inventory Manager</h4>
+                      <h4 className="font-bold text-slate-900 mt-2">Inventory Manager</h4>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">Full access to stock, procurement, and reports.</p>
                     </label>
                   </div>
                 </div>
               </form>
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+            <div className="px-6 pb-6 pt-2 bg-white flex justify-end gap-3">
               <button 
                 type="button"
                 onClick={() => setShowEditModal(false)}
@@ -926,7 +947,7 @@ export default function AccountManagement() {
 
       {/* Reset Password Modal */}
       {passwordResetUser && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden p-6 text-center border border-slate-200 transform transition-all scale-100">
             <div className="mx-auto w-16 h-16 bg-emerald-50 text-[#0b8252] rounded-full flex items-center justify-center mb-4 border border-emerald-100">
               <span className="material-symbols-outlined text-[32px]">lock_reset</span>
@@ -948,6 +969,41 @@ export default function AccountManagement() {
                 className="flex-1 px-4 py-2.5 rounded-xl font-bold text-sm text-white bg-[#0b8252] hover:bg-[#096b43] transition-colors shadow-sm"
               >
                 Yes, Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toggle Status Confirmation Modal */}
+      {statusConfirmUser && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden p-6 text-center border border-slate-200 transform transition-all scale-100">
+            <div className={`mx-auto w-16 h-16 ${statusConfirmUser.isActive !== false ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'} rounded-full flex items-center justify-center mb-4 border`}>
+              <span className="material-symbols-outlined text-[32px]">{statusConfirmUser.isActive !== false ? 'block' : 'check_circle'}</span>
+            </div>
+            <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2">
+              {statusConfirmUser.isActive !== false ? 'Deactivate Account?' : 'Activate Account?'}
+            </h3>
+            <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+              Are you sure you want to {statusConfirmUser.isActive !== false ? 'deactivate (suspend)' : 'activate'} the account of <strong className="text-slate-700">{statusConfirmUser.name}</strong>?
+              {statusConfirmUser.isActive !== false ? ' They will lose access to system login immediately.' : ' They will recover login access immediately.'}
+            </p>
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => setStatusConfirmUser(null)}
+                className="flex-1 px-4 py-2.5 rounded-xl font-bold text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  await handleToggleStatus(statusConfirmUser.id);
+                  setStatusConfirmUser(null);
+                }}
+                className={`flex-1 px-4 py-2.5 rounded-xl font-bold text-sm text-white ${statusConfirmUser.isActive !== false ? 'bg-amber-600 hover:bg-amber-700' : 'bg-[#0b8252] hover:bg-[#096b43]'} transition-colors shadow-sm`}
+              >
+                Confirm
               </button>
             </div>
           </div>
