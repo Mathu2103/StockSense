@@ -209,13 +209,9 @@ def generate_combo_suggestions(db: Session, forecast_run_id: str = None, associa
         if curr_stock <= safety or effective_excess <= 0 or sku in expiring_skus:
             continue
 
-<<<<<<< HEAD
         # Check for Dead Stock (no sales in last 90 days / recent 30 is 0)
         if recent_sales == 0:
-=======
-        # Check for Dead Stock (no sales or very low sales < 10 with zero sales ratio / low movement)
-        if recent_sales == 0 or behavior == "DEAD":
->>>>>>> 51194e3 (frontend changes)
+
             priority = 85.0
             detected_opportunities.append({
                 "targetProductId": sku,

@@ -128,6 +128,7 @@ export class NotificationService {
       for (const combo of pendingCombos) {
         const existing = await prisma.notification.findFirst({
           where: { 
+            type: 'STOCK_VELOCITY', 
             title: { contains: combo.comboCode } 
           }
         });
