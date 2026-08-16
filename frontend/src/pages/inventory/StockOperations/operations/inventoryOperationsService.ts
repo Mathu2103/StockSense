@@ -23,6 +23,23 @@ export interface ProductItem {
   expiryDate?: string;
 }
 
+export function getProductReorderThreshold(product: { reorderLevel?: number; targetCapacity?: number }): number {
+  let percent = 25;
+  try {
+    const configStr = typeof window !== 'undefined' ? localStorage.getItem('stocksense_settings_config') : null;
+    if (configStr) {
+      const config = JSON.parse(configStr);
+      if (config.defaultReorderLevel) {
+        percent = parseInt(config.defaultReorderLevel, 10) || 25;
+      }
+    }
+  } catch {}
+
+  const capacityBased = product.targetCapacity ? Math.round((percent / 100) * product.targetCapacity) : 0;
+  const staticLevel = product.reorderLevel || 0;
+  return capacityBased > 0 ? capacityBased : (staticLevel > 0 ? staticLevel : 25);
+}
+
 export interface GRNItem {
   productName: string;
   sku: string;
@@ -153,7 +170,7 @@ export const inventoryOperationsService = {
 
   createGRN: async (grn: Omit<GRNRecord, 'id' | 'grnNumber' | 'accuracyScore' | 'status'>): Promise<GRNRecord> => {
     try {
-      const res = await api.post('/inventory/grns', grn);
+      const res = await (api as any).post('/inventory/grns', grn, { suppressGlobalError: true });
       if (res.data && res.data.success) {
         return res.data.data;
       }
@@ -202,7 +219,7 @@ export const inventoryOperationsService = {
 
   createAdjustment: async (adj: Omit<AdjustmentRecord, 'id' | 'adjustmentNumber' | 'totalValue' | 'beforeStock' | 'afterStock' | 'status'>): Promise<AdjustmentRecord> => {
     try {
-      const res = await api.post('/inventory/adjustments', adj);
+      const res = await (api as any).post('/inventory/adjustments', adj, { suppressGlobalError: true });
       if (res.data && res.data.success) {
         return res.data.data;
       }

@@ -23,10 +23,7 @@ export default function Alerts() {
     lowStockAlerts,
     outOfStockAlerts,
     expiryAlerts,
-    deadStockAlerts,
-    overstockAlerts,
     discountAlerts,
-    smartInsights,
     filtered,
     activeTab,
     setActiveTab,
@@ -113,7 +110,7 @@ export default function Alerts() {
               <div>
                 <h1 className="text-2xl font-bold text-slate-800">Alerts &amp; Notifications</h1>
                 <p className="text-slate-500 text-sm mt-1">
-                  Monitor inventory health — low stock, expiry dates, dead stock, and reorder needs.
+                  Monitor inventory health — low stock, out of stock, expiry dates, and approvals.
                   {unread > 0 && (
                     <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded-full">
                       {unread} unread
@@ -123,17 +120,14 @@ export default function Alerts() {
               </div>
             </div>
 
-            {/* Alert Summary KPIs & Smart Insights */}
+            {/* Alert Summary KPIs */}
             <AlertSummary
               totalAlerts={visible.length}
               criticalAlerts={criticalAlerts}
               lowStockAlerts={lowStockAlerts}
               outOfStockAlerts={outOfStockAlerts}
               expiryAlerts={expiryAlerts}
-              deadStockAlerts={deadStockAlerts}
-              overstockAlerts={overstockAlerts}
               discountAlerts={discountAlerts}
-              smartInsights={smartInsights}
               setActiveTab={setActiveTab}
               setSevFilter={setSevFilter}
             />

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import Sidebar from '../Shared/Sidebar';
 import InventoryHeader from '../Shared/InventoryHeader';
@@ -350,6 +351,9 @@ export default function ProductManagement() {
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [addCategoryTrigger, setAddCategoryTrigger] = useState(0);
+  const [addBrandTrigger, setAddBrandTrigger] = useState(0);
+  const [addDiscountTrigger, setAddDiscountTrigger] = useState(0);
 
   // preloaded brands directory
   const [brands, setBrands] = useState<BrandItem[]>([]);
@@ -451,6 +455,11 @@ export default function ProductManagement() {
   const initialSearch = searchParams.get('search') || '';
   const initialCategory = searchParams.get('category') || 'All Categories';
   const initialBrand = searchParams.get('brand') || '';
+  const filterParam = (searchParams.get('filter') || '').toLowerCase();
+  const initialQuickFilter: 'All' | 'Active' | 'Low Stock' | 'Out of Stock' =
+    filterParam === 'low-stock' || filterParam === 'low_stock' ? 'Low Stock' :
+    filterParam === 'out-of-stock' || filterParam === 'out_of_stock' ? 'Out of Stock' :
+    filterParam === 'active' ? 'Active' : 'All';
 
   // Edit target state
   const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
@@ -875,61 +884,68 @@ export default function ProductManagement() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <h1 className="text-xl font-black tracking-tight text-on-surface sm:text-2xl">
-                  Supermarket Product Catalog
+                  {activeTab === 'categories'
+                    ? 'Category Registry'
+                    : activeTab === 'brands'
+                    ? 'Brands Registry'
+                    : activeTab === 'discounts'
+                    ? 'Discount Registry'
+                    : 'Supermarket Product Catalog'}
                 </h1>
                 <p className="text-xs text-outline mt-1 font-medium">
-                  Add, edit, delete, and visual search through all supermarket catalog nodes, brands registry, and suppliers.
+                  {activeTab === 'categories'
+                    ? 'Manage product categories, subcategories hierarchy, and catalog node assignments.'
+                    : activeTab === 'brands'
+                    ? 'Register and manage recognized product brands and manufacturers.'
+                    : activeTab === 'discounts'
+                    ? 'Manage promotional discounts, seasonal campaigns, and special bundle pricing.'
+                    : 'Add, edit, delete, and visual search through all supermarket catalog nodes, brands registry, and suppliers.'}
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={() => { setEditingProduct(null); setIsNewProductModalOpen(true); }}
-                className="flex items-center gap-1.5 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-sm hover:opacity-90 transition-opacity"
-              >
-                <span className="material-symbols-outlined text-[18px]">add</span>
-                Add New Product
-              </button>
-            </div>
+              {activeTab === 'products' && (
+                <button
+                  type="button"
+                  onClick={() => { setEditingProduct(null); setIsNewProductModalOpen(true); }}
+                  className="flex items-center gap-1.5 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-sm hover:opacity-90 transition-opacity"
+                >
+                  <span className="material-symbols-outlined text-[18px]">add</span>
+                  Add New Product
+                </button>
+              )}
 
-            {/* Segment Controls Navigation Tab Bar */}
-            <div className="border-b border-outline-variant pb-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="inline-flex p-1 bg-surface-container-low border border-outline-variant/60 rounded-lg text-xs font-medium w-full sm:w-auto overflow-x-auto gap-1">
-                  <button
-                    type="button"
-                    onClick={() => handleTabChange('products')}
-                    className={`px-4 py-1.5 rounded-md transition-all whitespace-nowrap ${activeTab === 'products' ? 'bg-white text-primary shadow-sm font-black' : 'text-on-surface-variant hover:text-on-surface'
-                      }`}
-                  >
-                    Products Registry
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleTabChange('categories')}
-                    className={`px-4 py-1.5 rounded-md transition-all whitespace-nowrap ${activeTab === 'categories' ? 'bg-white text-primary shadow-sm font-black' : 'text-on-surface-variant hover:text-on-surface'
-                      }`}
-                  >
-                    Category Registry
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleTabChange('brands')}
-                    className={`px-4 py-1.5 rounded-md transition-all whitespace-nowrap ${activeTab === 'brands' ? 'bg-white text-primary shadow-sm font-black' : 'text-on-surface-variant hover:text-on-surface'
-                      }`}
-                  >
-                    Brands
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleTabChange('discounts')}
-                    className={`px-4 py-1.5 rounded-md transition-all whitespace-nowrap ${activeTab === 'discounts' ? 'bg-white text-primary shadow-sm font-black' : 'text-on-surface-variant hover:text-on-surface'
-                      }`}
-                  >
-                    Discounts
-                  </button>
-                </div>
-              </div>
+              {activeTab === 'categories' && (
+                <button
+                  type="button"
+                  onClick={() => setAddCategoryTrigger((prev) => prev + 1)}
+                  className="flex items-center gap-1.5 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-sm hover:opacity-90 transition-opacity"
+                >
+                  <span className="material-symbols-outlined text-[18px]">add</span>
+                  Add Category
+                </button>
+              )}
+
+              {activeTab === 'brands' && (
+                <button
+                  type="button"
+                  onClick={() => setAddBrandTrigger((prev) => prev + 1)}
+                  className="flex items-center gap-1.5 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-sm hover:opacity-90 transition-opacity"
+                >
+                  <span className="material-symbols-outlined text-[18px]">add</span>
+                  Add Brand
+                </button>
+              )}
+
+              {activeTab === 'discounts' && (
+                <button
+                  type="button"
+                  onClick={() => setAddDiscountTrigger((prev) => prev + 1)}
+                  className="flex items-center gap-1.5 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold shadow-sm hover:opacity-90 transition-opacity"
+                >
+                  <span className="material-symbols-outlined text-[18px]">add</span>
+                  Create Discount Campaign
+                </button>
+              )}
             </div>
 
             {/* Active view state router */}
@@ -944,6 +960,7 @@ export default function ProductManagement() {
                 initialSearch={initialSearch}
                 initialCategory={initialCategory}
                 initialBrand={initialBrand}
+                initialQuickFilter={initialQuickFilter}
                 showConfirm={showConfirm}
               />
             )}
@@ -952,7 +969,7 @@ export default function ProductManagement() {
               <CategoryRegistry
                 categories={categories}
                 products={products}
-
+                openAddModalTrigger={addCategoryTrigger}
                 onAddCategory={handleAddCategoryNode}
                 onEditCategory={handleEditCategoryNode}
                 onEditSubcategory={handleEditSubcategoryNode}
@@ -973,6 +990,7 @@ export default function ProductManagement() {
               <BrandRegistry
                 brands={brands}
                 products={products}
+                openAddModalTrigger={addBrandTrigger}
                 onAddBrand={handleAddBrand}
                 onEditBrand={handleEditBrand}
                 onArchiveBrand={(id) => handleToggleBrandStatus(id, 'Inactive')}
@@ -983,93 +1001,106 @@ export default function ProductManagement() {
             {activeTab === 'discounts' && (
               <DiscountRegistry
                 products={products}
+                openAddModalTrigger={addDiscountTrigger}
                 showToast={showToast}
                 showConfirm={showConfirm}
               />
             )}
 
-            {isNewProductModalOpen && (
-              <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-sm">
-                <div className="bg-background rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200">
-                  {/* Modal Header */}
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant bg-surface-container-lowest rounded-t-2xl shrink-0">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary text-[24px]">
-                        {editingProduct ? 'edit' : 'add_box'}
-                      </span>
-                      <h2 className="text-lg font-black text-on-surface">
-                        {editingProduct ? 'Edit Product' : 'Add New Product'}
-                      </h2>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsNewProductModalOpen(false);
-                        setEditingProduct(null);
-                      }}
-                      className="p-1.5 text-outline hover:text-on-surface hover:bg-slate-100 rounded-lg transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[20px]">close</span>
-                    </button>
-                  </div>
-
-                  {/* Modal Body */}
-                  <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
-                    <NewProductForm
-                      categories={categories}
-                      suppliers={suppliers}
-                      brands={brands}
-                      onSave={handleSaveProduct}
-                      onCancel={(discarded) => {
-                        if (discarded) showToast('Product form discarded.', 'info');
-                        setIsNewProductModalOpen(false);
-                        setEditingProduct(null);
-                      }}
-                      initialProduct={editingProduct}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {confirmConfig && confirmConfig.isOpen && (() => {
-              const isDeleteAction = /delete|archive|remove/i.test(confirmConfig.title) || (typeof confirmConfig.message === 'string' && /delete|archive|remove/i.test(confirmConfig.message));
-              const iconColor = isDeleteAction ? 'text-rose-600 bg-rose-50' : 'text-primary bg-primary-50';
-              const iconName = isDeleteAction ? 'warning' : 'help';
-              const confirmBtnBg = isDeleteAction ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-primary text-white';
-
-              return (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-                  <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
-                    <div className="p-6 flex gap-4">
-                      <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${iconColor}`}>
-                        <span className="material-symbols-outlined text-[28px]">{iconName}</span>
+            {isNewProductModalOpen &&
+              createPortal(
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 sm:p-6 backdrop-blur-sm">
+                  <div className="bg-background rounded-2xl w-full max-w-5xl max-h-[88vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                    {/* Modal Header */}
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant bg-surface-container-lowest rounded-t-2xl shrink-0">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary text-[24px]">
+                          {editingProduct ? 'edit' : 'add_box'}
+                        </span>
+                        <h2 className="text-lg font-black text-on-surface">
+                          {editingProduct ? 'Edit Product' : 'Add New Product'}
+                        </h2>
                       </div>
-                      <div className="space-y-1.5 flex-1 min-w-0">
-                        <h3 className="text-sm font-extrabold text-on-surface leading-6">{confirmConfig.title}</h3>
-                        <div className="text-xs text-outline leading-relaxed">{confirmConfig.message}</div>
-                      </div>
-                    </div>
-                    <div className="bg-slate-50/80 px-6 py-4 flex justify-end gap-2 border-t border-outline-variant/60">
                       <button
                         type="button"
-                        onClick={() => setConfirmConfig(null)}
-                        className="px-4 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition-all"
+                        onClick={() => {
+                          setIsNewProductModalOpen(false);
+                          setEditingProduct(null);
+                        }}
+                        className="p-1.5 text-outline hover:text-on-surface hover:bg-slate-100 rounded-lg transition-colors"
                       >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={confirmConfig.onConfirm}
-                        className={`px-5 py-2 rounded-lg text-xs font-bold hover:opacity-90 transition-all shadow-sm ${confirmBtnBg}`}
-                      >
-                        Confirm
+                        <span className="material-symbols-outlined text-[20px]">close</span>
                       </button>
                     </div>
+
+                    {/* Modal Body */}
+                    <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+                      <NewProductForm
+                        categories={categories}
+                        suppliers={suppliers}
+                        brands={brands}
+                        onSave={handleSaveProduct}
+                        onCancel={(discarded) => {
+                          if (discarded) showToast('Product form discarded.', 'info');
+                          setIsNewProductModalOpen(false);
+                          setEditingProduct(null);
+                        }}
+                        initialProduct={editingProduct}
+                      />
+                    </div>
                   </div>
-                </div>
-              );
-            })()}
+                </div>,
+                document.body
+              )}
+
+            {confirmConfig &&
+              confirmConfig.isOpen &&
+              createPortal(
+                (() => {
+                  const isDeleteAction =
+                    /delete|archive|remove/i.test(confirmConfig.title) ||
+                    (typeof confirmConfig.message === 'string' &&
+                      /delete|archive|remove/i.test(confirmConfig.message));
+                  const iconColor = isDeleteAction ? 'text-rose-600 bg-rose-50' : 'text-primary bg-primary-50';
+                  const iconName = isDeleteAction ? 'warning' : 'help';
+                  const confirmBtnBg = isDeleteAction
+                    ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                    : 'bg-primary text-white';
+
+                  return (
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-150">
+                      <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+                        <div className="p-6 flex gap-4">
+                          <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${iconColor}`}>
+                            <span className="material-symbols-outlined text-[28px]">{iconName}</span>
+                          </div>
+                          <div className="space-y-1.5 flex-1 min-w-0">
+                            <h3 className="text-sm font-extrabold text-on-surface leading-6">{confirmConfig.title}</h3>
+                            <div className="text-xs text-outline leading-relaxed">{confirmConfig.message}</div>
+                          </div>
+                        </div>
+                        <div className="bg-slate-50/80 px-6 py-4 flex justify-end gap-2 border-t border-outline-variant/60">
+                          <button
+                            type="button"
+                            onClick={() => setConfirmConfig(null)}
+                            className="px-4 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition-all"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={confirmConfig.onConfirm}
+                            className={`px-5 py-2 rounded-lg text-xs font-bold hover:opacity-90 transition-all shadow-sm ${confirmBtnBg}`}
+                          >
+                            Confirm
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })(),
+                document.body
+              )}
 
           </div>
 

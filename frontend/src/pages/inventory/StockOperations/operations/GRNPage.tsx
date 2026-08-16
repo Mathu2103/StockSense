@@ -1,6 +1,8 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import Pagination from '@/components/shared/Pagination';
 import { inventoryOperationsService, ProductItem, GRNRecord, GRNItem } from './inventoryOperationsService';
 
 const SearchableProductSelect = ({ products, value, onChange }: { products: ProductItem[], value: string, onChange: (val: string) => void }) => {
@@ -116,7 +118,10 @@ export default function GRNPage() {
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [grnHistory, setGrnHistory] = useState<GRNRecord[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+
+  // Pagination state for past receipts
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -188,11 +193,6 @@ export default function GRNPage() {
     }
   };
 
-  const triggerToast = (message: string) => {
-    setToast(message);
-    setTimeout(() => setToast(null), 3000);
-  };
-
   // Add a new row to the receipt form
   const addProductRow = () => {
     if (products.length === 0) return;
@@ -214,7 +214,7 @@ export default function GRNPage() {
   // Remove a row
   const removeProductRow = (index: number) => {
     if (formItems.length === 1) {
-      triggerToast('A GRN must contain at least one product line.');
+      toast.error('A GRN must contain at least one product line.');
       return;
     }
     setFormItems(prev => prev.filter((_, i) => i !== index));
@@ -276,12 +276,17 @@ export default function GRNPage() {
     };
   }, [formItems]);
 
+  const paginatedGrnHistory = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return grnHistory.slice(start, start + pageSize);
+  }, [grnHistory, currentPage, pageSize]);
+
   // Handle GRN submission
   const handleSubmitGRN = async (e: React.FormEvent, andPrint = false) => {
     e.preventDefault();
     
     if (notes && notes.length > 500) {
-      triggerToast('Notes must be 500 characters or less.');
+      toast.error('Notes must be 500 characters or less.');
       return;
     }
 
@@ -289,24 +294,24 @@ export default function GRNPage() {
     for (let i = 0; i < formItems.length; i++) {
       const item = formItems[i];
       if (!item.productName) {
-        triggerToast(`Please select a product for line ${i + 1}.`);
+        toast.error(`Please select a product for line ${i + 1}.`);
         return;
       }
       const qty = Number(item.receivedQty);
       if (isNaN(qty) || qty <= 0 || !Number.isInteger(qty)) {
-        triggerToast(`Added quantity for "${item.productName}" must be a positive integer.`);
+        toast.error(`Added quantity for "${item.productName}" must be a positive integer.`);
         return;
       }
       const cost = Number(item.unitCost);
       if (isNaN(cost) || cost <= 0) {
-        triggerToast(`Unit cost for "${item.productName}" must be positive.`);
+        toast.error(`Unit cost for "${item.productName}" must be positive.`);
         return;
       }
       if (item.mfgDate && item.expiryDate) {
         const mfg = new Date(item.mfgDate);
         const exp = new Date(item.expiryDate);
         if (exp <= mfg) {
-          triggerToast(`Expiry date must be after manufacturing date for "${item.productName}".`);
+          toast.error(`Expiry date must be after manufacturing date for "${item.productName}".`);
           return;
         }
       }
@@ -343,14 +348,14 @@ export default function GRNPage() {
         ]);
       }
 
-      triggerToast(`GRN ${newGRN.grnNumber} generated successfully!`);
+      toast.success(`GRN ${newGRN.grnNumber} generated successfully!`);
       
       if (andPrint) {
         setViewingGRN(newGRN);
         setTimeout(() => window.print(), 500);
       }
     } catch (err: any) {
-      triggerToast(err.message || 'Error occurred while saving GRN.');
+      toast.error(err.message || 'Error occurred while saving GRN.');
     }
   };
 
@@ -360,13 +365,6 @@ export default function GRNPage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast popup */}
-      {toast && (
-        <div className="fixed top-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 bg-slate-900 border border-slate-800 rounded-xl shadow-lg animate-in fade-in slide-in-from-top-4 duration-200">
-          <span className="material-symbols-outlined text-emerald-400">check_circle</span>
-          <span className="text-xs font-extrabold text-white">{toast}</span>
-        </div>
-      )}
 
       {/* Action header bar */}
       <div className="flex items-center justify-between border-b border-slate-100 pb-4">
@@ -628,47 +626,69 @@ export default function GRNPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {grnHistory.map((grn) => (
-                <tr key={grn.id} className="hover:bg-slate-50/50">
-                  <td className="px-4 py-3 font-mono font-extrabold text-[#0b8252]">{grn.grnNumber}</td>
-                  <td className="px-4 py-3 font-bold text-slate-800">{grn.supplierName}</td>
-                  <td className="px-4 py-3 text-slate-500 font-bold">{grn.receivedDate}</td>
-                  <td className="px-4 py-3 text-center font-bold text-slate-700">{grn.totalQuantity} items</td>
-                  <td className="px-4 py-3 text-right font-black text-slate-800">Rs. {grn.totalCost.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`font-bold ${grn.accuracyScore === 100 ? 'text-emerald-600' : 'text-amber-500'}`}>
-                      {grn.accuracyScore}%
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {grn.status === 'Completed' ? (
-                      <span className="inline-block px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-extrabold text-[10px] rounded-full border border-emerald-100">
-                        100% Correct
-                      </span>
-                    ) : grn.status === 'Shortage' ? (
-                      <span className="inline-block px-2.5 py-0.5 bg-rose-50 text-rose-700 font-extrabold text-[10px] rounded-full border border-rose-100">
-                        Shortage Warning
-                      </span>
-                    ) : (
-                      <span className="inline-block px-2.5 py-0.5 bg-blue-50 text-blue-700 font-extrabold text-[10px] rounded-full border border-blue-100">
-                        Over Delivery
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-slate-500 font-medium truncate max-w-xs">{grn.notes || '-'}</td>
-                  <td className="px-4 py-3 text-center">
-                    <button
-                      onClick={() => setViewingGRN(grn)}
-                      className="text-slate-400 hover:text-slate-600 transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">visibility</span>
-                    </button>
+              {paginatedGrnHistory.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400 font-bold">
+                    No Goods Receiving receipts recorded yet.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                paginatedGrnHistory.map((grn) => (
+                  <tr key={grn.id} className="hover:bg-slate-50/50">
+                    <td className="px-4 py-3 font-mono font-extrabold text-[#0b8252]">{grn.grnNumber}</td>
+                    <td className="px-4 py-3 font-bold text-slate-800">{grn.supplierName}</td>
+                    <td className="px-4 py-3 text-slate-500 font-bold">{grn.receivedDate}</td>
+                    <td className="px-4 py-3 text-center font-bold text-slate-700">{grn.totalQuantity} items</td>
+                    <td className="px-4 py-3 text-right font-black text-slate-800">Rs. {grn.totalCost.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`font-bold ${grn.accuracyScore === 100 ? 'text-emerald-600' : 'text-amber-500'}`}>
+                        {grn.accuracyScore}%
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {grn.status === 'Completed' ? (
+                        <span className="inline-block px-2.5 py-0.5 bg-emerald-50 text-emerald-700 font-extrabold text-[10px] rounded-full border border-emerald-100">
+                          100% Correct
+                        </span>
+                      ) : grn.status === 'Shortage' ? (
+                        <span className="inline-block px-2.5 py-0.5 bg-rose-50 text-rose-700 font-extrabold text-[10px] rounded-full border border-rose-100">
+                          Shortage Warning
+                        </span>
+                      ) : (
+                        <span className="inline-block px-2.5 py-0.5 bg-blue-50 text-blue-700 font-extrabold text-[10px] rounded-full border border-blue-100">
+                          Over Delivery
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 font-medium truncate max-w-xs">{grn.notes || '-'}</td>
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={() => setViewingGRN(grn)}
+                        className="text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">visibility</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        <Pagination
+          currentPage={currentPage}
+          totalItems={grnHistory.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+          pageSizeOptions={[10, 20, 50]}
+          itemName="receipts"
+        />
       </div>
 
       {/* PRINTABLE RECEIPT DETAILS MODAL */}

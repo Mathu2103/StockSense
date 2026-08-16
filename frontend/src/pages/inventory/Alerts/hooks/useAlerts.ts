@@ -10,16 +10,9 @@ const mapCategory = (type: string): AlertCategory => {
       return 'Low Stock';
     case 'OUT_OF_STOCK':
       return 'Out of Stock';
-    case 'OVERSTOCK':
-      return 'Overstock';
     case 'EXPIRING_SOON':
     case 'EXPIRED':
       return 'Expiring Soon';
-    case 'STOCK_VELOCITY':
-      return 'Dead Stock';
-    case 'DEMAND_FORECAST':
-    case 'COMBO_SUGGESTION':
-      return 'Low Stock';
     case 'DISCOUNT_APPROVAL':
     case 'DISCOUNT_RESPONSE':
       return 'Discount';
@@ -64,22 +57,6 @@ const getCategoryStyles = (category: AlertCategory, severity: AlertSeverity) => 
         iconColor: severity === 'Critical' ? 'text-red-500' : 'text-amber-500',
         accentColor: severity === 'Critical' ? 'bg-red-600' : 'bg-amber-500',
         primaryBtnClass: severity === 'Critical' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700',
-      };
-    case 'Dead Stock':
-      return {
-        icon: 'inventory_2',
-        iconBg: 'bg-purple-50',
-        iconColor: 'text-purple-500',
-        accentColor: 'bg-purple-600',
-        primaryBtnClass: 'bg-purple-600 hover:bg-purple-700',
-      };
-    case 'Overstock':
-      return {
-        icon: 'trending_down',
-        iconBg: 'bg-blue-50',
-        iconColor: 'text-blue-400',
-        accentColor: 'bg-blue-600',
-        primaryBtnClass: 'bg-blue-600 hover:bg-blue-700',
       };
     case 'Discount':
       return {
@@ -230,14 +207,11 @@ export const useAlerts = () => {
       return;
     }
 
-    // EXPIRING_SOON / STOCK_VELOCITY (Dead Stock): Create Promotion → open discounts with campaign name + sku pre-filled
-    if (
-      (a.issueType === 'EXPIRING_SOON' || a.issueType === 'STOCK_VELOCITY') &&
-      a.primaryAction === 'Create Promotion'
-    ) {
+    // EXPIRING_SOON: Create Promotion → open discounts with campaign name + sku pre-filled
+    if (a.issueType === 'EXPIRING_SOON' && a.primaryAction === 'Create Promotion') {
       const params = new URLSearchParams({ tab: 'discounts', action: 'add' });
       if (a.sku) params.set('sku', a.sku);
-      // Extract just the product name from the title (strip "— Expiring Soon" / "— Dead Stock Warning" suffix)
+      // Extract just the product name from the title (strip "— Expiring Soon" suffix)
       const productName = (a.title || '').split(' — ')[0].split(' – ')[0].trim();
       const campaignName = productName ? `${productName} Promotion` : '';
       if (campaignName) params.set('campaign_name', campaignName);
@@ -261,8 +235,6 @@ export const useAlerts = () => {
   const lowStockAlerts = visible.filter((a) => a.category === 'Low Stock').length;
   const outOfStockAlerts = visible.filter((a) => a.category === 'Out of Stock').length;
   const expiryAlerts = visible.filter((a) => a.category === 'Expiring Soon').length;
-  const deadStockAlerts = visible.filter((a) => a.category === 'Dead Stock').length;
-  const overstockAlerts = visible.filter((a) => a.category === 'Overstock').length;
   const discountAlerts = visible.filter((a) => a.category === 'Discount').length;
 
   const tabCount = (tab: Tab) =>
@@ -276,20 +248,6 @@ export const useAlerts = () => {
 
   const filtersActive = sevFilter !== 'All';
 
-  // ── Smart Insights derived from live data ─────────────────────────────────
-  const smartInsights: string[] = [];
-  const criticals = visible.filter((a) => a.severity === 'Critical');
-  if (criticals.length > 0)
-    smartInsights.push(`${criticals.length} critical alert${criticals.length > 1 ? 's' : ''} require immediate action`);
-  const lowStockItems = visible.filter((a) => a.category === 'Low Stock');
-  if (lowStockItems.length > 0)
-    smartInsights.push(`${lowStockItems.length} low-stock items below safety limit — schedule replenishments`);
-  const neverSold = visible.filter((a) => a.issueType === 'STOCK_VELOCITY');
-  if (neverSold.length > 0)
-    smartInsights.push(`Slow/Dead stock detected — review inventory catalogs or create bundle discount promotions`);
-  if (smartInsights.length === 0)
-    smartInsights.push('All stock levels are healthy — no urgent actions required');
-
   return {
     alerts,
     visible,
@@ -298,11 +256,8 @@ export const useAlerts = () => {
     lowStockAlerts,
     outOfStockAlerts,
     expiryAlerts,
-    deadStockAlerts,
-    overstockAlerts,
     discountAlerts,
     filtered,
-    smartInsights,
     activeTab,
     setActiveTab,
     showFilters,

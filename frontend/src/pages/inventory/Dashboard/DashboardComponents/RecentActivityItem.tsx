@@ -1,20 +1,49 @@
-import React from 'react';
 import { LedgerEntry } from '../../StockOperations/operations/inventoryOperationsService';
 
-function getMovementTone(entry: LedgerEntry) {
+function getMovementMeta(entry: LedgerEntry) {
   switch (entry.movementType) {
     case 'GRN':
-      return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+      return {
+        tone: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        icon: 'local_shipping',
+        label: 'GRN Received',
+      };
     case 'Adjustment':
-      return 'bg-amber-50 text-amber-700 border-amber-100';
+      return {
+        tone: 'bg-amber-50 text-amber-700 border-amber-200',
+        badgeBg: 'bg-amber-50 text-amber-700 border-amber-200',
+        icon: 'sync_alt',
+        label: 'Stock Adjustment',
+      };
     case 'Sale':
-      return 'bg-sky-50 text-sky-700 border-sky-100';
+      return {
+        tone: 'bg-sky-50 text-sky-700 border-sky-200',
+        badgeBg: 'bg-sky-50 text-sky-700 border-sky-200',
+        icon: 'point_of_sale',
+        label: 'POS Sale',
+      };
     case 'Expiry Removal':
-      return 'bg-rose-50 text-rose-700 border-rose-100';
+      return {
+        tone: 'bg-rose-50 text-rose-700 border-rose-200',
+        badgeBg: 'bg-rose-50 text-rose-700 border-rose-200',
+        icon: 'delete_sweep',
+        label: 'Expiry Write-off',
+      };
     case 'Supplier Return':
-      return 'bg-slate-50 text-slate-700 border-slate-200';
+      return {
+        tone: 'bg-purple-50 text-purple-700 border-purple-200',
+        badgeBg: 'bg-purple-50 text-purple-700 border-purple-200',
+        icon: 'keyboard_return',
+        label: 'Supplier Return',
+      };
     default:
-      return 'bg-slate-50 text-slate-700 border-slate-200';
+      return {
+        tone: 'bg-slate-50 text-slate-700 border-slate-200',
+        badgeBg: 'bg-slate-50 text-slate-700 border-slate-200',
+        icon: 'history',
+        label: entry.movementType || 'Movement',
+      };
   }
 }
 
@@ -28,41 +57,58 @@ function formatTimestamp(value: string) {
 }
 
 export default function RecentActivityItem({ entry }: { entry: LedgerEntry }) {
+  const meta = getMovementMeta(entry);
+  const isSale = entry.movementType === 'Sale';
+  const qty = entry.quantityChange;
+
   return (
-    <div className="group rounded-2xl border border-slate-200 bg-slate-50/70 p-4 transition-all duration-300 hover:-translate-y-0.5 hover:bg-white hover:shadow-sm">
+    <div className="group rounded-2xl border border-slate-200 bg-white p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-start gap-3 min-w-0">
-          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${getMovementTone(entry)}`}>
-            <span className="material-symbols-outlined text-[22px]">
-              {entry.movementType === 'GRN' ? 'inventory' : entry.movementType === 'Sale' ? 'point_of_sale' : entry.movementType === 'Adjustment' ? 'sync_alt' : 'history_toggle_off'}
-            </span>
+        {/* Left Side: Icon, Item Name, Movement Type & Context */}
+        <div className="flex items-start gap-3 min-w-0 flex-1">
+          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${meta.tone}`}>
+            <span className="material-symbols-outlined text-[22px]">{meta.icon}</span>
           </div>
-          <div className="min-w-0">
+
+          <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="font-bold text-slate-900 truncate">{entry.productName}</h3>
-              <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em] ${getMovementTone(entry)}`}>
-                {entry.movementType}
+              <h3 className="font-bold text-slate-900 truncate" title={entry.productName}>
+                {entry.productName}
+              </h3>
+              <span className={`rounded-md border px-2 py-0.5 text-[10.5px] font-black uppercase tracking-wider ${meta.badgeBg}`}>
+                {meta.label}
               </span>
             </div>
-            <p className="mt-1 text-sm text-slate-600">{entry.reason} · {entry.sku}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-              <span>{formatTimestamp(entry.timestamp)}</span>
+
+            <p className="mt-1 text-xs text-slate-600 truncate">{entry.reason} · <span className="font-mono text-slate-500">{entry.sku}</span></p>
+
+            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+              <span className="font-medium">{formatTimestamp(entry.timestamp)}</span>
               <span>•</span>
-              <span>By {entry.user}</span>
+              <span className="font-medium">By {entry.user || 'System'}</span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 md:text-right md:flex-col md:items-end">
+        {/* Right Side: Quantity Change and Stock Before/After Snapshot */}
+        <div className="flex items-center justify-between border-t border-slate-100 pt-3 md:border-t-0 md:pt-0 md:text-right md:flex-col md:items-end gap-1 shrink-0">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Change</p>
-            <p className={`mt-1 text-lg font-black ${entry.quantityChange >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-              {entry.quantityChange > 0 ? `+${entry.quantityChange}` : `${entry.quantityChange}`}
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 block">Change</span>
+            <p className={`text-base font-black ${qty > 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+              {qty > 0 ? `+${qty} units` : `${qty} units`}
             </p>
           </div>
+
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Stock</p>
-            <p className="mt-1 text-sm font-semibold text-slate-700">{entry.beforeStock} → {entry.afterStock}</p>
+            {isSale && entry.beforeStock === 0 && entry.afterStock === 0 ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600 border border-slate-200">
+                POS Outflow
+              </span>
+            ) : (
+              <p className="text-xs font-semibold text-slate-600">
+                Stock: <span className="text-slate-500">{entry.beforeStock}</span> → <span className="font-bold text-slate-900">{entry.afterStock}</span>
+              </p>
+            )}
           </div>
         </div>
       </div>

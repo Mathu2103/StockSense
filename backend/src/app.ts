@@ -19,6 +19,7 @@ import settingsRoutes from './routes/settingsRoutes.js'
 import notificationRoutes from './routes/notificationRoutes.js'
 import aiDemandRoutes from './routes/aiDemandRoutes.js'
 import comboRoutes from './routes/comboRoutes.js'
+import uploadRoutes from './routes/uploadRoutes.js'
 
 const app = express()
 
@@ -68,6 +69,7 @@ app.use('/api/settings', settingsRoutes)
 app.use('/api/notifications', notificationRoutes)
 app.use('/api/ai-demand', aiDemandRoutes)
 app.use('/api', comboRoutes)
+app.use('/api/upload', uploadRoutes)
 
 // ── 404 Handler ───────────────────────────────────────
 app.use((_req: Request, res: Response) => {

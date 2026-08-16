@@ -1,9 +1,11 @@
 import { useMemo, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import CategoryTree from './SubComponents/CategoryTree';
-import ProductImageUploader from './SubComponents/ProductImageUploader';
 import { ProductItem } from './ProductsRegistry';
+import Pagination from '@/components/shared/Pagination';
 import { toast } from 'sonner';
+import { UploadService } from '../../../../services/uploadService';
 
 type SubCategoryNode = {
   id: string;
@@ -39,6 +41,7 @@ type CategoryRegistryProps = {
   onRestoreSubcategory: (parentId: string, subId: string) => void;
   onEditProduct?: (product: ProductItem) => void;
   onArchiveProduct?: (productId: string, productName: string) => void;
+  openAddModalTrigger?: number;
 };
 
 type ActiveView = 'parents' | 'children' | 'products';
@@ -62,7 +65,8 @@ export default function CategoryRegistry({
   onRestoreCategory,
   onArchiveSubcategory,
   onRestoreSubcategory,
-  onEditProduct
+  onEditProduct,
+  openAddModalTrigger
 }: CategoryRegistryProps) {
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -74,6 +78,7 @@ export default function CategoryRegistry({
   const [editingSubcategory, setEditingSubcategory] = useState<{parent: CategoryItem, sub: SubCategoryNode} | null>(null);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const [categoryImage, setCategoryImage] = useState<string | null>(null);
+  const [isImageUploading, setIsImageUploading] = useState(false);
   const [archivePrompt, setArchivePrompt] = useState<ArchivePromptData>(null);
 
   // Navigation states
@@ -92,16 +97,26 @@ export default function CategoryRegistry({
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (searchParams.get('action') === 'add') {
-      const rt = searchParams.get('returnTo');
-      if (rt) setReturnTo(rt);
+    const action = searchParams.get('action');
+    const returnToParam = searchParams.get('returnTo');
+    if (action === 'add') {
+      setReturnTo(returnToParam);
       setIsModalOpen(true);
-      setHierarchy('parent');
-      searchParams.delete('action');
-      searchParams.delete('returnTo');
-      setSearchParams(searchParams, { replace: true });
+      setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (openAddModalTrigger && openAddModalTrigger > 0) {
+      setEditingCategory(null);
+      setEditingSubcategory(null);
+      setCategoryName('');
+      setCategoryDescription('');
+      setCategoryImage(null);
+      setHierarchy('parent');
+      setIsModalOpen(true);
+    }
+  }, [openAddModalTrigger]);
 
   useEffect(() => {
     if (categories.length > 0 && !parentCatId) {
@@ -128,6 +143,48 @@ export default function CategoryRegistry({
     const categorizedProducts = categories.reduce((sum, cat) => sum + cat.skus, 0);
     return { totalCategories, totalSubcategories, categorizedProducts };
   }, [categories]);
+
+  // Category Status Filter State
+  const [catStatusFilter, setCatStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
+
+  // Category Cards Pagination State
+  const [catPage, setCatPage] = useState(1);
+  const [catPageSize, setCatPageSize] = useState(6);
+
+  // Category Products Pagination State
+  const [prodPage, setProdPage] = useState(1);
+  const [prodPageSize, setProdPageSize] = useState(10);
+
+  // Category Counts
+  const countAllCats = categories.length;
+  const countActiveCats = useMemo(() => categories.filter(c => c.status !== 'Inactive').length, [categories]);
+  const countInactiveCats = useMemo(() => categories.filter(c => c.status === 'Inactive').length, [categories]);
+
+  const filteredCategories = useMemo(() => {
+    if (catStatusFilter === 'ACTIVE') return categories.filter(c => c.status !== 'Inactive');
+    if (catStatusFilter === 'INACTIVE') return categories.filter(c => c.status === 'Inactive');
+    return categories;
+  }, [categories, catStatusFilter]);
+
+  // Reset category page when categories change or view or status changes
+  useEffect(() => {
+    setCatPage(1);
+  }, [categories, activeView, catStatusFilter]);
+
+  // Reset product page when product search or selection changes
+  useEffect(() => {
+    setProdPage(1);
+  }, [productSearch, selectedParent, selectedSubcategory]);
+
+  const paginatedCategories = useMemo(() => {
+    const start = (catPage - 1) * catPageSize;
+    return filteredCategories.slice(start, start + catPageSize);
+  }, [filteredCategories, catPage, catPageSize]);
+
+  const paginatedCategoryProducts = useMemo(() => {
+    const start = (prodPage - 1) * prodPageSize;
+    return filteredProducts.slice(start, start + prodPageSize);
+  }, [filteredProducts, prodPage, prodPageSize]);
 
   // Product KPIs for products view
   const productKpis = useMemo(() => {
@@ -330,121 +387,81 @@ export default function CategoryRegistry({
               )}
             </div>
 
-            {activeView !== 'products' && (
+            {activeView === 'children' && (
               <button
-                onClick={() => handleOpenAddModal(activeView === 'parents' ? 'parent' : 'sub', selectedParent?.id)}
+                onClick={() => handleOpenAddModal('sub', selectedParent?.id)}
                 className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg hover:opacity-90 transition-all shadow-sm"
               >
                 <span className="material-symbols-outlined text-[16px]">add</span>
-                Add {activeView === 'parents' ? 'Category' : 'Sub-category'}
+                Add Sub-category
               </button>
             )}
           </div>
 
           {/* ── VIEW: All Category Cards ── */}
           {activeView === 'parents' && (() => {
-            const activeCategories = categories.filter(c => c.status !== 'Inactive');
-            const archivedCategories = categories.filter(c => c.status === 'Inactive');
             return (
-              <div className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {activeCategories.map((category) => (
-                    <div
-                      key={category.id}
-                      className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm flex flex-col hover:border-primary/40 transition-all duration-200 group"
+              <div className="space-y-4">
+                {/* Status Filter Bar */}
+                <div className="flex items-center justify-between gap-4 bg-surface-container-lowest border border-outline-variant/60 p-2.5 rounded-xl shadow-sm">
+                  <div className="inline-flex p-1 bg-slate-100/90 border border-outline-variant/50 rounded-xl text-xs font-bold gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setCatStatusFilter('ALL')}
+                      className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                        catStatusFilter === 'ALL' ? 'bg-[#0b8252] text-white shadow-sm font-black' : 'text-slate-600 hover:text-slate-900'
+                      }`}
                     >
-                  <div className="h-28 relative">
-                    <img src={category.image} alt={category.name} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                    <span className={`absolute bottom-3 left-3 ${category.statusClass} text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider`}>
-                      {category.status}
-                    </span>
-                  </div>
-                  <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
-                    <div>
-                      <div className="flex justify-between items-start gap-2">
-                        <h4 className="text-sm font-bold text-on-surface flex items-center gap-1.5 truncate">
-                          <span>{category.icon}</span>
-                          <span className="truncate">{category.name}</span>
-                        </h4>
-                        <div className="flex gap-1 shrink-0">
-                          <button onClick={() => handleOpenEditModal(category)} title="Edit" className="p-1 rounded text-outline-variant hover:text-primary hover:bg-primary/5 transition-colors">
-                            <span className="material-symbols-outlined text-sm">edit</span>
-                          </button>
-                          <button onClick={() => handleInitiateCategoryArchive(category)} title="Archive" className="p-1 rounded text-outline-variant hover:text-red-600 hover:bg-red-50 transition-colors">
-                            <span className="material-symbols-outlined text-sm">archive</span>
-                          </button>
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-outline mt-1">{category.children.length} subcategories registered</p>
-                      <p className="text-[11px] text-on-surface-variant line-clamp-2 mt-1.5 leading-relaxed">
-                        {category.description || 'No description provided.'}
-                      </p>
-                    </div>
-                    <div className="space-y-3">
-                      <div>
-                        <div className="flex justify-between text-[10px] font-bold text-on-surface-variant mb-1">
-                          <span>Department Skus</span>
-                          <span>{category.skus} Products</span>
-                        </div>
-                        <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                          <div className={`h-full ${category.statusClass} rounded-full`} style={{ width: category.health }} />
-                        </div>
-                      </div>
-                      <div className="flex gap-2 pt-1 border-t border-slate-50">
-                        <button
-                          type="button"
-                          onClick={() => { setSelectedParent(category); setActiveView('children'); }}
-                          className="flex-1 bg-secondary-container hover:bg-secondary-container/80 text-primary py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-sm"
-                        >
-                          <span className="material-symbols-outlined text-sm">segment</span>
-                          Sub-shelves
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => goToProducts(category)}
-                          className="flex-1 bg-primary text-white py-1.5 rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center justify-center gap-1 shadow-sm"
-                        >
-                          Products
-                          <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                        </button>
-                      </div>
-                    </div>
+                      <span>All Categories</span>
+                      <span className={`px-1.5 py-0.5 text-[10px] rounded-full font-bold ${catStatusFilter === 'ALL' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}`}>{countAllCats}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCatStatusFilter('ACTIVE')}
+                      className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                        catStatusFilter === 'ACTIVE' ? 'bg-[#0b8252] text-white shadow-sm font-black' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>Active</span>
+                      <span className={`px-1.5 py-0.5 text-[10px] rounded-full font-bold ${catStatusFilter === 'ACTIVE' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}`}>{countActiveCats}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCatStatusFilter('INACTIVE')}
+                      className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                        catStatusFilter === 'INACTIVE' ? 'bg-[#0b8252] text-white shadow-sm font-black' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>Inactive</span>
+                      <span className={`px-1.5 py-0.5 text-[10px] rounded-full font-bold ${catStatusFilter === 'INACTIVE' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}`}>{countInactiveCats}</span>
+                    </button>
                   </div>
                 </div>
-              ))}
 
-                  <button
-                    type="button"
-                    onClick={() => handleOpenAddModal('parent')}
-                    className="border-2 border-dashed border-outline-variant hover:border-primary/60 rounded-xl flex flex-col items-center justify-center p-6 text-center text-outline hover:text-primary hover:bg-primary/5 transition-all duration-200 min-h-[220px]"
-                  >
-                    <span className="material-symbols-outlined text-3xl text-outline-variant hover:text-primary mb-2">add</span>
-                    <span className="text-xs font-bold text-on-surface-variant">Add Parent Category</span>
-                    <span className="text-[10px] text-outline mt-1 max-w-[140px]">Create top-level inventory departments.</span>
-                  </button>
-                </div>
-                
-                {archivedCategories.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-bold text-outline-variant uppercase tracking-wider mb-4 border-b border-outline-variant/30 pb-2 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-sm">inventory_2</span>
-                      Archived Departments
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 opacity-75 grayscale hover:grayscale-0 transition-all duration-300">
-                      {archivedCategories.map((category) => (
+                {filteredCategories.length === 0 ? (
+                  <div className="p-12 text-center bg-white rounded-2xl border border-gray-100 text-gray-400 text-xs font-bold space-y-2">
+                    <span className="material-symbols-outlined text-4xl text-gray-300">category</span>
+                    <p>No {catStatusFilter === 'INACTIVE' ? 'inactive' : catStatusFilter === 'ACTIVE' ? 'active' : ''} categories found.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {paginatedCategories.map((category) => {
+                      const isInactive = category.status === 'Inactive';
+                      return (
                         <div
                           key={category.id}
-                          className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm flex flex-col transition-all duration-200"
+                          className={`bg-surface-container-lowest border rounded-xl overflow-hidden shadow-sm flex flex-col transition-all duration-200 group ${
+                            isInactive ? 'border-slate-200 opacity-75 hover:opacity-100' : 'border-outline-variant hover:border-primary/40'
+                          }`}
                         >
                           <div className="h-28 relative">
                             <img src={category.image} alt={category.name} className="w-full h-full object-cover" />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                            <span className="absolute bottom-3 left-3 bg-slate-500 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
-                              Inactive
+                            <span className={`absolute bottom-3 left-3 ${isInactive ? 'bg-slate-500' : category.statusClass} text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider`}>
+                              {category.status}
                             </span>
                           </div>
-                          <div className="p-4 flex-1 flex flex-col justify-between space-y-4 bg-slate-50">
+                          <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
                             <div>
                               <div className="flex justify-between items-start gap-2">
                                 <h4 className="text-sm font-bold text-on-surface flex items-center gap-1.5 truncate">
@@ -452,19 +469,75 @@ export default function CategoryRegistry({
                                   <span className="truncate">{category.name}</span>
                                 </h4>
                                 <div className="flex gap-1 shrink-0">
-                                  <button onClick={() => onRestoreCategory(category.id)} title="Restore" className="p-1 rounded text-outline-variant hover:text-emerald-600 hover:bg-emerald-50 transition-colors">
-                                    <span className="material-symbols-outlined text-sm">unarchive</span>
+                                  <button onClick={() => handleOpenEditModal(category)} title="Edit" className="p-1 rounded text-outline-variant hover:text-primary hover:bg-primary/5 transition-colors">
+                                    <span className="material-symbols-outlined text-sm">edit</span>
                                   </button>
+                                  {isInactive ? (
+                                    <button onClick={() => onRestoreCategory(category.id)} title="Restore Department" className="p-1 rounded text-outline-variant hover:text-emerald-600 hover:bg-emerald-50 transition-colors">
+                                      <span className="material-symbols-outlined text-sm">unarchive</span>
+                                    </button>
+                                  ) : (
+                                    <button onClick={() => handleInitiateCategoryArchive(category)} title="Archive Department" className="p-1 rounded text-outline-variant hover:text-red-600 hover:bg-red-50 transition-colors">
+                                      <span className="material-symbols-outlined text-sm">archive</span>
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                               <p className="text-[10px] text-outline mt-1">{category.children.length} subcategories registered</p>
+                              <p className="text-[11px] text-on-surface-variant line-clamp-2 mt-1.5 leading-relaxed">
+                                {category.description || 'No description provided.'}
+                              </p>
+                            </div>
+                            <div className="space-y-3">
+                              <div>
+                                <div className="flex justify-between text-[10px] font-bold text-on-surface-variant mb-1">
+                                  <span>Department Skus</span>
+                                  <span>{category.skus} Products</span>
+                                </div>
+                                <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                                  <div className={`h-full ${isInactive ? 'bg-slate-400' : category.statusClass} rounded-full`} style={{ width: category.health }} />
+                                </div>
+                              </div>
+                              <div className="flex gap-2 pt-1 border-t border-slate-50">
+                                <button
+                                  type="button"
+                                  onClick={() => { setSelectedParent(category); setActiveView('children'); }}
+                                  className="flex-1 bg-secondary-container hover:bg-secondary-container/80 text-primary py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 shadow-sm"
+                                >
+                                  <span className="material-symbols-outlined text-sm">segment</span>
+                                  Sub-shelves
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => goToProducts(category)}
+                                  className="flex-1 bg-primary text-white py-1.5 rounded-lg text-xs font-bold hover:opacity-90 transition-all flex items-center justify-center gap-1 shadow-sm"
+                                >
+                                  Products
+                                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
                 )}
+
+                {/* Pagination Controls */}
+                <Pagination
+                  currentPage={catPage}
+                  totalItems={filteredCategories.length}
+                  pageSize={catPageSize}
+                  onPageChange={setCatPage}
+                  onPageSizeChange={(s) => {
+                    setCatPageSize(s);
+                    setCatPage(1);
+                  }}
+                  pageSizeOptions={[6, 9, 12]}
+                  itemName="departments"
+                  className="rounded-xl border"
+                />
               </div>
             );
           })()}
@@ -632,7 +705,7 @@ export default function CategoryRegistry({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 font-medium text-on-surface-variant">
-                          {filteredProducts.map((p) => {
+                          {paginatedCategoryProducts.map((p) => {
                             const stock = getStockLabel(p);
                             const isSelected = selectedProduct?.id === p.id;
                             return (
@@ -693,6 +766,20 @@ export default function CategoryRegistry({
                           })}
                         </tbody>
                       </table>
+
+                      {/* Products Pagination */}
+                      <Pagination
+                        currentPage={prodPage}
+                        totalItems={filteredProducts.length}
+                        pageSize={prodPageSize}
+                        onPageChange={setProdPage}
+                        onPageSizeChange={(s) => {
+                          setProdPageSize(s);
+                          setProdPage(1);
+                        }}
+                        pageSizeOptions={[10, 25, 50]}
+                        itemName="products"
+                      />
                     </div>
                   )}
                 </div>
@@ -797,178 +884,316 @@ export default function CategoryRegistry({
       </div>
 
       {/* Category Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
-          <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between p-6 border-b border-outline-variant/60">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">category</span>
-                <h2 className="text-lg font-bold text-on-surface">
-                  {editingCategory ? 'Edit Category Node' : editingSubcategory ? 'Edit Subcategory' : 'Manage Category Nodes'}
-                </h2>
-              </div>
-              <button
-                onClick={() => { setIsModalOpen(false); setCategoryName(''); setCategoryDescription(''); setEditingCategory(null); setEditingSubcategory(null); if (returnTo) navigate(`/manage-products?tab=${returnTo}`); }}
-                className="text-outline hover:text-on-surface transition-colors"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
-            <div className="p-6 space-y-6">
-              <div>
-                <label className="block text-[11px] font-bold text-outline uppercase tracking-wider mb-2">Category Name *</label>
-                <input
-                  type="text"
-                  value={categoryName}
-                  onChange={(e) => { setCategoryName(e.target.value); if (duplicateError) setDuplicateError(null); }}
-                  placeholder="e.g. Soft Drinks, Fresh Pastas, Laundry"
-                  className={`w-full px-4 py-2.5 bg-background border rounded-lg text-sm text-on-surface outline-none focus:ring-2 transition-colors ${duplicateError ? 'border-red-500 focus:ring-red-500' : 'border-outline-variant focus:ring-primary'}`}
-                />
-                {duplicateError && (
-                  <p className="text-[10px] font-bold text-red-500 mt-1.5 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[14px]">error</span>
-                    {duplicateError}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-outline uppercase tracking-wider mb-2">Category Description</label>
-                <textarea
-                  value={categoryDescription}
-                  onChange={(e) => setCategoryDescription(e.target.value)}
-                  placeholder="Describe shelves, aisle locations, temperature setups..."
-                  rows={3}
-                  className="w-full px-4 py-2.5 bg-background border border-outline-variant rounded-lg text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary placeholder:text-outline-variant resize-none"
-                />
-              </div>
-              {hierarchy === 'parent' && !editingSubcategory && (
-                <div>
-                  <label className="block text-[11px] font-bold text-outline uppercase tracking-wider mb-2">Department Image</label>
-                  <ProductImageUploader imageUrl={categoryImage} setImageUrl={setCategoryImage} />
+      {isModalOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl w-full max-w-md max-h-[88vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between p-5 border-b border-outline-variant/60 shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">category</span>
+                  <h2 className="text-base font-bold text-on-surface">
+                    {editingCategory ? 'Edit Category Node' : editingSubcategory ? 'Edit Subcategory' : 'Manage Category Nodes'}
+                  </h2>
                 </div>
-              )}
-              {!editingCategory && !editingSubcategory && (
-                <>
+                <button
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setCategoryName('');
+                    setCategoryDescription('');
+                    setEditingCategory(null);
+                    setEditingSubcategory(null);
+                    if (returnTo) navigate(`/manage-products?tab=${returnTo}`);
+                  }}
+                  className="text-outline hover:text-on-surface transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
+              <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                <div>
+                  <label className="block text-[11px] font-bold text-outline uppercase tracking-wider mb-1.5">Category Name *</label>
+                  <input
+                    type="text"
+                    value={categoryName}
+                    onChange={(e) => {
+                      setCategoryName(e.target.value);
+                      if (duplicateError) setDuplicateError(null);
+                    }}
+                    placeholder="e.g. Soft Drinks, Fresh Pastas, Laundry"
+                    className={`w-full px-3.5 py-2.5 bg-background border rounded-lg text-xs font-semibold text-on-surface outline-none focus:ring-2 transition-colors ${
+                      duplicateError ? 'border-red-500 focus:ring-red-500' : 'border-outline-variant focus:ring-primary'
+                    }`}
+                  />
+                  {duplicateError && (
+                    <p className="text-[10px] font-bold text-red-500 mt-1.5 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">error</span>
+                      {duplicateError}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-outline uppercase tracking-wider mb-1.5">Category Description</label>
+                  <textarea
+                    value={categoryDescription}
+                    onChange={(e) => setCategoryDescription(e.target.value)}
+                    placeholder="Describe shelves, aisle locations, temperature setups..."
+                    rows={3}
+                    className="w-full px-3.5 py-2 bg-background border border-outline-variant rounded-lg text-xs text-on-surface outline-none focus:ring-2 focus:ring-primary placeholder:text-outline-variant resize-none"
+                  />
+                </div>
+                {hierarchy === 'parent' && !editingSubcategory && (
                   <div>
-                    <label className="block text-[11px] font-bold text-outline uppercase tracking-wider mb-2">Hierarchy Placement</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button type="button" onClick={() => setHierarchy('parent')} className={`flex items-start gap-2.5 p-3 rounded-xl border-2 text-left transition-colors ${hierarchy === 'parent' ? 'border-primary bg-primary/5' : 'border-outline-variant hover:border-outline'}`}>
-                        <div className={`w-4 h-4 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${hierarchy === 'parent' ? 'border-primary' : 'border-outline'}`}>
-                          {hierarchy === 'parent' && <div className="w-2 h-2 bg-primary rounded-full" />}
-                        </div>
-                        <div>
-                          <h5 className="text-xs font-bold text-on-surface">Parent Node</h5>
-                          <p className="text-[10px] text-outline mt-0.5">Top-level department</p>
-                        </div>
-                      </button>
-                      <button type="button" onClick={() => setHierarchy('sub')} className={`flex items-start gap-2.5 p-3 rounded-xl border-2 text-left transition-colors ${hierarchy === 'sub' ? 'border-primary bg-primary/5' : 'border-outline-variant hover:border-outline'}`}>
-                        <div className={`w-4 h-4 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${hierarchy === 'sub' ? 'border-primary' : 'border-outline'}`}>
-                          {hierarchy === 'sub' && <div className="w-2 h-2 bg-primary rounded-full" />}
-                        </div>
-                        <div>
-                          <h5 className="text-xs font-bold text-on-surface">Subcategory</h5>
-                          <p className="text-[10px] text-outline mt-0.5">Fits under a parent</p>
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-                  {hierarchy === 'sub' && (
-                    <div>
-                      <label className="block text-[11px] font-bold text-outline uppercase tracking-wider mb-2">Select Parent Department</label>
-                      <div className="relative">
-                        <select value={parentCatId} onChange={(e) => setParentCatId(e.target.value)} className="w-full appearance-none pl-4 pr-10 py-2.5 bg-background border border-outline-variant rounded-lg text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary transition-all">
-                          {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-                        </select>
-                        <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant text-[20px] pointer-events-none">expand_more</span>
+                    <label className="block text-[11px] font-bold text-outline uppercase tracking-wider mb-1.5">Department Image</label>
+                    <div className="flex items-center gap-3">
+                      {/* Thumbnail Preview */}
+                      <div className="w-12 h-12 rounded-lg border border-outline-variant/60 overflow-hidden bg-slate-100 shrink-0 flex items-center justify-center">
+                        {categoryImage ? (
+                          <img src={categoryImage} alt="preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="material-symbols-outlined text-outline text-[22px]">image</span>
+                        )}
+                      </div>
+                      {/* Inline URL input + file button */}
+                      <div className="flex-1 flex gap-2">
+                        <input
+                          type="text"
+                          value={categoryImage || ''}
+                          onChange={(e) => setCategoryImage(e.target.value || null)}
+                          placeholder="Paste image URL or upload..."
+                          className="flex-1 px-3 py-2 bg-background border border-outline-variant rounded-lg text-xs text-on-surface outline-none focus:ring-2 focus:ring-primary placeholder:text-outline-variant"
+                        />
+                        <label className={`flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-outline-variant rounded-lg text-xs font-semibold text-outline cursor-pointer transition-colors shrink-0 ${
+                          isImageUploading ? 'opacity-50 pointer-events-none' : ''
+                        }`}>
+                          {isImageUploading ? (
+                            <>
+                              <div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                              <span>Uploading...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="material-symbols-outlined text-[16px]">upload</span>
+                              <span>Upload</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                disabled={isImageUploading}
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  if (file.size > 10 * 1024 * 1024) {
+                                    toast.error('Image size must be less than 10MB');
+                                    return;
+                                  }
+                                  try {
+                                    setIsImageUploading(true);
+                                    const res = await UploadService.uploadImage(file);
+                                    if (res.success && res.url) {
+                                      setCategoryImage(res.url);
+                                      toast.success('Category image uploaded to Cloudinary!');
+                                    } else {
+                                      toast.error('Failed to upload image.');
+                                    }
+                                  } catch (err: any) {
+                                    console.error('Upload error:', err);
+                                    toast.error(err.response?.data?.message || 'Failed to upload image to Cloudinary.');
+                                  } finally {
+                                    setIsImageUploading(false);
+                                    e.target.value = '';
+                                  }
+                                }}
+                              />
+                            </>
+                          )}
+                        </label>
                       </div>
                     </div>
-                  )}
-                </>
-              )}
+                  </div>
+                )}
+                {!editingCategory && !editingSubcategory && (
+                  <>
+                    <div>
+                      <label className="block text-[11px] font-bold text-outline uppercase tracking-wider mb-1.5">Hierarchy Placement</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setHierarchy('parent')}
+                          className={`flex items-start gap-2.5 p-3 rounded-xl border-2 text-left transition-colors ${
+                            hierarchy === 'parent' ? 'border-primary bg-primary/5' : 'border-outline-variant hover:border-outline'
+                          }`}
+                        >
+                          <div
+                            className={`w-4 h-4 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
+                              hierarchy === 'parent' ? 'border-primary' : 'border-outline'
+                            }`}
+                          >
+                            {hierarchy === 'parent' && <div className="w-2 h-2 bg-primary rounded-full" />}
+                          </div>
+                          <div>
+                            <h5 className="text-xs font-bold text-on-surface">Parent Node</h5>
+                            <p className="text-[10px] text-outline mt-0.5">Top-level department</p>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setHierarchy('sub')}
+                          className={`flex items-start gap-2.5 p-3 rounded-xl border-2 text-left transition-colors ${
+                            hierarchy === 'sub' ? 'border-primary bg-primary/5' : 'border-outline-variant hover:border-outline'
+                          }`}
+                        >
+                          <div
+                            className={`w-4 h-4 rounded-full border-2 mt-0.5 flex items-center justify-center shrink-0 ${
+                              hierarchy === 'sub' ? 'border-primary' : 'border-outline'
+                            }`}
+                          >
+                            {hierarchy === 'sub' && <div className="w-2 h-2 bg-primary rounded-full" />}
+                          </div>
+                          <div>
+                            <h5 className="text-xs font-bold text-on-surface">Subcategory</h5>
+                            <p className="text-[10px] text-outline mt-0.5">Fits under a parent</p>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                    {hierarchy === 'sub' && (
+                      <div>
+                        <label className="block text-[11px] font-bold text-outline uppercase tracking-wider mb-1.5">Select Parent Department</label>
+                        <div className="relative">
+                          <select
+                            value={parentCatId}
+                            onChange={(e) => setParentCatId(e.target.value)}
+                            className="w-full appearance-none pl-3.5 pr-10 py-2 bg-background border border-outline-variant rounded-lg text-xs font-bold text-on-surface outline-none focus:ring-2 focus:ring-primary transition-all"
+                          >
+                            {categories.map((cat) => (
+                              <option key={cat.id} value={cat.id}>
+                                {cat.name}
+                              </option>
+                            ))}
+                          </select>
+                          <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant text-[18px] pointer-events-none">
+                            expand_more
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+              <div className="bg-slate-50 px-6 py-4 flex justify-end gap-2 border-t border-outline-variant/60 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setCategoryName('');
+                    setCategoryDescription('');
+                    setEditingCategory(null);
+                    setEditingSubcategory(null);
+                    if (returnTo) navigate(`/manage-products?tab=${returnTo}`);
+                  }}
+                  className="px-4 py-2 bg-white border border-outline rounded-lg text-xs font-bold text-on-surface-variant hover:bg-slate-50 transition-colors shadow-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className="px-5 py-2 bg-primary text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all shadow-sm"
+                >
+                  {editingCategory || editingSubcategory ? 'Save Changes' : 'Save Category Node'}
+                </button>
+              </div>
             </div>
-            <div className="bg-slate-50 px-6 py-4 flex justify-end gap-2 border-t border-outline-variant/60">
-              <button type="button" onClick={() => { setIsModalOpen(false); setCategoryName(''); setCategoryDescription(''); setEditingCategory(null); setEditingSubcategory(null); if (returnTo) navigate(`/manage-products?tab=${returnTo}`); }} className="px-4 py-2 bg-white border border-outline rounded-lg text-xs font-bold text-on-surface-variant hover:bg-slate-50 transition-colors shadow-sm">Cancel</button>
-              <button type="button" onClick={handleSave} className="px-5 py-2 bg-primary text-white rounded-lg text-xs font-bold hover:opacity-90 transition-all shadow-sm">
-                {editingCategory || editingSubcategory ? 'Save Changes' : 'Save Category Node'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
 
-      {archivePrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-[480px] overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-slate-100 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-red-600 text-[24px]">warning</span>
+      {archivePrompt &&
+        createPortal(
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[480px] max-h-[88vh] overflow-hidden flex flex-col">
+              <div className="p-6 border-b border-slate-100 flex items-center gap-4 shrink-0">
+                <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-red-600 text-[24px]">warning</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">
+                    Archive {archivePrompt.type === 'category' ? 'Category' : 'Subcategory'}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">You are about to archive "{archivePrompt.name}".</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-xl font-bold text-slate-900">Archive {archivePrompt.type === 'category' ? 'Category' : 'Subcategory'}</h3>
-                <p className="text-sm text-slate-500 mt-0.5">You are about to archive "{archivePrompt.name}".</p>
-              </div>
-            </div>
-            <div className="p-6 bg-slate-50 text-sm text-slate-700 space-y-5">
-              <p className="text-slate-600 text-[15px]">
-                By archiving this {archivePrompt.type}, the following active items will be affected:
-              </p>
-              
-              {archivePrompt.type === 'category' && (
+              <div className="p-6 bg-slate-50 text-xs text-slate-700 space-y-4 overflow-y-auto flex-1">
+                <p className="text-slate-600 text-xs">
+                  By archiving this {archivePrompt.type}, the following active items will be affected:
+                </p>
+
+                {archivePrompt.type === 'category' && (
+                  <div className="space-y-2">
+                    <h4 className="font-bold text-slate-900 flex justify-between items-center text-xs">
+                      <span>Active Subcategories</span>
+                      <span className="bg-[#e0ece5] text-[#103e2c] font-black w-5 h-5 flex items-center justify-center rounded-full text-[10px]">
+                        {archivePrompt.activeSubcategories.length}
+                      </span>
+                    </h4>
+                    <ul className="list-disc pl-5 text-slate-500 text-[11px] max-h-24 overflow-y-auto space-y-1">
+                      {archivePrompt.activeSubcategories.length > 0 ? (
+                        archivePrompt.activeSubcategories.map((name) => <li key={name}>{name}</li>)
+                      ) : (
+                        <li>No active subcategories</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+
                 <div className="space-y-2">
-                  <h4 className="font-bold text-slate-900 flex justify-between items-center text-[15px]">
-                    <span>Active Subcategories</span>
-                    <span className="bg-[#e0ece5] text-[#103e2c] font-black w-6 h-6 flex items-center justify-center rounded-full text-[11px]">{archivePrompt.activeSubcategories.length}</span>
+                  <h4 className="font-bold text-slate-900 flex justify-between items-center text-xs">
+                    <span>Active Products</span>
+                    <span className="bg-[#e0ece5] text-[#103e2c] font-black w-5 h-5 flex items-center justify-center rounded-full text-[10px]">
+                      {archivePrompt.activeProducts.length}
+                    </span>
                   </h4>
-                  <ul className="list-disc pl-5 text-slate-500 text-[14px] max-h-24 overflow-y-auto space-y-1">
-                    {archivePrompt.activeSubcategories.length > 0 
-                      ? archivePrompt.activeSubcategories.map(name => <li key={name}>{name}</li>)
-                      : <li>No active subcategories</li>}
+                  <ul className="list-disc pl-5 text-slate-500 text-[11px] max-h-24 overflow-y-auto space-y-1">
+                    {archivePrompt.activeProducts.length > 0 ? (
+                      archivePrompt.activeProducts.map((name) => <li key={name}>{name}</li>)
+                    ) : (
+                      <li>No active products</li>
+                    )}
                   </ul>
                 </div>
-              )}
 
-              <div className="space-y-2">
-                <h4 className="font-bold text-slate-900 flex justify-between items-center text-[15px]">
-                  <span>Active Products</span>
-                  <span className="bg-[#e0ece5] text-[#103e2c] font-black w-6 h-6 flex items-center justify-center rounded-full text-[11px]">{archivePrompt.activeProducts.length}</span>
-                </h4>
-                <ul className="list-disc pl-5 text-slate-500 text-[14px] max-h-24 overflow-y-auto space-y-1">
-                  {archivePrompt.activeProducts.length > 0 
-                    ? archivePrompt.activeProducts.map(name => <li key={name}>{name}</li>)
-                    : <li>No active products</li>}
-                </ul>
+                <div className="border-t border-slate-200 pt-3 mt-2">
+                  <p className="font-bold text-red-600 text-xs">
+                    Do you want to archive these products and{' '}
+                    {archivePrompt.type === 'category' ? 'subcategories' : 'related items'} as well?
+                  </p>
+                </div>
               </div>
-              
-              <div className="border-t border-slate-200 pt-4 mt-2">
-                <p className="font-bold text-red-600 text-[15px]">
-                  Do you want to archive these products and {archivePrompt.type === 'category' ? 'subcategories' : 'related items'} as well?
-                </p>
+              <div className="p-4 bg-white border-t border-slate-100 flex justify-end gap-2 shrink-0">
+                <button
+                  onClick={() => setArchivePrompt(null)}
+                  className="px-4 py-2 border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (archivePrompt.type === 'category') {
+                      onArchiveCategory(archivePrompt.id);
+                    } else if (archivePrompt.type === 'subcategory' && archivePrompt.parentId) {
+                      onArchiveSubcategory(archivePrompt.parentId, archivePrompt.id);
+                    }
+                    setArchivePrompt(null);
+                  }}
+                  className="px-4 py-2 bg-[#dc2626] text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors shadow-sm"
+                >
+                  Confirm Archive
+                </button>
               </div>
             </div>
-            <div className="p-4 bg-white border-t border-slate-100 flex justify-end gap-3">
-              <button
-                onClick={() => setArchivePrompt(null)}
-                className="px-5 py-2.5 border border-slate-200 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  if (archivePrompt.type === 'category') {
-                    onArchiveCategory(archivePrompt.id);
-                  } else if (archivePrompt.type === 'subcategory' && archivePrompt.parentId) {
-                    onArchiveSubcategory(archivePrompt.parentId, archivePrompt.id);
-                  }
-                  setArchivePrompt(null);
-                }}
-                className="px-5 py-2.5 bg-[#dc2626] text-white rounded-lg text-sm font-bold hover:bg-red-700 transition-colors shadow-sm"
-              >
-                Yes, Archive All
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
 
     </div>
   );
