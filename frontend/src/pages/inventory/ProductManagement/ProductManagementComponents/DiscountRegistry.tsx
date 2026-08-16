@@ -69,15 +69,12 @@ export default function DiscountRegistry({ products, showToast, showConfirm }: D
   const fetchDiscounts = async () => {
     try {
       setLoading(true);
-      const [discRes, comboRes] = await Promise.all([
-        DiscountService.getDiscounts(),
-        comboService.getCombosList()
-      ]);
-
-      let allItems: DiscountItem[] = [];
+      const discRes = await DiscountService.getDiscounts();
 
       if (discRes.success && Array.isArray(discRes.data)) {
-        allItems = [...discRes.data];
+        setDiscounts(discRes.data);
+      } else {
+        setDiscounts([]);
       }
 
       if (comboRes && comboRes.success && Array.isArray(comboRes.data)) {

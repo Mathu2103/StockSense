@@ -22,16 +22,60 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
 
-  // 1. Smart Combos
-  const aiApprovedCombos = useMemo(() => {
-    return posCombos.filter(c => 
-      !!c.sourceSuggestionId || 
-      c.comboType === 'NEAR_EXPIRY' || 
-      c.comboType === 'OVERSTOCK' || 
-      c.comboType === 'SLOW_MOVING' || 
-      c.comboType === 'DEAD_STOCK'
-    );
-  }, [posCombos]);
+  // 1. Combos (Both AI-generated approved combos and Manager-created standard combos)
+  const allCombos = useMemo(() => {
+    const existingIds = new Set(posCombos.map(c => c.id));
+    const todayStr = new Date().toISOString().split('T')[0];
+    
+    const mappedDiscounts = discounts
+      .filter(d => {
+        if (d.type !== 'COMBO') return false;
+        if (!d.isActive || d.approvalStatus !== 'APPROVED') return false;
+        if (d.endDate && d.endDate < todayStr) return false;
+        if (d.startDate && d.startDate > todayStr) return false;
+        return !existingIds.has(d.id);
+      })
+      .map(d => {
+        const regularTotal = (d.comboItems || []).reduce((acc: number, item: any) => {
+          const prod = products.find(p => p.sku === item.productId || p.id === item.productId);
+          const price = item.sellingPrice || (prod ? prod.sellingPrice : 0);
+          return acc + (Number(price) * (Number(item.minQty) || 1));
+        }, 0);
+        const comboPrice = d.comboPrice ? Number(d.comboPrice) : (regularTotal * (1 - (d.discountValue || 0) / 100));
+
+        return {
+          id: d.id,
+          comboCode: d.label || `COMBO-${d.id.substring(0, 6).toUpperCase()}`,
+          name: d.name,
+          description: d.label ? `${d.name} (${d.label})` : `Special store combo bundle with ${d.discountValue}% discount.`,
+          comboType: 'STORE_BUNDLE',
+          sourceSuggestionId: null,
+          comboPrice,
+          normalTotalPrice: regularTotal,
+          discountPercentage: d.discountValue || 0,
+          maximumQuantity: 100,
+          soldQuantity: 0,
+          startDate: d.startDate,
+          endDate: d.endDate,
+          items: (d.comboItems || []).map((item: any) => {
+            const prod = products.find(p => p.sku === item.productId || p.id === item.productId);
+            return {
+              productId: item.productId,
+              role: 'BUNDLE',
+              quantity: item.minQty || 1,
+              normalUnitPrice: item.sellingPrice || (prod ? prod.sellingPrice : 0),
+              product: {
+                name: item.productName || (prod ? prod.name : item.productId),
+                sku: item.productId,
+                imageUrl: prod?.imageUrl || d.imageUrl
+              }
+            };
+          })
+        };
+      });
+
+    return [...posCombos, ...mappedDiscounts];
+  }, [posCombos, discounts, products]);
 
   // 2. Seasonal Discounts & Packages
   const seasonalCampaigns = useMemo(() => {
@@ -99,14 +143,14 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
   // Search filtering
   const q = searchQuery.toLowerCase().trim();
 
-  const filteredAiCombos = useMemo(() => {
-    if (!q) return aiApprovedCombos;
-    return aiApprovedCombos.filter(c => 
+  const filteredCombos = useMemo(() => {
+    if (!q) return allCombos;
+    return allCombos.filter(c => 
       c.name.toLowerCase().includes(q) || 
       c.comboCode.toLowerCase().includes(q) ||
       (c.items || []).some((i: any) => (i.product?.name || '').toLowerCase().includes(q) || (i.product?.sku || '').toLowerCase().includes(q))
     );
-  }, [aiApprovedCombos, q]);
+  }, [allCombos, q]);
 
   const filteredSeasonalCampaigns = useMemo(() => {
     if (!q) return seasonalCampaigns;
@@ -130,11 +174,11 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
     );
   }, [dailyProducts, q]);
 
-  const showAiSection = (selectedCategory === 'ALL' || selectedCategory === 'AI_COMBOS') && filteredAiCombos.length > 0;
+  const showCombosSection = (selectedCategory === 'ALL' || selectedCategory === 'COMBOS') && filteredCombos.length > 0;
   const showDailySection = (selectedCategory === 'ALL' || selectedCategory === 'DAILY') && filteredDaily.length > 0;
   const showSeasonalSection = (selectedCategory === 'ALL' || selectedCategory === 'SEASONAL') && filteredSeasonalCampaigns.length > 0;
 
-  const totalResults = filteredAiCombos.length + filteredDaily.length + filteredSeasonalCampaigns.length;
+  const totalResults = filteredCombos.length + filteredDaily.length + filteredSeasonalCampaigns.length;
 
   return (
     <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-[#f8f9fc] relative font-sans">
@@ -144,7 +188,7 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-5 rounded-2xl border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
           <div>
             <h1 className="text-2xl font-black text-gray-900 flex items-center gap-2">
-              Special Offers & Smart Combos
+              Special Offers & Combos
             </h1>
             <p className="text-gray-400 text-xs mt-0.5">Discover hand-crafted bundle promotions, AI-optimized smart combinations, and limited-time discounts.</p>
           </div>
@@ -176,15 +220,15 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => setSelectedCategory('AI_COMBOS')}
+            onClick={() => setSelectedCategory('COMBOS')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
-              selectedCategory === 'AI_COMBOS' 
+              selectedCategory === 'COMBOS' 
                 ? 'bg-[#103e2c] text-white shadow-sm' 
                 : 'bg-white text-gray-600 hover:bg-emerald-50/60 border border-gray-200/60'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-            Smart Combos ({filteredAiCombos.length})
+            Combos ({filteredCombos.length})
           </button>
           <button
             type="button"
@@ -220,8 +264,8 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
         ) : (
           <div className="space-y-12">
             
-            {/* 1. Smart Combos */}
-            {showAiSection && (
+            {/* 1. Combos */}
+            {showCombosSection && (
               <section className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -229,32 +273,45 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
                       <Sparkles className="w-4 h-4 text-emerald-700" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-black text-gray-900">Smart Combos</h2>
-                      <p className="text-gray-400 text-xs">High-demand pairing bundles approved by Admin for stock clearance.</p>
+                      <h2 className="text-lg font-black text-gray-900">Combos</h2>
+                      <p className="text-gray-400 text-xs">High-demand pairing bundles and store combos for customers.</p>
                     </div>
                   </div>
                   <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/80">
-                    {filteredAiCombos.length} Combos Active
+                    {filteredCombos.length} Combos Active
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-                  {filteredAiCombos.map(combo => (
-                    <div key={combo.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-md transition-all flex flex-col justify-between space-y-4">
-                      <div>
-                        <div className="flex justify-between items-start gap-2 mb-2">
-                          <div>
-                            <span className="inline-flex items-center gap-1 bg-emerald-50 text-[#103e2c] text-[10px] font-black uppercase px-2 py-0.5 rounded border border-emerald-200/80 mb-1">
-                              <Sparkles className="w-2.5 h-2.5" />
-                              Smart Combo • {combo.comboType || 'Clearance'}
+                  {filteredCombos.map(combo => {
+                    const isAi = !!combo.sourceSuggestionId || 
+                      combo.comboType === 'NEAR_EXPIRY' || 
+                      combo.comboType === 'OVERSTOCK' || 
+                      combo.comboType === 'SLOW_MOVING' || 
+                      combo.comboType === 'DEAD_STOCK';
+
+                    return (
+                      <div key={combo.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-md transition-all flex flex-col justify-between space-y-4">
+                        <div>
+                          <div className="flex justify-between items-start gap-2 mb-2">
+                            <div>
+                              {isAi ? (
+                                <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 text-[10px] font-black uppercase px-2 py-0.5 rounded border border-amber-200/80 mb-1">
+                                  <Sparkles className="w-2.5 h-2.5" />
+                                  AI Combo • {combo.comboType || 'Clearance'}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 bg-emerald-50 text-[#103e2c] text-[10px] font-black uppercase px-2 py-0.5 rounded border border-emerald-200/80 mb-1">
+                                  Store Combo • Bundle
+                                </span>
+                              )}
+                              <h3 className="font-extrabold text-gray-900 text-sm leading-snug">{combo.name}</h3>
+                              <p className="text-[10px] text-gray-400 font-mono mt-0.5">CODE: {combo.comboCode}</p>
+                            </div>
+                            <span className="bg-[#103e2c] text-white text-[10px] font-black px-2.5 py-1 rounded-lg shrink-0 shadow-xs">
+                              {combo.discountPercentage.toFixed(0)}% OFF
                             </span>
-                            <h3 className="font-extrabold text-gray-900 text-sm leading-snug">{combo.name}</h3>
-                            <p className="text-[10px] text-gray-400 font-mono mt-0.5">CODE: {combo.comboCode}</p>
                           </div>
-                          <span className="bg-[#103e2c] text-white text-[10px] font-black px-2.5 py-1 rounded-lg shrink-0 shadow-xs">
-                            {combo.discountPercentage.toFixed(0)}% OFF
-                          </span>
-                        </div>
 
                         {/* Items Breakdown */}
                         <div className="space-y-1.5 bg-gray-50/80 p-3 rounded-xl border border-gray-100 mt-3">
@@ -293,7 +350,8 @@ export const DiscountsTab: React.FC<DiscountsTabProps> = ({
                         </button>
                       </div>
                     </div>
-                  ))}
+                  );
+                })}
                 </div>
               </section>
             )}

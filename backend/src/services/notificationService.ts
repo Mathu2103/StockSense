@@ -54,6 +54,21 @@ export class NotificationService {
           } else {
             seen.add(key);
           }
+        } else if (n.title.includes('Combo Approval Needed')) {
+          const comboCodeMatch = n.title.match(/\((COMBO-[A-Z0-9]+)\)/);
+          const key = comboCodeMatch ? `COMBO_APPROVAL:${comboCodeMatch[1]}` : `COMBO_APPROVAL:${n.title}`;
+          if (seen.has(key)) {
+            toDelete.push(n.id);
+          } else {
+            seen.add(key);
+          }
+        } else if (n.title.includes('Discount Approval Needed') || n.title.includes('Discount Campaign Approval Needed') || n.type === 'DISCOUNT_APPROVAL') {
+          const key = `DISCOUNT_APPROVAL:${(n.metadata as any)?.discountId || n.title}`;
+          if (seen.has(key)) {
+            toDelete.push(n.id);
+          } else {
+            seen.add(key);
+          }
         }
       }
       if (toDelete.length > 0) {
@@ -120,8 +135,8 @@ export class NotificationService {
 
         if (!existing) {
           await this.createNotification({
-            type: 'STOCK_VELOCITY',
-            severity: 'WARNING',
+            type: 'COMBO_SUGGESTION',
+            severity: 'INFO',
             title: `Combo Approval Needed — ${combo.name} (${combo.comboCode})`,
             message: `Combo campaign "${combo.name}" (Price: Rs. ${combo.comboPrice}) has been submitted and is pending admin approval.`,
             suggestedAction: 'Review Combo Approval',
@@ -160,15 +175,14 @@ export class NotificationService {
       for (const disc of pendingDiscounts) {
         const existing = await prisma.notification.findFirst({
           where: {
-            type: 'STOCK_VELOCITY',
             title: { contains: disc.name }
           }
         });
 
         if (!existing) {
           await this.createNotification({
-            type: 'STOCK_VELOCITY',
-            severity: 'WARNING',
+            type: 'DISCOUNT_APPROVAL',
+            severity: 'INFO',
             title: `Discount Approval Needed — ${disc.name}`,
             message: `Discount campaign "${disc.name}" (${disc.discountValue}% Off) is awaiting admin approval.`,
             suggestedAction: 'Review Discount Approval',
@@ -180,19 +194,36 @@ export class NotificationService {
 
       const allDiscountApprovalNotifications = await prisma.notification.findMany({
         where: {
-          title: { contains: 'Discount Approval Needed' }
+          OR: [
+            { title: { contains: 'Discount Approval Needed' } },
+            { title: { contains: 'Discount Campaign Approval Needed' } }
+          ]
         }
       });
 
       for (const notif of allDiscountApprovalNotifications) {
-        const discNameMatch = notif.title.replace('Discount Approval Needed — ', '').trim();
-        const disc = await prisma.discount.findFirst({
-          where: { name: discNameMatch }
-        });
-        if (!disc || disc.approvalStatus !== 'DRAFT') {
-          await prisma.notification.delete({
-            where: { id: notif.id }
+        const discId = (notif.metadata as any)?.discountId;
+        if (discId) {
+          const disc = await prisma.discount.findUnique({
+            where: { id: discId }
           });
+          if (!disc || disc.approvalStatus !== 'DRAFT') {
+            await prisma.notification.delete({
+              where: { id: notif.id }
+            });
+          }
+        } else {
+          const discNameMatch = notif.title.replace('Discount Approval Needed — ', '').replace('Discount Campaign Approval Needed', '').trim();
+          if (discNameMatch) {
+            const disc = await prisma.discount.findFirst({
+              where: { name: discNameMatch }
+            });
+            if (!disc || disc.approvalStatus !== 'DRAFT') {
+              await prisma.notification.delete({
+                where: { id: notif.id }
+              });
+            }
+          }
         }
       }
     } catch (error) {

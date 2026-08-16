@@ -51,6 +51,38 @@ def generate_combo_suggestions(db: Session, forecast_run_id: str = None, associa
     today = datetime.date.today()
     suggestion_expiry_date = today + datetime.timedelta(days=suggestion_expiry)
 
+    # Sri Lankan Festive Season Context
+    def get_sri_lankan_festive_context(current_date):
+        month = current_date.month
+        day = current_date.day
+        if month == 4 or (month == 3 and day >= 20):
+            return {
+                "name": "Sinhala & Tamil New Year (Avurudu)",
+                "keywords": ["rice", "sugar", "flour", "keeri", "milk", "tea", "biscuit", "oil", "spice", "soda", "cream soda"],
+                "multiplier": 1.25
+            }
+        elif month in (5, 6):
+            return {
+                "name": "Vesak & Poson Festival Season",
+                "keywords": ["rice", "sugar", "tea", "coffee", "biscuit", "milk", "beverage", "soft drink", "cordial", "ginger beer"],
+                "multiplier": 1.20
+            }
+        elif month in (10, 11):
+            return {
+                "name": "Deepavali Festive Season",
+                "keywords": ["flour", "sugar", "ghee", "milk", "sweet", "oil", "spice", "dal", "lentil", "butter"],
+                "multiplier": 1.20
+            }
+        elif month == 12 or (month == 1 and day <= 5):
+            return {
+                "name": "Christmas & Year-End Holiday Season",
+                "keywords": ["butter", "flour", "sugar", "cake", "beverage", "soda", "cheese", "snack", "chocolate"],
+                "multiplier": 1.25
+            }
+        return None
+
+    festive_season = get_sri_lankan_festive_context(today)
+
     # 3. Detect Substitute Mapping (to block self-competing combos)
     sub_query = text("SELECT product_id, substitute_product_id FROM product_substitute_relations WHERE status = 'CONFIRMED'")
     substitutes = {}
@@ -58,6 +90,18 @@ def generate_combo_suggestions(db: Session, forecast_run_id: str = None, associa
         if r[0] not in substitutes:
             substitutes[r[0]] = set()
         substitutes[r[0]].add(r[1])
+
+    # Pre-fetch live active target combo reservations to compute true uncommitted excess stock
+    active_target_commitments_query = text("""
+        SELECT ci.product_id, SUM(ci.quantity * GREATEST(0, c.maximum_quantity - c.sold_quantity))
+        FROM combo_items ci
+        JOIN combos c ON ci.combo_id = c.id
+        WHERE ci.role = 'TARGET'
+          AND c.status IN ('APPROVED', 'ACTIVE')
+          AND c.end_date >= CURRENT_DATE
+        GROUP BY ci.product_id
+    """)
+    active_target_commitments = {r[0]: int(r[1] or 0) for r in db.execute(active_target_commitments_query).fetchall()}
 
     # 4. OPPORTUNITY DETECTION
     detected_opportunities = []
@@ -136,7 +180,7 @@ def generate_combo_suggestions(db: Session, forecast_run_id: str = None, associa
     expiring_skus = {b["targetProductId"] for b in detected_opportunities}
 
     forecasts_query = text("""
-        SELECT df.product_id, df.current_stock, df.predicted_demand, df.safety_stock, 
+        SELECT df.product_id, p.current_stock, df.predicted_demand, df.safety_stock, 
                df.required_stock, df.stock_coverage_days, p.cost_price, p.selling_price,
                da.recent_30_sales, da.primary_behaviour
         FROM demand_forecasts df
@@ -149,7 +193,7 @@ def generate_combo_suggestions(db: Session, forecast_run_id: str = None, associa
 
     for fc in forecasts:
         sku = fc[0]
-        curr_stock = fc[1]
+        curr_stock = fc[1] # Live stock from products table
         pred_demand = fc[2]
         safety = fc[3]
         req_stock = fc[4]
@@ -158,12 +202,16 @@ def generate_combo_suggestions(db: Session, forecast_run_id: str = None, associa
         recent_sales = fc[8]
         behavior = fc[9]
 
-        # Skip products with no physical stock or already flagged as Near Expiry
-        if curr_stock <= 0 or sku in expiring_skus:
+        committed_qty = active_target_commitments.get(sku, 0)
+        effective_excess = max(0, curr_stock - req_stock - committed_qty)
+
+        # Skip products with no physical stock, already flagged as Near Expiry, or fully cleared/covered
+        if curr_stock <= safety or effective_excess <= 0 or sku in expiring_skus:
             continue
 
-        # Check for Dead Stock (no sales or very low sales < 10 with zero sales ratio / low movement)
-        if recent_sales == 0 or behavior == "DEAD":
+        # Check for Dead Stock (no sales in last 90 days / recent 30 is 0)
+        if recent_sales == 0:
+
             priority = 85.0
             detected_opportunities.append({
                 "targetProductId": sku,
@@ -176,7 +224,7 @@ def generate_combo_suggestions(db: Session, forecast_run_id: str = None, associa
                 "safetyStock": safety,
                 "requiredStock": req_stock,
                 "stockCoverageDays": coverage,
-                "excessStock": curr_stock,
+                "excessStock": effective_excess,
                 "daysSinceLastSale": 90,
                 "expiryDate": None,
                 "daysToExpiry": None,
@@ -209,7 +257,6 @@ def generate_combo_suggestions(db: Session, forecast_run_id: str = None, associa
 
         # Check for Overstock (current stock exceeds required stock, coverage > 90 days)
         if curr_stock > req_stock and coverage > overstock_coverage:
-            excess = curr_stock - req_stock
             priority = float(min(90.0, 40.0 + (coverage / overstock_coverage * 10)))
             detected_opportunities.append({
                 "targetProductId": sku,
@@ -222,7 +269,7 @@ def generate_combo_suggestions(db: Session, forecast_run_id: str = None, associa
                 "safetyStock": safety,
                 "requiredStock": req_stock,
                 "stockCoverageDays": coverage,
-                "excessStock": excess,
+                "excessStock": effective_excess,
                 "daysSinceLastSale": 0,
                 "expiryDate": None,
                 "daysToExpiry": None,
@@ -232,7 +279,6 @@ def generate_combo_suggestions(db: Session, forecast_run_id: str = None, associa
 
         # Check for Slow Moving (coverage > 60 days and genuinely low sales velocity: recent sales < 30 or predicted demand < 30)
         if coverage > slow_moving_coverage and (recent_sales < 30 or pred_demand < 30 or behavior == "INTERMITTENT"):
-            excess = max(0, curr_stock - pred_demand)
             priority = float(min(75.0, 30.0 + (coverage / slow_moving_coverage * 12)))
             detected_opportunities.append({
                 "targetProductId": sku,
@@ -245,7 +291,7 @@ def generate_combo_suggestions(db: Session, forecast_run_id: str = None, associa
                 "safetyStock": safety,
                 "requiredStock": req_stock,
                 "stockCoverageDays": coverage,
-                "excessStock": excess,
+                "excessStock": effective_excess,
                 "daysSinceLastSale": 5,
                 "expiryDate": None,
                 "daysToExpiry": None,
@@ -470,6 +516,13 @@ def generate_combo_suggestions(db: Session, forecast_run_id: str = None, associa
             
             # Final ranking score (Weighted sum: 50% association score, 25% profitability, 25% stock safety)
             comp_score = float(conf * 100)
+
+            # Apply Festive Season Uplift if Anchor matches seasonal staple keywords
+            if festive_season:
+                anchor_name = anchor_meta.get("name", "").lower()
+                if any(kw in anchor_name or kw in anchor_sku.lower() for kw in festive_season["keywords"]):
+                    comp_score = min(100.0, comp_score * festive_season["multiplier"])
+
             final_score = float((comp_score * 0.5) + (profitability * 100 * 0.25) + (stock_safety * 100 * 0.25))
 
             candidates.append({

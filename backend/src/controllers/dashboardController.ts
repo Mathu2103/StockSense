@@ -49,6 +49,8 @@ export const getAdminDashboardMetrics = async (req: AuthRequest, res: Response):
     let salesPercentageChange = 0;
     if (grossSalesYesterday > 0) {
       salesPercentageChange = ((grossSalesToday - grossSalesYesterday) / grossSalesYesterday) * 100;
+    } else if (grossSalesToday > 0) {
+      salesPercentageChange = 100;
     }
 
     // 2. POS Registers (Active Cashiers)

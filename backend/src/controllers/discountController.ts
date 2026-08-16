@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/prisma.js';
-import { DiscountType, ApprovalStatus } from '@prisma/client';
+import { DiscountType, ApprovalStatus, Role } from '@prisma/client';
 import { NotificationService } from '../services/notificationService.js';
 
 // Get all discounts
@@ -185,16 +185,16 @@ export const createDiscount = async (req: Request, res: Response): Promise<void>
       await NotificationService.createNotification({
         type: 'DISCOUNT_APPROVAL',
         severity: 'INFO',
-        title: 'Discount Campaign Approval Needed',
-        message: `A new discount campaign "${newDiscount.name}" was created by the Inventory Manager and requires Admin approval.`,
-        suggestedAction: 'View Request',
+        title: `Discount Approval Needed — ${newDiscount.name}`,
+        message: `Discount campaign "${newDiscount.name}" (${newDiscount.discountValue}% Off) was created by the Inventory Manager and requires Admin approval.`,
+        suggestedAction: 'Review Discount Approval',
         metadata: {
           discountId: newDiscount.id,
           campaignName: newDiscount.name,
           discountValue: newDiscount.discountValue,
           type: newDiscount.type
         },
-        targetRole: 'ADMIN'
+        targetRole: Role.ADMIN
       });
     } catch (err) {
       console.error('Error creating discount approval notification:', err);

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { NotificationItem, NotificationService } from '../../services/notificationService';
 import { DiscountService } from '../../services/discountService';
+import { comboService } from '../../services/comboService';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -19,8 +20,13 @@ export default function NotificationDetailsPopup({
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [discountDetails, setDiscountDetails] = useState<any | null>(null);
+  const [comboDetails, setComboDetails] = useState<any | null>(null);
 
-  // Fetch full discount details if it is a discount approval notification
+  const isComboApproval = notification.metadata?.type === 'COMBO_APPROVAL' || 
+    (notification.type === 'COMBO_SUGGESTION' && !!notification.metadata?.comboId) ||
+    notification.title.includes('Combo Approval Needed');
+
+  // Fetch full details if it is a discount or combo approval notification
   useEffect(() => {
     if (notification.type === 'DISCOUNT_APPROVAL' && notification.metadata?.discountId) {
       const fetchDiscount = async () => {
@@ -38,8 +44,23 @@ export default function NotificationDetailsPopup({
         }
       };
       fetchDiscount();
+    } else if (isComboApproval && notification.metadata?.comboId) {
+      const fetchCombo = async () => {
+        try {
+          setLoading(true);
+          const res = await comboService.getComboDetails(notification.metadata.comboId);
+          if (res.success) {
+            setComboDetails(res.data);
+          }
+        } catch (err) {
+          console.error('Error loading combo details:', err);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchCombo();
     }
-  }, [notification]);
+  }, [notification, isComboApproval]);
 
   const handleMarkReadAndClose = async () => {
     try {
@@ -61,7 +82,6 @@ export default function NotificationDetailsPopup({
       });
       if (res.success) {
         toast.success(approve ? 'Discount campaign approved successfully!' : 'Discount campaign declined.');
-        // Try to mark the approval notification as read (it may have been auto-deleted by toggleStatus)
         try {
           await NotificationService.markRead(notification.id);
         } catch {
@@ -80,7 +100,46 @@ export default function NotificationDetailsPopup({
     }
   };
 
+  const handleComboApprovalAction = async (approve: boolean) => {
+    const comboId = notification.metadata?.comboId || comboDetails?.id;
+    if (!comboId) return;
+    try {
+      setLoading(true);
+      const res = approve 
+        ? await comboService.approveCombo(comboId)
+        : await comboService.rejectCombo(comboId, 'Declined by Administrator');
+      if (res.success) {
+        toast.success(approve ? 'Combo campaign approved successfully!' : 'Combo campaign declined.');
+        try {
+          await NotificationService.markRead(notification.id);
+        } catch {
+          // Already cleaned up
+        }
+        onActionComplete();
+        onClose();
+      } else {
+        toast.error(res.message || 'Failed to update combo status.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Server error updating combo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleActionClick = async () => {
+    if (isComboApproval) {
+      const comboId = notification.metadata?.comboId || comboDetails?.id;
+      if (comboId) {
+        navigate(`/inventory-combo/builder?id=${comboId}`);
+      } else {
+        navigate('/inventory-combo');
+      }
+      handleMarkReadAndClose();
+      return;
+    }
+
     // Determine action based on type
     if (notification.type === 'LOW_STOCK' || notification.type === 'OUT_OF_STOCK') {
       if (notification.sku) {
@@ -127,7 +186,7 @@ export default function NotificationDetailsPopup({
       }
       handleMarkReadAndClose();
     } else if (notification.type === 'COMBO_SUGGESTION') {
-      navigate('/manage-products?tab=discounts&action=add-combo');
+      navigate('/inventory-combo');
       handleMarkReadAndClose();
     } else {
       // General acknowledgement
@@ -244,6 +303,101 @@ export default function NotificationDetailsPopup({
     );
   };
 
+  // 1.5. Combo Approval
+  const renderComboApprovalBody = () => {
+    if (loading) {
+      return <div className="text-center py-6 text-xs font-semibold text-slate-500">Loading combo campaign details...</div>;
+    }
+
+    const items = comboDetails?.items || [];
+    const discountPct = comboDetails?.discountPercentage || 0;
+    const comboPrice = comboDetails?.comboPrice || 0;
+    const normalPrice = comboDetails?.normalTotalPrice || 0;
+
+    return (
+      <div className="space-y-4">
+        <div className="bg-[#f8f9fa] border border-slate-200/80 rounded-xl p-4 space-y-2">
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span className="text-slate-400 font-medium">Combo Code:</span>
+              <span className="ml-1.5 font-bold text-slate-700 font-mono">{comboDetails?.comboCode || notification.metadata?.comboCode || '-'}</span>
+            </div>
+            <div>
+              <span className="text-slate-400 font-medium">Discount:</span>
+              <span className="ml-1.5 font-bold text-emerald-600">{Math.round(discountPct)}% OFF</span>
+            </div>
+            <div>
+              <span className="text-slate-400 font-medium">Combo Price:</span>
+              <span className="ml-1.5 font-bold text-[#103e2c]">Rs. {Number(comboPrice).toFixed(2)}</span>
+            </div>
+            <div>
+              <span className="text-slate-400 font-medium">Regular Price:</span>
+              <span className="ml-1.5 font-semibold text-slate-400 line-through">Rs. {Number(normalPrice).toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        {items.length > 0 && (
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Included Products ({items.length})</p>
+            <div className="border border-slate-100 rounded-xl overflow-hidden max-h-44 overflow-y-auto">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold">
+                    <th className="px-3 py-2">Product Name</th>
+                    <th className="px-3 py-2 text-center">Qty</th>
+                    <th className="px-3 py-2 text-right">Unit Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item: any, idx: number) => (
+                    <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50/50">
+                      <td className="px-3 py-2 font-medium text-slate-700 truncate max-w-[12rem]">
+                        {item.product?.name || item.productId}
+                      </td>
+                      <td className="px-3 py-2 text-center text-slate-500">
+                        {item.quantity}
+                      </td>
+                      <td className="px-3 py-2 text-right font-medium text-slate-600">
+                        Rs. {Number(item.normalUnitPrice || item.product?.sellingPrice || 0).toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-3 pt-2">
+          <button
+            onClick={() => handleComboApprovalAction(true)}
+            disabled={loading}
+            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs transition-colors shadow-sm cursor-pointer flex justify-center items-center gap-1.5"
+          >
+            <span className="material-symbols-outlined text-[16px]">check_circle</span>
+            Approve Combo
+          </button>
+          <button
+            onClick={() => handleComboApprovalAction(false)}
+            disabled={loading}
+            className="flex-1 bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 font-bold py-2.5 rounded-xl text-xs transition-colors cursor-pointer flex justify-center items-center gap-1.5"
+          >
+            <span className="material-symbols-outlined text-[16px]">cancel</span>
+            Decline
+          </button>
+          <button
+            onClick={handleActionClick}
+            className="px-3 py-2.5 border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold rounded-xl text-xs transition-colors cursor-pointer flex items-center gap-1"
+            title="Open in Combo Builder"
+          >
+            <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   // 2. Low / Out of Stock
   const renderStockAlertBody = () => {
     const prod = notification.product;
@@ -320,10 +474,13 @@ export default function NotificationDetailsPopup({
               notification.severity === 'CRITICAL' ? 'text-red-500' :
               notification.severity === 'WARNING' ? 'text-amber-500' : 'text-blue-500'
             }`}>
-              {notification.type === 'DISCOUNT_APPROVAL' ? 'pending_actions' :
+              {isComboApproval ? 'auto_awesome' :
+               notification.type === 'DISCOUNT_APPROVAL' ? 'pending_actions' :
                notification.type === 'LOW_STOCK' || notification.type === 'OUT_OF_STOCK' ? 'crisis_alert' : 'notifications'}
             </span>
-            <h3 className="font-bold text-sm text-slate-800">Alert Details</h3>
+            <h3 className="font-bold text-sm text-slate-800">
+              {isComboApproval ? 'Combo Approval Request' : 'Alert Details'}
+            </h3>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors">
             <span className="material-symbols-outlined">close</span>
@@ -338,11 +495,12 @@ export default function NotificationDetailsPopup({
           </div>
 
           {/* Type specific details */}
-          {notification.type === 'DISCOUNT_APPROVAL' && renderDiscountApprovalBody()}
-          {(notification.type === 'LOW_STOCK' || notification.type === 'OUT_OF_STOCK') && renderStockAlertBody()}
+          {isComboApproval && renderComboApprovalBody()}
+          {!isComboApproval && notification.type === 'DISCOUNT_APPROVAL' && renderDiscountApprovalBody()}
+          {!isComboApproval && (notification.type === 'LOW_STOCK' || notification.type === 'OUT_OF_STOCK') && renderStockAlertBody()}
 
           {/* Fallback actions if not handled by standard templates */}
-          {notification.type !== 'DISCOUNT_APPROVAL' && notification.type !== 'LOW_STOCK' && notification.type !== 'OUT_OF_STOCK' && (
+          {!isComboApproval && notification.type !== 'DISCOUNT_APPROVAL' && notification.type !== 'LOW_STOCK' && notification.type !== 'OUT_OF_STOCK' && (
             <div className="flex gap-3 pt-2">
               {notification.type !== 'DEMAND_FORECAST' && (
                 <button

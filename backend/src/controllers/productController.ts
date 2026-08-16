@@ -7,7 +7,7 @@ const mapStatus = (statusStr?: string): ProductStatus => {
   const lower = statusStr.toLowerCase();
   if (lower === 'active') return ProductStatus.ACTIVE;
   if (lower === 'inactive') return ProductStatus.INACTIVE;
-  if (lower === 'disconnected') return ProductStatus.DISCONTINUED;
+  if (lower === 'discontinued' || lower === 'disconnected') return ProductStatus.DISCONTINUED;
   return ProductStatus.ACTIVE;
 };
 

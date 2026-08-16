@@ -95,32 +95,44 @@ export const createBill = async (req: AuthRequest, res: Response): Promise<void>
     }
 
     const prefix = draft ? 'DFT' : 'SB';
-    
-    // Find the latest bill with this prefix to determine the next sequential number
-    const latestBill = await prisma.bill.findFirst({
-      where: {
-        billNumber: {
-          startsWith: `${prefix}-`,
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
 
-    let nextNum = 1001;
-    if (latestBill) {
-      const parts = latestBill.billNumber.split('-');
-      const lastPart = parseInt(parts[parts.length - 1]);
-      if (!isNaN(lastPart)) {
-        nextNum = lastPart + 1;
-      }
-    }
-    const billNumber = `${prefix}-${nextNum}`;
-
-    // Execute in a transaction
+    // Execute in an atomic transaction
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Create the Bill
+      // 1. Generate sequential bill number atomically inside transaction
+      const latestBill = await tx.bill.findFirst({
+        where: {
+          billNumber: {
+            startsWith: `${prefix}-`,
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      let nextNum = 1001;
+      if (latestBill) {
+        const parts = latestBill.billNumber.split('-');
+        const lastPart = parseInt(parts[parts.length - 1]);
+        if (!isNaN(lastPart)) {
+          nextNum = lastPart + 1;
+        }
+      }
+      const billNumber = `${prefix}-${nextNum}`;
+
+      // 2. Re-verify stock inside transaction to prevent race-condition overselling
+      if (!draft && !allowNegativeStock) {
+        for (const item of items) {
+          const product = await tx.product.findUnique({
+            where: { sku: item.sku }
+          });
+          if (product && product.currentStock < parseInt(item.qty)) {
+            throw new Error(`Insufficient stock for ${product.name}. Available: ${product.currentStock}`);
+          }
+        }
+      }
+
+      // 3. Create the Bill
       const bill = await tx.bill.create({
         data: {
           billNumber,
@@ -146,25 +158,18 @@ export const createBill = async (req: AuthRequest, res: Response): Promise<void>
         }
       });
 
-      // 2. If it's a completed transaction (not draft):
+      // 4. If it's a completed transaction (not draft):
       //    - Decrement product stock levels
       if (!draft) {
         for (const item of items) {
-          // Verify product exists and get current stock
-          const product = await tx.product.findUnique({
-            where: { sku: item.sku }
-          });
-
-          if (product) {
-            await tx.product.update({
-              where: { sku: item.sku },
-              data: {
-                currentStock: {
-                  decrement: parseInt(item.qty)
-                }
+          await tx.product.update({
+            where: { sku: item.sku },
+            data: {
+              currentStock: {
+                decrement: parseInt(item.qty)
               }
-            });
-          }
+            }
+          });
         }
 
         // 3. Delete original draft if we are resuming/completing an on-hold bill
@@ -183,6 +188,105 @@ export const createBill = async (req: AuthRequest, res: Response): Promise<void>
             await tx.bill.delete({
               where: { id: resumeDraftId }
             });
+          }
+        }
+
+        // 4. Real-Time Combo Sales & Performance Tracking Sync
+        const comboItemsMap: Record<string, { sku: string; qty: number; unitPrice: number }[]> = {};
+        for (const item of items) {
+          const comboRef = item.comboId || item.discountId;
+          if (comboRef) {
+            if (!comboItemsMap[comboRef]) {
+              comboItemsMap[comboRef] = [];
+            }
+            comboItemsMap[comboRef].push({
+              sku: item.sku,
+              qty: parseInt(item.qty),
+              unitPrice: productMap.get(item.sku)?.sellingPrice || 0
+            });
+          }
+        }
+
+        for (const [comboRef, soldItems] of Object.entries(comboItemsMap)) {
+          const combo = await tx.combo.findFirst({
+            where: {
+              OR: [
+                { id: comboRef },
+                { comboCode: comboRef }
+              ]
+            },
+            include: {
+              items: true
+            }
+          });
+
+          if (combo) {
+            const targetItem = combo.items.find(i => i.role === 'TARGET') || combo.items[0];
+            const soldTarget = soldItems.find(si => si.sku === targetItem?.productId);
+            const packsSold = soldTarget && targetItem ? Math.max(1, Math.floor(soldTarget.qty / targetItem.quantity)) : 1;
+
+            const targetClearanceQty = targetItem ? targetItem.quantity * packsSold : packsSold;
+            const newSoldQty = combo.soldQuantity + packsSold;
+            const isCompleted = combo.maximumQuantity > 0 && newSoldQty >= combo.maximumQuantity;
+
+            // Update Combo sold quantity and mark COMPLETED if promo cap reached
+            await tx.combo.update({
+              where: { id: combo.id },
+              data: {
+                soldQuantity: newSoldQty,
+                status: isCompleted ? 'COMPLETED' : combo.status
+              }
+            });
+
+            // Create ComboSale audit entry
+            await tx.comboSale.create({
+              data: {
+                comboId: combo.id,
+                saleId: bill.id,
+                quantity: packsSold,
+                normalValue: combo.normalTotalPrice * packsSold,
+                comboValue: combo.comboPrice * packsSold,
+                customerSaving: (combo.normalTotalPrice - combo.comboPrice) * packsSold,
+                totalCost: combo.totalCost * packsSold,
+                realizedProfit: (combo.comboPrice - combo.totalCost) * packsSold,
+                realizedMarginPercentage: combo.comboPrice > 0 ? (((combo.comboPrice - combo.totalCost) / combo.comboPrice) * 100) : 0
+              }
+            });
+
+            // Upsert ComboPerformance metrics in real-time
+            const existingPerf = await tx.comboPerformance.findFirst({
+              where: { comboId: combo.id }
+            });
+
+            if (existingPerf) {
+              await tx.comboPerformance.update({
+                where: { id: existingPerf.id },
+                data: {
+                  unitsSold: { increment: packsSold },
+                  purchaseCount: { increment: 1 },
+                  revenueGenerated: { increment: combo.comboPrice * packsSold },
+                  profitGenerated: { increment: (combo.comboPrice - combo.totalCost) * packsSold },
+                  customerSavings: { increment: (combo.normalTotalPrice - combo.comboPrice) * packsSold },
+                  targetStockCleared: { increment: targetClearanceQty },
+                  status: isCompleted ? 'COMPLETED' : 'ACTIVE'
+                }
+              });
+            } else {
+              await tx.comboPerformance.create({
+                data: {
+                  comboId: combo.id,
+                  evaluationStartDate: combo.startDate,
+                  evaluationEndDate: combo.endDate,
+                  purchaseCount: 1,
+                  unitsSold: packsSold,
+                  revenueGenerated: combo.comboPrice * packsSold,
+                  profitGenerated: (combo.comboPrice - combo.totalCost) * packsSold,
+                  customerSavings: (combo.normalTotalPrice - combo.comboPrice) * packsSold,
+                  targetStockCleared: targetClearanceQty,
+                  status: isCompleted ? 'COMPLETED' : 'ACTIVE'
+                }
+              });
+            }
           }
         }
       }
@@ -218,8 +322,13 @@ export const getSalesHistory = async (req: AuthRequest, res: Response): Promise<
       whereClause.cashierId = req.user?.id;
     }
 
+    const take = req.query.limit ? parseInt(req.query.limit as string) : 100;
+    const skip = req.query.offset ? parseInt(req.query.offset as string) : 0;
+
     const bills = await prisma.bill.findMany({
       where: whereClause,
+      take,
+      skip,
       include: {
         billItems: {
           include: {

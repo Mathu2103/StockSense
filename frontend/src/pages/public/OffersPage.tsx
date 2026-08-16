@@ -45,16 +45,44 @@ export default function OffersPage() {
     fetchOffers();
   }, []);
 
-  // 1. Smart Combos
-  const aiApprovedCombos = useMemo(() => {
-    return publicCombos.filter(c => 
-      !!c.sourceSuggestionId || 
-      c.comboType === 'NEAR_EXPIRY' || 
-      c.comboType === 'OVERSTOCK' || 
-      c.comboType === 'SLOW_MOVING' || 
-      c.comboType === 'DEAD_STOCK'
-    );
-  }, [publicCombos]);
+  // 1. Combos (Both AI-generated approved combos and Manager-created standard combos)
+  const allCombos = useMemo(() => {
+    const existingIds = new Set(publicCombos.map(c => c.id));
+    const mappedDiscounts = discounts
+      .filter(d => d.type === 'COMBO' && !existingIds.has(d.id))
+      .map(d => {
+        const regularTotal = (d.comboItems || []).reduce((acc: number, item: any) => acc + (Number(item.sellingPrice || 0) * (Number(item.minQty) || 1)), 0);
+        const comboPrice = d.comboPrice ? Number(d.comboPrice) : (regularTotal * (1 - (d.discountValue || 0) / 100));
+        return {
+          id: d.id,
+          comboCode: d.label || `COMBO-${d.id.substring(0, 6).toUpperCase()}`,
+          name: d.name,
+          description: d.label ? `${d.name} (${d.label})` : `Special store combo bundle with ${d.discountValue}% discount.`,
+          comboType: 'STORE_BUNDLE',
+          sourceSuggestionId: null,
+          comboPrice,
+          normalTotalPrice: regularTotal,
+          discountPercentage: d.discountValue || 0,
+          maximumQuantity: 100,
+          soldQuantity: 0,
+          startDate: d.startDate,
+          endDate: d.endDate || '2099-12-31',
+          items: (d.comboItems || []).map((item: any) => ({
+            productId: item.productId,
+            role: 'BUNDLE',
+            quantity: item.minQty || 1,
+            normalUnitPrice: item.sellingPrice || 0,
+            product: {
+              name: item.productName || item.productId,
+              sku: item.productId,
+              imageUrl: item.imageUrl || d.imageUrl
+            }
+          }))
+        };
+      });
+
+    return [...publicCombos, ...mappedDiscounts];
+  }, [publicCombos, discounts]);
 
   // 2. Seasonal Discount Campaigns & Packages
   const seasonalCampaigns = useMemo(() => {
@@ -76,11 +104,11 @@ export default function OffersPage() {
     return items;
   }, [discounts]);
 
-  const showAiSection = (activeFilter === 'ALL' || activeFilter === 'AI_COMBOS') && aiApprovedCombos.length > 0;
+  const showCombosSection = (activeFilter === 'ALL' || activeFilter === 'COMBOS') && allCombos.length > 0;
   const showDailySection = (activeFilter === 'ALL' || activeFilter === 'DAILY') && dailyProducts.length > 0;
   const showSeasonalSection = (activeFilter === 'ALL' || activeFilter === 'SEASONAL') && seasonalCampaigns.length > 0;
 
-  const totalOffersCount = aiApprovedCombos.length + dailyProducts.length + seasonalCampaigns.length;
+  const totalOffersCount = allCombos.length + dailyProducts.length + seasonalCampaigns.length;
 
   return (
     <div className="min-h-screen bg-[#f8f9fc] relative overflow-hidden font-sans pb-32">
@@ -93,7 +121,7 @@ export default function OffersPage() {
         {/* Page Header */}
         <div className="text-center max-w-3xl mx-auto mb-12 space-y-3">
           <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight">
-            Special Offers & Smart Combos
+            Special Offers & Combos
           </h1>
           <p className="text-gray-500 text-sm md:text-base leading-relaxed">
             Discover hand-crafted bundle promotions, AI-optimized smart combinations, and limited-time discounts designed to bring you the best value.
@@ -115,15 +143,15 @@ export default function OffersPage() {
           </button>
           <button
             type="button"
-            onClick={() => setActiveFilter('AI_COMBOS')}
+            onClick={() => setActiveFilter('COMBOS')}
             className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
-              activeFilter === 'AI_COMBOS'
+              activeFilter === 'COMBOS'
                 ? 'bg-[#103e2c] text-white shadow-md'
                 : 'bg-white text-gray-600 hover:bg-emerald-50/60 border border-gray-200/80 shadow-xs'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-            Smart Combos ({aiApprovedCombos.length})
+            Combos ({allCombos.length})
           </button>
           <button
             type="button"
@@ -165,95 +193,114 @@ export default function OffersPage() {
         ) : (
           <div className="space-y-20">
             
-            {/* 1. Smart Combos */}
-            {showAiSection && (
+            {/* 1. Combos (AI-Generated & Store Combos) */}
+            {showCombosSection && (
               <section className="space-y-6">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-2 border-b border-gray-200/60 pb-4">
                   <div>
-                    <h2 className="text-2xl md:text-3xl font-black text-gray-900">Smart Clearance Combos</h2>
-                    <p className="text-gray-500 text-xs mt-1">High-demand pairing combos specially designed for maximum customer savings.</p>
+                    <h2 className="text-2xl md:text-3xl font-black text-gray-900">Combos</h2>
+                    <p className="text-gray-500 text-xs mt-1">High-demand pairing combos and curated bundle deals specially designed for maximum savings.</p>
                   </div>
                   <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/80">
-                    {aiApprovedCombos.length} Combos Available
+                    {allCombos.length} Combos Available
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {aiApprovedCombos.map(combo => (
-                    <div key={combo.id} className="bg-white rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col justify-between group">
-                      
-                      {/* Products Stack & Visual Header */}
-                      <div className="relative bg-gradient-to-br from-emerald-50/60 to-gray-50/80 p-6 border-b border-gray-100 flex items-center justify-center">
-                        <div className="absolute top-4 left-4 bg-[#103e2c] text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1">
-                          <Sparkles className="w-3 h-3 text-emerald-300" />
-                          Save {combo.discountPercentage.toFixed(0)}%
-                        </div>
-                        <div className="absolute top-4 right-4 text-[10px] font-mono font-bold text-gray-400">
-                          {combo.comboCode}
-                        </div>
+                  {allCombos.map(combo => {
+                    const isAi = !!combo.sourceSuggestionId || 
+                      combo.comboType === 'NEAR_EXPIRY' || 
+                      combo.comboType === 'OVERSTOCK' || 
+                      combo.comboType === 'SLOW_MOVING' || 
+                      combo.comboType === 'DEAD_STOCK';
 
-                        {/* Product Thumbnails Stack */}
-                        <div className="flex items-center justify-center gap-4 py-4">
-                          {combo.items.map((item: any, idx: number) => (
-                            <div key={idx} className="flex flex-col items-center">
-                              <div className="w-20 h-20 bg-white rounded-2xl p-1.5 shadow-sm border border-gray-200/80 flex items-center justify-center relative group-hover:scale-105 transition-transform">
-                                <img
-                                  src={item.product?.imageUrl || "https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=400&auto=format&fit=crop"}
-                                  alt={item.product?.name}
-                                  className="w-full h-full object-cover rounded-xl"
-                                />
-                                <span className="bg-[#103e2c] text-white text-[9px] font-black px-1.5 py-0.5 rounded-full absolute -top-2 -right-2 shadow-xs">
-                                  {item.quantity}x
-                                </span>
-                              </div>
-                              <span className="text-[10px] font-bold text-gray-700 text-center mt-2 line-clamp-1 w-20">
-                                {item.product?.name}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                    return (
+                      <div key={combo.id} className="bg-white rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col justify-between group">
+                        
+                        {/* Products Stack & Visual Header */}
+                        <div className="relative bg-gradient-to-br from-emerald-50/60 to-gray-50/80 p-6 border-b border-gray-100 flex items-center justify-center">
+                          <div className="absolute top-4 left-4 bg-[#103e2c] text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1">
+                            {isAi && <Sparkles className="w-3 h-3 text-emerald-300" />}
+                            Save {combo.discountPercentage.toFixed(0)}%
+                          </div>
+                          <div className="absolute top-4 right-4 text-[10px] font-mono font-bold text-gray-400">
+                            {combo.comboCode}
+                          </div>
 
-                      {/* Content & Pricing */}
-                      <div className="p-6 md:p-8 flex flex-col justify-between flex-1 space-y-6">
-                        <div>
-                          <h3 className="text-xl font-black text-gray-900 mb-2 leading-tight">{combo.name}</h3>
-                          <p className="text-gray-500 text-xs line-clamp-2 leading-relaxed">
-                            {combo.description || `Special bundle deal: save Rs. ${(combo.normalTotalPrice - combo.comboPrice).toFixed(0)} when purchased together.`}
-                          </p>
-
-                          <div className="mt-4 space-y-1 bg-gray-50/80 p-3 rounded-xl border border-gray-100">
-                            <p className="text-[9px] font-black uppercase text-gray-400 tracking-wider">Includes:</p>
+                          {/* Product Thumbnails Stack */}
+                          <div className="flex items-center justify-center gap-4 py-4">
                             {combo.items.map((item: any, idx: number) => (
-                              <div key={idx} className="flex justify-between items-center text-xs font-semibold text-gray-700">
-                                <span className="line-clamp-1">• {item.quantity}x {item.product?.name || item.productId}</span>
-                                <span className="text-gray-400 font-mono text-[10px]">Rs. {((item.normalUnitPrice || item.product?.sellingPrice || 0) * item.quantity).toFixed(0)}</span>
+                              <div key={idx} className="flex flex-col items-center">
+                                <div className="w-20 h-20 bg-white rounded-2xl p-1.5 shadow-sm border border-gray-200/80 flex items-center justify-center relative group-hover:scale-105 transition-transform">
+                                  <img
+                                    src={item.product?.imageUrl || "https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=400&auto=format&fit=crop"}
+                                    alt={item.product?.name}
+                                    className="w-full h-full object-cover rounded-xl"
+                                  />
+                                  <span className="bg-[#103e2c] text-white text-[9px] font-black px-1.5 py-0.5 rounded-full absolute -top-2 -right-2 shadow-xs">
+                                    {item.quantity}x
+                                  </span>
+                                </div>
+                                <span className="text-[10px] font-bold text-gray-700 text-center mt-2 line-clamp-1 w-20">
+                                  {item.product?.name}
+                                </span>
                               </div>
                             ))}
                           </div>
                         </div>
 
-                        {/* Price & CTA */}
-                        <div className="pt-4 border-t border-gray-100 flex items-end justify-between">
+                        {/* Content & Pricing */}
+                        <div className="p-6 md:p-8 flex flex-col justify-between flex-1 space-y-6">
                           <div>
-                            <div className="flex items-baseline gap-2">
-                              <span className="text-xs text-gray-400 line-through font-semibold">Rs. {combo.normalTotalPrice.toFixed(2)}</span>
-                              <span className="text-2xl font-black text-[#103e2c]">Rs. {combo.comboPrice.toFixed(2)}</span>
+                            <div className="mb-2 flex items-center gap-2">
+                              {isAi ? (
+                                <span className="text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded uppercase flex items-center gap-1">
+                                  <Sparkles className="w-2.5 h-2.5" /> AI Recommended
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded uppercase">
+                                  Store Bundle
+                                </span>
+                              )}
                             </div>
-                            <p className="text-xs font-black text-emerald-800 mt-0.5">
-                              Instant Saving: Rs. {(combo.normalTotalPrice - combo.comboPrice).toFixed(2)}
+                            <h3 className="text-xl font-black text-gray-900 mb-2 leading-tight">{combo.name}</h3>
+                            <p className="text-gray-500 text-xs line-clamp-2 leading-relaxed">
+                              {combo.description || `Special bundle deal: save Rs. ${(combo.normalTotalPrice - combo.comboPrice).toFixed(0)} when purchased together.`}
                             </p>
+
+                            <div className="mt-4 space-y-1 bg-gray-50/80 p-3 rounded-xl border border-gray-100">
+                              <p className="text-[9px] font-black uppercase text-gray-400 tracking-wider">Includes:</p>
+                              {combo.items.map((item: any, idx: number) => (
+                                <div key={idx} className="flex justify-between items-center text-xs font-semibold text-gray-700">
+                                  <span className="line-clamp-1">• {item.quantity}x {item.product?.name || item.productId}</span>
+                                  <span className="text-gray-400 font-mono text-[10px]">Rs. {((item.normalUnitPrice || item.product?.sellingPrice || 0) * item.quantity).toFixed(0)}</span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
 
-                          <div className="text-right text-[10px] text-gray-400 font-bold flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-gray-400" />
-                            Valid till {new Date(combo.endDate).toLocaleDateString()}
+                          {/* Price & CTA */}
+                          <div className="pt-4 border-t border-gray-100 flex items-end justify-between">
+                            <div>
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-xs text-gray-400 line-through font-semibold">Rs. {combo.normalTotalPrice.toFixed(2)}</span>
+                                <span className="text-2xl font-black text-[#103e2c]">Rs. {combo.comboPrice.toFixed(2)}</span>
+                              </div>
+                              <p className="text-xs font-black text-emerald-800 mt-0.5">
+                                Instant Saving: Rs. {(combo.normalTotalPrice - combo.comboPrice).toFixed(2)}
+                              </p>
+                            </div>
+
+                            <div className="text-right text-[10px] text-gray-400 font-bold flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-gray-400" />
+                              Valid till {new Date(combo.endDate).toLocaleDateString()}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
             )}

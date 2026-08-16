@@ -201,18 +201,18 @@ export class ComboValidationService {
     await (prisma as any).$transaction(async (tx: any) => {
       // If activating, lock stock/reserve stock
       if (newStatus === 'ACTIVE' && previousStatus !== 'ACTIVE') {
+        const promoCap = Math.max(1, combo.maximumQuantity || 1);
         for (const item of combo.items) {
-          // Verify stock is available
           const product = await tx.product.findUnique({ where: { sku: item.productId } });
           if (!product || product.currentStock < item.quantity) {
             throw new Error(`Insufficient stock for product ${item.productId} to activate the combo.`);
           }
           
-          // Deduct from currentStock / lock reservedStock if necessary.
-          // Since StockSense has currentStock directly, let's keep track or reserve it.
+          const totalPromoUnits = item.quantity * promoCap;
+          const safeReserve = Math.min(product.currentStock, totalPromoUnits);
           await tx.comboItem.update({
             where: { id: item.id },
-            data: { stockReserved: item.quantity },
+            data: { stockReserved: safeReserve },
           });
         }
       }
@@ -231,10 +231,17 @@ export class ComboValidationService {
       });
 
       if (newStatus === 'PENDING_APPROVAL') {
+        // Clean up any existing notifications for this combo first to prevent duplicates
+        await tx.notification.deleteMany({
+          where: {
+            title: { contains: combo.comboCode }
+          }
+        });
+
         await tx.notification.create({
           data: {
-            type: 'STOCK_VELOCITY',
-            severity: 'WARNING',
+            type: 'COMBO_SUGGESTION',
+            severity: 'INFO',
             title: `Combo Approval Needed — ${combo.name} (${combo.comboCode})`,
             message: `Combo campaign "${combo.name}" (Price: Rs. ${combo.comboPrice}) has been submitted and is pending admin approval.`,
             suggestedAction: 'Review Combo Approval',

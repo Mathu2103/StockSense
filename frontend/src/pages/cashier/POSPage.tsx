@@ -554,9 +554,10 @@ export default function POSPage() {
             sku: ci.sku,
             qty: ci.qty,
             unitPrice: ci.unitPrice,
-            total: ci.unitPrice * ci.qty * (1 - itemDisc / 100),
-            discountId: itemDisc > 0 ? item.discountId : null,
-            discountValue: itemDisc
+            total: ci.unitPrice * ci.qty * (1 - (item.discount || 0) / 100),
+            discountId: item.discountId || item.comboId || null,
+            comboId: item.comboId || item.discountId || null,
+            discountValue: item.discount || 0
           }));
         } else {
           const itemTotal = (item.price * item.quantity) * (1 - itemDisc / 100);
